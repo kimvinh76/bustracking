@@ -35,13 +35,18 @@ apiClient.interceptors.response.use(
         // Chuẩn hóa response - luôn trả về payload trực tiếp
         const responseBody = response.data;
         
+        // Đối với incidents API, giữ nguyên response để có success field
+        if (response.config.url?.includes('/incidents')) {
+            return responseBody;
+        }
+        
         // Nếu backend trả về format { success: true, data: [...] }
-        if (responseBody && typeof responseBody === 'object' && 'success' in responseBody) {
-            return responseBody.data || responseBody;
+        if (responseBody && typeof responseBody === 'object' && 'success' in responseBody && responseBody.data) {
+            return responseBody.data;
         }
         
         // Nếu backend có nested data, unwrap nó
-        if (responseBody?.data) {
+        if (responseBody?.data && !('success' in responseBody)) {
             return responseBody.data;
         }
         
@@ -51,9 +56,7 @@ apiClient.interceptors.response.use(
     (error) => {
         console.error('API Error:', error.response?.data || error.message);
         
-      
         if (error.response?.status === 401) {
-         
             console.error('Unauthorized access');
         } else if (error.response?.status === 404) {
             console.error('Resource not found');
@@ -61,7 +64,11 @@ apiClient.interceptors.response.use(
             console.error('Server error');
         }
         
-        return Promise.reject(error.response?.data || error);
+        // Trả về error response thay vì reject để service có thể xử lý
+        return Promise.reject(error.response?.data || { 
+            success: false, 
+            message: error.message || 'Network error'
+        });
     }
 );
 

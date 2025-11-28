@@ -20,6 +20,7 @@ import ParentsPage from "../pages/admin/ParentsPage.jsx";
 import MapPage from "../pages/admin/MapPage.jsx";
 import UserPage from "../pages/admin/UserPage.jsx";
 
+
 // --- Driver Pages ---
 import DriverSchedulePage from "../pages/driver/DriverSchedulePage";
 import DriverScheduleDetailPage from "../pages/driver/DriverScheduleDetailPage";
@@ -47,6 +48,7 @@ export default function AppRouter() {
             <Route path="drivers" element={<DriverPage />} />
             <Route path="students" element={<StudentsPage />} />
             <Route path="parents" element={<ParentsPage />} />
+
             <Route path="user" element={<UserPage />} />
           </Route>
         </Route>

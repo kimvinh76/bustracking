@@ -32,6 +32,7 @@ export default function AdminLayout() {
             { path: "/admin/students", label: "Học sinh" },
             { path: "/admin/parents", label: "Phụ huynh" },
             { path: "/admin/schedule", label: "Lịch trình" },
+
             { path: "/admin/user", label: "Tài Khoản" },
             // { path: "/admin/reports", label: "Báo cáo" },
           ].map(({ path, label, exact }) => (

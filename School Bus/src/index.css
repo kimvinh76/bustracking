@@ -14,3 +14,25 @@ button {
 body{
   background-color: white;
 }
+
+/* Toast notification animations */
+.animate-slide-in {
+  animation: slide-in-right 0.3s ease-out forwards;
+}
+
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Custom marker styles */
+.custom-stop-marker {
+  background: transparent !important;
+  border: none !important;
+}

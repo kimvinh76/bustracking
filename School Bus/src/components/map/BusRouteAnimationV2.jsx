@@ -129,7 +129,11 @@ export default function BusRouteAnimationV2({
         const t = elapsed / seg.duration;
         const lat = seg.from.lat + (seg.to.lat - seg.from.lat) * t;
         const lng = seg.from.lng + (seg.to.lng - seg.from.lng) * t;
-        markerRef.current.setLatLng([lat, lng]);
+        
+        // Kiểm tra tọa độ hợp lệ trước khi set
+        if (!isNaN(lat) && !isNaN(lng) && isFinite(lat) && isFinite(lng)) {
+          markerRef.current.setLatLng([lat, lng]);
+        }
         animRef.current = requestAnimationFrame(step);
       };
 

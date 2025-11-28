@@ -3,9 +3,9 @@ export default function AlertsContainer({ alerts }) {
 
   return (
     <div className="fixed top-20 right-4 z-50 space-y-2">
-      {alerts.slice(0, 3).map((alert) => (
+      {alerts.slice(0, 3).map((alert, index) => (
         <div
-          key={alert.id}
+          key={`${alert.id}-${index}-${alert.time?.getTime() || Date.now()}`}
           className={`p-3 rounded-lg shadow-lg backdrop-blur-sm max-w-sm transition-all duration-300 ${
             alert.type === "success"
               ? "bg-green-100/95 text-green-800 border border-green-200"

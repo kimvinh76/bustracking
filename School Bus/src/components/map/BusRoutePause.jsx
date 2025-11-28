@@ -16,6 +16,10 @@ export default function BusRoutePause({
   onReachStop = () => {},
   onPositionUpdate = () => {}, // Callback để báo cáo vị trí hiện tại
   loop = false,
+  isRunning = false, // Mặc định FALSE - chỉ chạy khi driver bắt đầu
+  resumeFromPause = false, // Prop để resume từ driver signal
+  currentStopIndex = 0, // Vị trí hiện tại từ driver để sync
+  showStaticBus = false, // Hiển thị bus tĩnh khi pause
 }) {
   const map = useMap();
   const markerRef = useRef(null);
@@ -30,16 +34,92 @@ export default function BusRoutePause({
     segments: [],
     coords: [],
     pauseIndices: [],
+    elapsedTime: 0, // Track elapsed time for pause/resume
+    hasStarted: false, // Track if animation has ever been started
   });
   const initializedRef = useRef(false);
 
+  // Xử lý isRunning control từ bên ngoài - CHỈ pause/resume, KHÔNG tạo lại
   useEffect(() => {
+    if (!isRunning && !stateRef.current.paused) {
+      // Pause animation và lưu thời điểm pause
+      stateRef.current.paused = true;
+      stateRef.current.pausedAt = Date.now();
+      if (animRef.current) {
+        cancelAnimationFrame(animRef.current);
+        animRef.current = null;
+      }
+      console.log('[BusRoutePause] Animation paused by isRunning=false');
+    } else if (isRunning && initializedRef.current && stateRef.current.paused && stepRef.current) {
+      // Resume animation khi isRunning=true và đã được khởi tạo
+      stateRef.current.paused = false;
+      const pauseDuration = stateRef.current.pausedAt ? (Date.now() - stateRef.current.pausedAt) : 0;
+      stateRef.current.startTime += pauseDuration;
+      
+      if (!animRef.current && stateRef.current.segments && stateRef.current.segments.length > 0) {
+        animRef.current = requestAnimationFrame(stepRef.current);
+      }
+      console.log('[BusRoutePause] Animation resumed by isRunning=true');
+    }
+    // REMOVED: Không cho phép re-initialization để tránh tạo duplicate buses
+  }, [isRunning]);
+
+  // Reference to step function (will be set in useEffect)
+  const stepRef = useRef(null);
+
+  // Xử lý resumeFromPause signal - KHÔNG tạo animation mới, tiếp tục từ vị trí hiện tại
+  useEffect(() => {
+    if (resumeFromPause && stateRef.current.paused && isRunning && stepRef.current) {
+      // Đảm bảo dừng animation cũ trước khi resume (tránh multiple animations)
+      if (animRef.current) {
+        cancelAnimationFrame(animRef.current);
+        animRef.current = null;
+      }
+      
+      // Resume from current position, không restart animation
+      stateRef.current.paused = false;
+      
+      // Tính toán và điều chỉnh thời gian để bù cho thời gian pause
+      const pauseDuration = stateRef.current.pausedAt ? (Date.now() - stateRef.current.pausedAt) : 0;
+      stateRef.current.startTime += pauseDuration; // Điều chỉnh startTime
+      
+      // Tiếp tục animation từ segment hiện tại, không restart từ đầu
+      if (stateRef.current.segments && stateRef.current.segments.length > 0) {
+        animRef.current = requestAnimationFrame(stepRef.current);
+      }
+      console.log('[BusRoutePause] Animation resumed from segment', stateRef.current.segmentIndex, 'pauseDuration:', pauseDuration);
+    }
+  }, [resumeFromPause, isRunning]);
+
+  // Sync với currentStopIndex từ driver
+  useEffect(() => {
+    if (currentStopIndex > 0 && stateRef.current.segments && stateRef.current.segments.length > 0) {
+      // Điều chỉnh segmentIndex để phù hợp với currentStopIndex từ driver
+      stateRef.current.segmentIndex = Math.min(currentStopIndex, stateRef.current.segments.length - 1);
+      console.log('[BusRoutePause] Synced segmentIndex to', stateRef.current.segmentIndex, 'based on currentStopIndex', currentStopIndex);
+    }
+  }, [currentStopIndex]);
+
+  useEffect(() => {
+    // CHỈ khởi tạo khi driver đã bắt đầu (isRunning=true) hoặc đang pause nhưng đã từng chạy
     if (!map || waypoints.length < 2 || initializedRef.current) return;
+    if (!isRunning && !stateRef.current.hasStarted) {
+      console.log('[BusRoutePause] Waiting for driver to start - isRunning:', isRunning);
+      return;
+    }
+    
     initializedRef.current = true;
+    stateRef.current.hasStarted = true; // Đánh dấu đã từng bắt đầu
+    console.log('[BusRoutePause] Initializing component after driver started:', isRunning);
 
     const latLngWaypoints = waypoints.map(([lat, lng]) => L.latLng(lat, lng));
 
-    // Show bus marker immediately
+    // Show bus marker immediately - ensure only one marker exists
+    if (markerRef.current) {
+      try {
+        markerRef.current.remove();
+      } catch (e) { console.warn('Marker cleanup warning:', e); }
+    }
     markerRef.current = L.marker(latLngWaypoints[0], {
       icon: L.divIcon({
         html: "<div style='font-size:30px'>🚌</div>",
@@ -47,8 +127,15 @@ export default function BusRoutePause({
         className: "bus-pause-icon",
       }),
     }).addTo(map);
+    
+    console.log('[BusRoutePause] Bus marker created at start position');
 
-    // Draw baseline polyline immediately so user sees route even before OSRM responds
+    // Draw baseline polyline immediately - ensure only one polyline exists
+    if (baselinePolylineRef.current) {
+      try {
+        baselinePolylineRef.current.remove();
+      } catch (e) { console.warn('Baseline polyline cleanup warning:', e); }
+    }
     baselinePolylineRef.current = L.polyline(latLngWaypoints, {
       color: "#93c5fd",
       weight: 3,
@@ -143,7 +230,14 @@ export default function BusRoutePause({
         coords: latLngWaypoints,
         pauseIndices,
       };
-      animRef.current = requestAnimationFrame(step);
+      
+      // Store step function in ref for later use
+      stepRef.current = step;
+      
+      // Only start animation if isRunning is true
+      if (isRunning) {
+        animRef.current = requestAnimationFrame(step);
+      }
     };
 
     const handleDirectRoute = (coords) => {
@@ -218,7 +312,14 @@ export default function BusRoutePause({
         coords,
         pauseIndices,
       };
-      animRef.current = requestAnimationFrame(step);
+      
+      // Store step function in ref for later use
+      stepRef.current = step;
+      
+      // Only start animation if isRunning is true
+      if (isRunning) {
+        animRef.current = requestAnimationFrame(step);
+      }
     };
 
     const step = (now) => {
@@ -326,7 +427,16 @@ export default function BusRoutePause({
         console.warn("[BusRoutePause] cleanup error (ignored):", cleanupErr);
       }
     };
-  }, [map]); // run only once after map ready
+  }, [map, waypoints]); // Only cleanup on component unmount or waypoints change
+  
+  // Separate effect to handle initialization when driver starts
+  useEffect(() => {
+    if (isRunning && !initializedRef.current && !stateRef.current.hasStarted) {
+      // Trigger re-initialization when driver starts for the first time
+      stateRef.current.hasStarted = true;
+      console.log('[BusRoutePause] Driver started - will initialize on next render');
+    }
+  }, [isRunning]);
 
   return null;
 }

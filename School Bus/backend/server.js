@@ -3,6 +3,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import http from 'http';
 import process from 'process';
 import pool from './config/db.js';
 import busRoutes from './routes/BusesRoutes.js';
@@ -14,9 +15,12 @@ import classesRoutes from './routes/classesRoutes.js';
 import schedulesRoutes from './routes/schedulesRoutes.js';
 import userRoutes  from './routes/userRoutes.js';
 import authRoutes from './routes/authRoutes.js'; // Thêm dòng này
+import incidentsRoutes from './routes/incidentsRoutes.js';
 import adminschedulesRoutes from './routes/adminschedulesRoutes.js';
+import busTrackingSocket from './websocket/busTrackingSocket.js';
 
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.BACKEND_PORT || 5000;
 
 
@@ -41,6 +45,7 @@ app.use('/api/schedules', schedulesRoutes);
 app.use('/api/admin-schedules', adminschedulesRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes); // Thêm dòng này
+app.use("/api/incidents", incidentsRoutes);
 // check
 app.get('/api/health', async (req, res) => {
     try {
@@ -70,9 +75,13 @@ app.use('*', (req, res) => {
     });
 });
 
+// Initialize WebSocket
+busTrackingSocket.init(server);
+
 // Start server
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`🚀 Backend server đang chạy tại http://localhost:${PORT}`);
+    console.log(`🔌 WebSocket server đang chạy tại ws://localhost:${PORT}`);
     console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
     console.log(`🚌 Bus API: http://localhost:${PORT}/api/buses`);
     console.log(`🌍 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
