@@ -33,8 +33,24 @@ export const schedulesService = {
     // Lấy chi tiết một lịch làm việc (cho driver)
     getScheduleById: async (id, driverId = 1) => {
         try {
-            const response = await apiClient.get(`${ENDPOINT}/${driverId}/${id}`);
-            return response;
+            const raw = await apiClient.get(`${ENDPOINT}/${driverId}/${id}`);
+            // Chuẩn hóa key từ snake_case -> camelCase cho frontend
+            const normalized = {
+                id: raw.id,
+                driverId: raw.driver_id,
+                busId: raw.bus_id,
+                busNumber: raw.bus_number || raw.license_plate,
+                routeId: raw.route_id,
+                routeName: raw.route_name,
+                startTime: raw.start_time,
+                endTime: raw.end_time,
+                shiftType: raw.shift_type,
+                status: raw.status,
+                notes: raw.notes,
+                studentCount: raw.studentCount,
+                students: raw.students || []
+            };
+            return normalized;
         } catch (error) {
             console.error('Error fetching schedule detail:', error);
             throw error;

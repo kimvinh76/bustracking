@@ -75,6 +75,63 @@ export const routesService = {
         }
     },
 
+    // Transform stops từ DB sang format cho map
+    transformStopsForMap: (stops) => {
+        if (!Array.isArray(stops)) return [];
+        
+        return stops.map((stop) => {
+            const isStart = stop.stop_order === 0;
+            const isEnd = stop.stop_order === 99;
+            
+            return {
+                id: stop.stop_id,
+                name: stop.name,
+                address: stop.address,
+                lat: parseFloat(stop.latitude),
+                lng: parseFloat(stop.longitude),
+                stop_order: stop.stop_order,
+                student_pickup_count: stop.student_pickup_count || 0,
+                students: [],
+                isStartOrEnd: isStart || isEnd,
+                time: null
+            };
+        }).sort((a, b) => a.stop_order - b.stop_order);
+    },
+
+    // Tính thời gian dự kiến cho các điểm dừng
+    calculateStopTimes: (stops, startTime = '06:00', avgSpeedKmH = 25) => {
+        if (!stops || stops.length === 0) return stops;
+
+        const [startHour, startMinute] = startTime.split(':').map(Number);
+        let currentMinutes = startHour * 60 + startMinute;
+
+        return stops.map((stop, index) => {
+            if (index === 0) {
+                return { ...stop, time: startTime };
+            }
+
+            const prevStop = stops[index - 1];
+            const distance = calculateDistance(
+                prevStop.lat, prevStop.lng,
+                stop.lat, stop.lng
+            );
+
+            // Thời gian di chuyển (phút)
+            const travelTimeMinutes = Math.ceil((distance / avgSpeedKmH) * 60);
+            
+            // Thêm thời gian dừng đón (trừ điểm đầu và cuối)
+            const stopTimeMinutes = stop.isStartOrEnd ? 0 : 3;
+            
+            currentMinutes += travelTimeMinutes + stopTimeMinutes;
+            
+            const hour = Math.floor(currentMinutes / 60);
+            const minute = currentMinutes % 60;
+            const time = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+
+            return { ...stop, time };
+        });
+    },
+
     // Validate dữ liệu tuyến trước khi gửi lên API
     validateRouteData: (data) => {
         const errors = {};
@@ -98,5 +155,24 @@ export const routesService = {
         };
     }
 };
+
+// Helper: Tính khoảng cách giữa 2 điểm (Haversine formula)
+function calculateDistance(lat1, lng1, lat2, lng2) {
+    const R = 6371; // Bán kính Trái Đất (km)
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    
+    const a = 
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+        Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+}
+
+function toRad(degrees) {
+    return degrees * (Math.PI / 180);
+}
 
 export default routesService;

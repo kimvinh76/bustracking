@@ -147,6 +147,13 @@ router.get('/route/:routeId', async (req, res) => {
             incidents
         });
     } catch (error) {
+        // Bảng incidents chưa tồn tại - trả về mảng rỗng thay vì spam log
+        if (error.code === 'ER_NO_SUCH_TABLE') {
+            return res.json({
+                success: true,
+                incidents: []
+            });
+        }
         console.error('Lỗi lấy sự cố theo route:', error);
         res.status(500).json({ 
             success: false, 

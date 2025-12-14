@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
@@ -9,23 +9,21 @@ import BusRouteDriver from "../../components/map/BusRouteDriver.jsx";
 import DriverHeader from "../../components/driver/DriverHeader.jsx";
 import AlertsContainer from "../../components/driver/AlertsContainer.jsx";
 import TripStatusPanel from "../../components/driver/TripStatusPanel.jsx";
-import FloatingActionButtons from "../../components/driver/FloatingActionButtons.jsx";
 import ArrivalConfirmModal from "../../components/driver/ArrivalConfirmModal.jsx";
 import IncidentReportModal from "../../components/driver/IncidentReportModal.jsx";
 import EndTripModal from "../../components/driver/EndTripModal.jsx";
 import StudentsPanel from "../../components/driver/StudentsPanel.jsx";
 import { studentsService } from "../../services/studentsService.js";
+import { schedulesService } from "../../services/schedulesService.js";
+import routesService from "../../services/routesService.js";
 import busTrackingService from "../../services/busTrackingService.js";
 import { 
   FaPlay, FaUsers, FaCheckCircle, FaExclamationTriangle, 
-  FaPhone, FaMapMarkerAlt, FaClock, FaCompass, 
-  FaTimes, FaPaperPlane, FaSignOutAlt, FaArrowLeft, 
-  FaCog, FaTimesCircle 
+  FaPhone
 } from "react-icons/fa";
 
 import iconUrl from "leaflet/dist/images/marker-icon.png";
 import iconShadow from "leaflet/dist/images/marker-shadow.png";
-import React from "react";
 
 const DefaultIcon = L.icon({
   iconUrl,
@@ -52,60 +50,13 @@ export default function DriverMapPage() {
   const [resumeFn, setResumeFn] = useState(null);
   const [pausedWpIdx, setPausedWpIdx] = useState(null);
   const [busCurrentPosition, setBusCurrentPosition] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // Mock schedule & stops; only students fetched from API
-  const mockSchedule = {
-    id: scheduleId || 1,
-    routeName: "Tuyến Quận 1 - Sáng",
-    busNumber: "BUS-04",
-    startTime: "06:00",
-    endTime: "07:0",
-    totalStudents: 0,
-  };
+  // Data from API
+  const [schedule, setSchedule] = useState(null);
+  const [stops, setStops] = useState([]);
 
-  const mockStops = useMemo(
-    () => [
-      {
-        id: 1,
-        name: "Nhà Văn hóa Thanh Niên",
-        time: "06:00",
-        lat: 10.75875,
-        lng: 106.68095,
-        students: [],
-        isStartOrEnd: true,
-      },
-      {
-        id: 2,
-        name: "Nguyễn Văn Cừ",
-        time: "06:20",
-        lat: 10.76055,
-        lng: 106.6834,
-        students: [],
-      },
-      {
-        id: 3,
-        name: "Nguyễn Biểu",
-        time: "06:40",
-        lat: 10.7579,
-        lng: 106.6831,
-        students: [],
-      },
-      {
-        id: 4,
-        name: "Trường THCS Nguyễn Du",
-        time: "07:00",
-        lat: 10.7545,
-        lng: 106.6815,
-        students: [],
-        isStartOrEnd: true,
-      },
-    ],
-    []
-  );
-
-  const [schedule, setSchedule] = useState(mockSchedule);
-  const [stops, setStops] = useState(mockStops);
-
+ 
   const currentStop = stops[stopIdx];
   const nextStop = stops[stopIdx + 1];
   
@@ -136,65 +87,124 @@ export default function DriverMapPage() {
   };
 
   const calculateEstimatedTime = () => {
-    if (!nextStop || status === "completed") return schedule.endTime;
-    
-    // Luôn trả về thời gian theo lịch trình để demo nhất quán (6h-7h)
+    if (!nextStop || status === "completed") return schedule?.endTime || '07:00';
     return nextStop.time;
   };
 
   const remainingDistance = calculateRemainingDistance();
-  const estimatedTime = nextStop ? calculateEstimatedTime() : schedule.endTime;
-  
-  // Hiển thị thông tin trạng thái chi tiết
-  const getDetailedStatus = () => {
-    if (status === "not_started") return "Chưa khởi hành";
-    if (status === "completed") return "Đã hoàn thành";
-    if (pausedWpIdx !== null) return `Đang dừng tại ${stops[pausedWpIdx]?.name}`;
-    return "Đang di chuyển";
-  };
-  // Khởi tạo WebSocket connection
+  const estimatedTime = nextStop ? calculateEstimatedTime() : (schedule?.endTime || '07:00');
+
+  // Khởi tạo WebSocket connection (disable tạm thời nếu backend chưa có WebSocket server)
   useEffect(() => {
-    busTrackingService.connect('driver', 1); // driver ID = 1
-    
+    let connectTimer = null;
+    let hasConnected = false;
+
+    try {
+      connectTimer = setTimeout(() => {
+        try {
+          const user = JSON.parse(sessionStorage.getItem('user'));
+          const driverId = user?.id || 1;
+          busTrackingService.connect('driver', driverId);
+          hasConnected = true;
+        } catch (connectError) {
+          console.warn('⚠️ WebSocket connection skipped:', connectError);
+        }
+      }, 0);
+    } catch (error) {
+      console.warn('⚠️ WebSocket not available, using localStorage only:', error);
+    }
+
     return () => {
-      busTrackingService.disconnect();
+      if (connectTimer) {
+        clearTimeout(connectTimer);
+      }
+      if (hasConnected) {
+        try {
+          busTrackingService.disconnect();
+        } catch (err) {
+          console.log('WebSocket disconnect error (ignored):', err);
+        }
+      }
     };
   }, []);
-  
+
+  // Load schedule và route stops từ API
   useEffect(() => {
-    const loadStudent = async () => {
+    const loadScheduleData = async () => {
+      try {
+        setLoading(true);
+        
+        // Lấy driver ID từ session (driverId là drivers.id, không phải users.id)
+        const user = JSON.parse(sessionStorage.getItem('user'));
+        const driverId = user?.driverId || 1;
 
-      const list = await studentsService.getAllStudents();
+        // 1. Lấy thông tin schedule
+        const scheduleData = await schedulesService.getScheduleById(scheduleId, driverId);
+        console.log('📅 Schedule data:', scheduleData);
 
-      let current = 0;
+        // 2. Lấy route stops từ route_id
+        const routeStops = await routesService.getRouteStops(scheduleData.routeId);
+        console.log('🗺️ Route stops:', routeStops);
 
-      const newStops = mockStops.map((stop) => {
-        if (stop.isStartOrEnd) {
-          return { ...stop, students: [] };
-        }
+        // 3. Transform stops
+        const transformedStops = routesService.transformStopsForMap(routeStops);
+        
+        // 4. Tính thời gian dự kiến cho các điểm dừng
+        const stopsWithTime = routesService.calculateStopTimes(
+          transformedStops,
+          scheduleData.startTime,
+          25 // Vận tốc trung bình 25 km/h
+        );
 
-        const student = list.slice(current, current + 2);
-        current += 2;
+        // 5. Load students
+        const allStudents = await studentsService.getAllStudents();
+        
+        // 6. Gán students vào stops (tạm thời phân bổ đều)
+        let studentIndex = 0;
+        const stopsWithStudents = stopsWithTime.map((stop) => {
+          if (stop.isStartOrEnd) {
+            return { ...stop, students: [] };
+          }
+          
+          const studentsForStop = allStudents.slice(studentIndex, studentIndex + 2);
+          studentIndex += 2;
+          
+          return {
+            ...stop,
+            students: studentsForStop.map(s => ({ ...s, status: 'waiting' }))
+          };
+        });
 
-        return {
-          ...stop, 
-          students: student 
-        };
-      });
-      
-      // Tính tổng số học sinh thực tế được gán cho các điểm dừng
-      const totalAssignedStudents = newStops.reduce((total, stop) => total + stop.students.length, 0);
-      
-      setStops(newStops); 
-      setSchedule(prev => ({ 
-          ...prev, 
-          totalStudents: totalAssignedStudents 
-      }));
+        const totalStudents = stopsWithStudents.reduce(
+          (sum, stop) => sum + stop.students.length, 0
+        );
+
+        setSchedule({
+          ...scheduleData,
+          totalStudents
+        });
+        setStops(stopsWithStudents);
+        
+        console.log('✅ Loaded schedule with', stopsWithStudents.length, 'stops and', totalStudents, 'students');
+      } catch (error) {
+        console.error('❌ Error loading schedule data:', error);
+        pushNotice('error', 'Không thể tải dữ liệu chuyến đi');
+      } finally {
+        setLoading(false);
+      }
     };
-    loadStudent();
 
-  }, [mockStops]); 
-
+    if (scheduleId) {
+      loadScheduleData();
+    } else {
+      // Không có scheduleId trong URL: quay lại trang lịch để chọn chuyến
+      pushNotice('warning', 'Vui lòng chọn lịch trước khi vào bản đồ');
+      setLoading(false);
+      setTimeout(() => navigate('/driver/schedule'), 500);
+    }
+  }, [scheduleId]);
+  
+  // Đồng hồ
   useEffect(() => {
     const timer = setInterval(() => setClock(new Date()), 1000);
     return () => clearInterval(timer);
@@ -239,12 +249,12 @@ export default function DriverMapPage() {
       });
     } else {
       // Tiếp tục chuyến đi - gửi signal để các map khác tiếp tục
-      const nextStopIndex = stopIdx < stops.length - 1 ? stopIdx : stopIdx;
+      const nextStopIndex = stopIdx + 1;
       busTrackingService.updateDriverStatus({
         isRunning: true,
         driverStatus: "in_progress", 
         currentStopIndex: nextStopIndex,
-        resumeFromPause: true // Flag để báo admin/parent tiếp tục animation
+        resumeFromPause: true
       });
       console.log('🚌 Driver continuing trip, sending resume signal to admin/parent');
     }
@@ -381,6 +391,18 @@ export default function DriverMapPage() {
 
   // Tuyến đường tuyến tính (không khép kín)
   const routeWaypoints = stops.map((s) => [s.lat, s.lng]);
+
+  // Loading state
+  if (loading || !schedule) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-green-600 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">Đang tải thông tin chuyến đi...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
@@ -551,9 +573,9 @@ export default function DriverMapPage() {
           onSubmit={submitIncident}
           onClose={() => setShowIncident(false)}
           driverInfo={{
-            id: 1, // TODO: Lấy từ context/auth hoặc props
-            busId: 1, // TODO: Lấy từ schedule
-            routeId: 1 // TODO: Lấy từ schedule
+            id: schedule?.driverId || 1,
+            busId: schedule?.busId || 1,
+            routeId: schedule?.routeId || 1
           }}
           currentPosition={busCurrentPosition}
         />

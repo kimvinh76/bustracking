@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Máy chủ: 127.0.0.1
--- Thời gian đã tạo: Th10 27, 2025 lúc 04:25 AM
+-- Thời gian đã tạo: Th12 14, 2025 lúc 05:29 PM
 -- Phiên bản máy phục vụ: 10.4.32-MariaDB
 -- Phiên bản PHP: 8.2.12
 
@@ -111,6 +111,38 @@ INSERT INTO `drivers` (`id`, `user_id`, `name`, `phone`, `license_number`, `addr
 -- --------------------------------------------------------
 
 --
+-- Cấu trúc bảng cho bảng `notifications`
+--
+
+CREATE TABLE `notifications` (
+  `id` int(11) NOT NULL,
+  `driver_id` int(11) NOT NULL,
+  `schedule_id` int(11) DEFAULT NULL,
+  `type` enum('incident','alert','info') DEFAULT 'incident',
+  `title` varchar(255) NOT NULL DEFAULT 'Thông báo sự cố',
+  `message` text NOT NULL,
+  `route_name` varchar(255) DEFAULT NULL,
+  `status` enum('unread','read') DEFAULT 'unread',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Đang đổ dữ liệu cho bảng `notifications`
+--
+
+INSERT INTO `notifications` (`id`, `driver_id`, `schedule_id`, `type`, `title`, `message`, `route_name`, `status`, `created_at`) VALUES
+(2, 1, NULL, 'incident', 'Thông báo sự cố', 'Xe gặp sự cố kỹ thuật', 'Tuyến Quận 1 - Sáng', 'unread', '2025-11-28 12:53:56'),
+(3, 1, 43, 'incident', 'Thông báo sự cố', 'Giao thông kẹt xe nghiêm trọng', 'Tuyến Quận 1 - Sáng', 'unread', '2025-11-30 13:37:20'),
+(4, 1, 43, 'incident', 'Thông báo sự cố', 'Giao thông kẹt xe nghiêm trọng', 'Tuyến Quận 1 - Sáng', 'unread', '2025-11-30 13:37:33'),
+(5, 1, 43, 'incident', 'Thông báo sự cố', 'Học sinh không có mặt tại điểm đón', 'Tuyến Quận 1 - Sáng', 'unread', '2025-11-30 13:38:20'),
+(6, 1, NULL, 'incident', 'Thông báo sự cố', 'Giao thông kẹt xe nghiêm trọng', 'Tuyến Quận 1 - Sáng', 'unread', '2025-11-30 13:40:14'),
+(7, 1, NULL, 'incident', 'Thông báo sự cố', 'Học sinh không có mặt tại điểm đón', 'Tuyến Quận 1 - Sáng', 'unread', '2025-11-30 13:41:30'),
+(8, 1, NULL, 'incident', 'Thông báo sự cố', 'Xe gặp sự cố kỹ thuật', 'Tuyến Quận 1 - Sáng', 'unread', '2025-11-30 13:48:26'),
+(9, 1, 43, 'incident', 'Thông báo sự cố', 'Giao thông kẹt xe nghiêm trọng', 'Tuyến Quận 1 - Sáng', 'unread', '2025-12-01 00:18:27');
+
+-- --------------------------------------------------------
+
+--
 -- Cấu trúc bảng cho bảng `parents`
 --
 
@@ -149,7 +181,7 @@ CREATE TABLE `routes` (
   `id` int(11) NOT NULL,
   `route_name` varchar(100) NOT NULL,
   `distance` decimal(10,2) DEFAULT NULL,
-  `status` enum('active','inactive','maintenance') DEFAULT 'active',
+  `status` enum('active','inactive') DEFAULT 'active',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -399,6 +431,16 @@ ALTER TABLE `drivers`
   ADD KEY `user_id` (`user_id`);
 
 --
+-- Chỉ mục cho bảng `notifications`
+--
+ALTER TABLE `notifications`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `driver_id` (`driver_id`),
+  ADD KEY `schedule_id` (`schedule_id`),
+  ADD KEY `created_at` (`created_at`),
+  ADD KEY `status` (`status`);
+
+--
 -- Chỉ mục cho bảng `parents`
 --
 ALTER TABLE `parents`
@@ -480,16 +522,22 @@ ALTER TABLE `drivers`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
 
 --
+-- AUTO_INCREMENT cho bảng `notifications`
+--
+ALTER TABLE `notifications`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
+
+--
 -- AUTO_INCREMENT cho bảng `parents`
 --
 ALTER TABLE `parents`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=135;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=137;
 
 --
 -- AUTO_INCREMENT cho bảng `routes`
 --
 ALTER TABLE `routes`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT cho bảng `route_stops`
@@ -519,7 +567,7 @@ ALTER TABLE `students`
 -- AUTO_INCREMENT cho bảng `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=44;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=46;
 
 --
 -- Các ràng buộc cho các bảng đã đổ
@@ -530,6 +578,13 @@ ALTER TABLE `users`
 --
 ALTER TABLE `drivers`
   ADD CONSTRAINT `drivers_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
+
+--
+-- Các ràng buộc cho bảng `notifications`
+--
+ALTER TABLE `notifications`
+  ADD CONSTRAINT `notifications_ibfk_1` FOREIGN KEY (`driver_id`) REFERENCES `drivers` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `notifications_ibfk_2` FOREIGN KEY (`schedule_id`) REFERENCES `schedules` (`id`) ON DELETE CASCADE;
 
 --
 -- Các ràng buộc cho bảng `parents`

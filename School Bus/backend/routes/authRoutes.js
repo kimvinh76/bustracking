@@ -30,7 +30,16 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ message: 'Mật khẩu không chính xác.' });
         }
 
-        // 4. Tạo JWT Token
+        // 4. Nếu là driver, lấy thêm driver_id từ bảng drivers
+        let driverId = null;
+        if (user.role === 'driver') {
+            const [driverRows] = await pool.query('SELECT id FROM drivers WHERE user_id = ?', [user.id]);
+            if (driverRows.length > 0) {
+                driverId = driverRows[0].id;
+            }
+        }
+
+        // 5. Tạo JWT Token
         // TUYỆT ĐỐI không để lộ 'YOUR_SECRET_KEY' trong code thực tế.
         // Hãy dùng biến môi trường (environment variable).
         const token = jwt.sign(
@@ -39,7 +48,7 @@ router.post('/login', async (req, res) => {
             { expiresIn: '1h' } // Token hết hạn sau 1 giờ
         );
 
-        // 5. Trả về token và thông tin người dùng cho frontend
+        // 6. Trả về token và thông tin người dùng cho frontend
         res.json({
             message: 'Đăng nhập thành công!',
             token,
@@ -48,6 +57,7 @@ router.post('/login', async (req, res) => {
                 username: user.username,
                 email: user.email,
                 role: user.role,
+                driverId: driverId // Thêm driverId cho role driver
             }
         });
 

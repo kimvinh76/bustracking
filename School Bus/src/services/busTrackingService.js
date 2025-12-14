@@ -9,6 +9,7 @@ class BusTrackingService {
     this.maxReconnectAttempts = 5;
     this.reconnectDelay = 2000;
     this.isConnected = false;
+    this.heartbeatInterval = null;
   }
 
   connect(role, userId = null) {
@@ -36,6 +37,9 @@ class BusTrackingService {
           type: 'request_current_status'
         });
 
+        // Start heartbeat to keep connection alive
+        this.startHeartbeat();
+
         // Trigger connected event
         this.emit('connected', { role, clientId: this.clientId });
       };
@@ -52,6 +56,7 @@ class BusTrackingService {
       this.ws.onclose = () => {
         console.log(`🔌 WebSocket disconnected`);
         this.isConnected = false;
+        this.stopHeartbeat();
         this.emit('disconnected');
         
         // Auto reconnect
@@ -141,12 +146,29 @@ class BusTrackingService {
   }
 
   disconnect() {
+    this.stopHeartbeat();
     if (this.ws) {
       this.ws.close();
       this.ws = null;
     }
     this.isConnected = false;
     this.listeners.clear();
+  }
+
+  startHeartbeat() {
+    this.stopHeartbeat();
+    this.heartbeatInterval = setInterval(() => {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        this.send({ type: 'ping' });
+      }
+    }, 30000); // Ping every 30 seconds
+  }
+
+  stopHeartbeat() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
   }
 
   // Utility methods

@@ -63,6 +63,11 @@ class BusTrackingSocket {
         console.log(`Client registered: ${data.clientId} as ${data.role}`);
         break;
 
+      case 'ping':
+        // Respond to heartbeat ping
+        ws.send(JSON.stringify({ type: 'pong' }));
+        break;
+
       case 'driver_status_update':
         // Chỉ driver mới được update status
         const client = this.getClientByWebSocket(ws);

@@ -8,32 +8,17 @@ import { FaBus, FaRocket } from 'react-icons/fa';
 
 const getCurrentDriverId = async () => {
   try {
-    const user = JSON.parse(localStorage.getItem('user'));
-    if (!user?.id) return null;
-    
-    // Gọi API để lấy driver_id từ user_id - hoạt động với BẤT KỲ driver nào trong DB
-    const response = await fetch(`http://localhost:5000/api/drivers/by-user/${user.id}`, {
-      cache: 'no-cache'
-    });
-    
-    // Kiểm tra nếu response không phải JSON (có thể là HTML error page)
-    const contentType = response.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      console.error('API trả về HTML thay vì JSON. Backend có thể đang lỗi.');
+    // Lấy user từ sessionStorage (đã có driverId sau khi login)
+    const user = JSON.parse(sessionStorage.getItem('user'));
+    if (!user?.driverId) {
+      console.warn('User không có driverId. Vui lòng login lại.');
       return null;
     }
     
-    const data = await response.json();
-    
-    if (response.ok && data.success) {
-      return data.driver_id;
-    } else {
-      console.warn('User không phải là driver hoặc driver không active:', data.message);
-      return null;
-    }
+    return user.driverId; // Trả về driverId trực tiếp từ session
   } catch (error) {
-    console.error('Lỗi khi gọi API lấy driver ID:', error);
-    return null; // Không còn fallback - chỉ dùng API
+    console.error('Lỗi khi lấy driver ID:', error);
+    return null;
   }
 };
 
@@ -84,8 +69,8 @@ export default function DriverSchedulePage() {
   useEffect(() => {
     const loadDriverInfo = async () => {
       try {
-        const user = JSON.parse(localStorage.getItem('user'));
-        const driverId = await getCurrentDriverId();
+        const user = JSON.parse(sessionStorage.getItem('user'));
+        const driverId = user?.driverId || await getCurrentDriverId();
         
         if (driverId) {
           // Gọi API để lấy thông tin driver chi tiết từ database
