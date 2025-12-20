@@ -1,14 +1,10 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 
 export default function DriverNavbar() {
-  const navigate = useNavigate();
-
   const handleLogout = () => {
     // Clear tất cả session storage
     sessionStorage.clear();
-    localStorage.clear(); // Clear luôn localStorage để chắc chắn
-    
-    // Force reload trang để clear mọi state
+    // Force reload trang để clear mọi state của tab hiện tại
     window.location.href = '/login';
   };
 

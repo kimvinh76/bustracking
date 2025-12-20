@@ -26,7 +26,7 @@ async function checkConnection() {
         console.log(" Kết nối CSDL MySQL thành công!");
         connection.release(); // Trả kết nối về pool
     } catch (err) {
-        console.error("❌ Kết nối CSDL MySQL thất bại:", err.message);
+        console.error(" Kết nối CSDL MySQL thất bại:", err.message);
     }
 }
 

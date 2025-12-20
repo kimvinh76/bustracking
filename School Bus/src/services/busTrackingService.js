@@ -1,4 +1,11 @@
-// Frontend WebSocket service cho real-time bus tracking
+// Dịch vụ WebSocket phía FE cho tracking bus realtime
+// TÓM TẮT SỬ DỤNG:
+// - Gọi connect(role, userId) từ trang Driver để đăng ký client với server
+//   role: 'driver' | 'admin' | 'parent'; userId nên là driverId (id trong bảng drivers)
+// - driver cập nhật trạng thái qua updateDriverStatus({ ... })
+// - Các trang khác lắng nghe sự kiện 'busStatusUpdate' để nhận vị trí/trạng thái
+// - Heartbeat tự động (ping) giữ kết nối ổn định
+// - KHÔNG dùng Socket.IO; đây là WebSocket native
 class BusTrackingService {
   constructor() {
     this.ws = null;
@@ -17,6 +24,16 @@ class BusTrackingService {
     this.clientId = `${role}_${userId || Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
     try {
+      // Tránh kết nối trùng do React StrictMode gọi effect 2 lần
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        console.log('🔌 WebSocket already connected, skip duplicate connect');
+        this.isConnected = true;
+        return;
+      }
+      if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
+        console.log('🔄 WebSocket is connecting, skip duplicate connect');
+        return;
+      }
       this.ws = new WebSocket('ws://localhost:5000');
 
       this.ws.onopen = () => {
@@ -24,7 +41,7 @@ class BusTrackingService {
         this.isConnected = true;
         this.reconnectAttempts = 0;
 
-        // Register client
+        // Đăng ký client với server để server biết vai trò và driverId
         this.send({
           type: 'register_client',
           clientId: this.clientId,
@@ -32,12 +49,12 @@ class BusTrackingService {
           userId: userId
         });
 
-        // Request current status
+        // Yêu cầu trạng thái hiện tại ngay sau khi kết nối
         this.send({
           type: 'request_current_status'
         });
 
-        // Start heartbeat to keep connection alive
+        // Bắt đầu heartbeat để giữ kết nối
         this.startHeartbeat();
 
         // Trigger connected event
@@ -49,7 +66,7 @@ class BusTrackingService {
           const data = JSON.parse(event.data);
           this.handleMessage(data);
         } catch (error) {
-          console.error('❌ WebSocket message parse error:', error);
+          console.error(' WebSocket message parse error:', error);
         }
       };
 
@@ -70,12 +87,12 @@ class BusTrackingService {
       };
 
       this.ws.onerror = (error) => {
-        console.error('❌ WebSocket error:', error);
+        console.error(' WebSocket error:', error);
         this.emit('error', error);
       };
 
     } catch (error) {
-      console.error('❌ WebSocket connection failed:', error);
+      console.error(' WebSocket connection failed:', error);
     }
   }
 
@@ -103,6 +120,7 @@ class BusTrackingService {
   }
 
   // Driver methods - chỉ driver mới được call
+  // Driver cập nhật trạng thái: vị trí, đang chạy/đã dừng, điểm dừng hiện tại...
   updateDriverStatus(status) {
     if (this.role !== 'driver') {
       console.warn('⚠️ Only driver can update status');
@@ -139,7 +157,7 @@ class BusTrackingService {
         try {
           callback(data);
         } catch (error) {
-          console.error(`❌ Event callback error for ${event}:`, error);
+          console.error(` Event callback error for ${event}:`, error);
         }
       });
     }
@@ -155,6 +173,7 @@ class BusTrackingService {
     this.listeners.clear();
   }
 
+  // Gửi ping mỗi 30s để tránh bị timeout bởi proxy/trình duyệt
   startHeartbeat() {
     this.stopHeartbeat();
     this.heartbeatInterval = setInterval(() => {

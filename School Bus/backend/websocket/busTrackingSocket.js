@@ -1,4 +1,9 @@
-// WebSocket server cho real-time bus tracking
+// WebSocket server cho realtime tracking (KHÔNG dùng Socket.IO)
+// Luồng chính:
+// - Client gửi 'register_client' để đăng ký (driver/admin/parent)
+// - Driver gửi 'driver_status_update' để cập nhật vị trí/trạng thái
+// - Server broadcast 'bus_status_update' cho mọi client đang mở
+// - Heartbeat: client gửi 'ping' → server trả 'pong'
 import WebSocket, { WebSocketServer } from 'ws';
 
 class BusTrackingSocket {
@@ -41,7 +46,7 @@ class BusTrackingSocket {
         }
       });
 
-      // Send current bus status to new client
+      // Gửi trạng thái hiện tại cho client mới kết nối để đồng bộ ngay
       ws.send(JSON.stringify({
         type: 'bus_status_update',
         data: this.busStatus
@@ -54,7 +59,7 @@ class BusTrackingSocket {
   handleMessage(ws, data) {
     switch (data.type) {
       case 'register_client':
-        // Register client với role (driver, admin, parent)
+        // Đăng ký client với role (driver, admin, parent)
         this.clients.set(data.clientId, {
           ws: ws,
           role: data.role,

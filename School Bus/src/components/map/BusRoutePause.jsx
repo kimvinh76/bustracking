@@ -4,7 +4,9 @@ import L from "leaflet";
 import "leaflet-routing-machine";
 import "leaflet-routing-machine/dist/leaflet-routing-machine.css";
 
-// BusRoutePause: animate along actual road route, pause at each intermediate waypoint.
+// [DEPRECATED][UNUSED] BusRoutePause: previously used for animating along road routes.
+// Ghi chú: Component này hiện không được import bởi bất kỳ trang nào.
+// Nếu không cần cho parent/admin, nên xóa để tránh rối.
 // Props:
 // waypoints: array of [lat,lng]
 // speedMetersPerSec: movement speed

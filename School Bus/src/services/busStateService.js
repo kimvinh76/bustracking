@@ -1,4 +1,7 @@
-// Simple shared state service without WebSocket
+// [UNUSED] Simple shared state service without WebSocket
+// [DEPRECATED][UNUSED] Ghi chú: Đây là giải pháp fallback dùng localStorage (không realtime).
+// Hệ thống hiện tại đã dùng WebSocket (busTrackingService) nên KHÔNG cần file này.
+// Khuyến nghị: Xóa file để tránh nhầm lẫn.
 class BusStateService {
   constructor() {
     this.storageKey = 'bus_tracking_state';

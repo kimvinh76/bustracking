@@ -44,7 +44,7 @@ export default function RoutePage() {
           setRoutes([]);
         }
       } catch (error) {
-        console.error("❌ Error fetching routes:", error);
+        console.error(" Error fetching routes:", error);
         setError("Không thể tải danh sách tuyến đường. Vui lòng thử lại.");
         setRoutes([]); // Set empty array nếu lỗi
       } finally {

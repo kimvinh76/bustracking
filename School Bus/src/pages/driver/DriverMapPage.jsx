@@ -5,6 +5,10 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet-routing-machine/dist/leaflet-routing-machine.css";
 
+// Component vẽ tuyến đường + di chuyển bus cho tài xế
+// Lưu ý: Trang Driver dùng BusRouteDriver; các biến thể khác như
+// BusRoutePause/BusRouteControlled/BusRouteParentPause có thể dành cho parent/admin.
+// Nếu không còn dùng, cân nhắc loại bỏ để tránh trùng lặp.
 import BusRouteDriver from "../../components/map/BusRouteDriver.jsx";
 import DriverHeader from "../../components/driver/DriverHeader.jsx";
 import AlertsContainer from "../../components/driver/AlertsContainer.jsx";
@@ -13,6 +17,7 @@ import ArrivalConfirmModal from "../../components/driver/ArrivalConfirmModal.jsx
 import IncidentReportModal from "../../components/driver/IncidentReportModal.jsx";
 import EndTripModal from "../../components/driver/EndTripModal.jsx";
 import StudentsPanel from "../../components/driver/StudentsPanel.jsx";
+import ConfirmDialog from "../../components/UI/ConfirmDialog.jsx";
 import { studentsService } from "../../services/studentsService.js";
 import { schedulesService } from "../../services/schedulesService.js";
 import routesService from "../../services/routesService.js";
@@ -51,6 +56,7 @@ export default function DriverMapPage() {
   const [pausedWpIdx, setPausedWpIdx] = useState(null);
   const [busCurrentPosition, setBusCurrentPosition] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showNoActiveTripDialog, setShowNoActiveTripDialog] = useState(false);
 
   // Data from API
   const [schedule, setSchedule] = useState(null);
@@ -94,6 +100,23 @@ export default function DriverMapPage() {
   const remainingDistance = calculateRemainingDistance();
   const estimatedTime = nextStop ? calculateEstimatedTime() : (schedule?.endTime || '07:00');
 
+  // Ghi lại trạng thái chuyến đang chạy vào sessionStorage để sidebar "Bắt đầu chuyến"
+  // có thể đưa tài xế quay lại đúng chuyến chưa kết thúc.
+  const updateActiveTripSession = (newStatus) => {
+    if (!scheduleId) return;
+    if (newStatus === "cleared") {
+      sessionStorage.removeItem("driverActiveTrip");
+      return;
+    }
+
+    const payload = {
+      scheduleId: String(scheduleId),
+      status: newStatus,
+      updatedAt: new Date().toISOString(),
+    };
+    sessionStorage.setItem("driverActiveTrip", JSON.stringify(payload));
+  };
+
   // Khởi tạo WebSocket connection (disable tạm thời nếu backend chưa có WebSocket server)
   useEffect(() => {
     let connectTimer = null;
@@ -102,8 +125,10 @@ export default function DriverMapPage() {
     try {
       connectTimer = setTimeout(() => {
         try {
+          // Lấy đúng driverId (id trong bảng drivers) từ sessionStorage
           const user = JSON.parse(sessionStorage.getItem('user'));
-          const driverId = user?.id || 1;
+          const driverId = (user?.driverId ?? user?.id ?? 1);
+          // Kết nối WebSocket với vai trò driver và driverId để server nhận diện
           busTrackingService.connect('driver', driverId);
           hasConnected = true;
         } catch (connectError) {
@@ -111,7 +136,7 @@ export default function DriverMapPage() {
         }
       }, 0);
     } catch (error) {
-      console.warn('⚠️ WebSocket not available, using localStorage only:', error);
+      console.warn('⚠️ WebSocket not available; realtime tracking disabled:', error);
     }
 
     return () => {
@@ -128,7 +153,37 @@ export default function DriverMapPage() {
     };
   }, []);
 
+  // Khi người dùng vào /driver/map (không có scheduleId):
+  // - Nếu có chuyến đang chạy trong sessionStorage → tự điều hướng tới /driver/map/:scheduleId đó
+  // - Nếu không có chuyến đang chạy → hiện dialog yêu cầu quay lại trang Lịch làm việc
+  useEffect(() => {
+    if (scheduleId) return;
+
+    try {
+      const raw = sessionStorage.getItem("driverActiveTrip");
+      if (raw) {
+        const active = JSON.parse(raw);
+        if (active?.scheduleId && active.status !== "completed") {
+          navigate(`/driver/map/${active.scheduleId}`, { replace: true });
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn("Lỗi đọc driverActiveTrip từ sessionStorage:", err);
+    }
+
+    // Không có chuyến nào đang chạy → yêu cầu chọn lịch trước
+    setShowNoActiveTripDialog(true);
+    setLoading(false);
+  }, [scheduleId, navigate]);
+
   // Load schedule và route stops từ API
+  // Pipeline dữ liệu:
+  // 1) Lấy driverId từ sessionStorage (id trong bảng drivers)
+  // 2) GET /api/schedules/:driverId/:scheduleId → nhận routeId, thời gian, xe buýt...
+  // 3) GET /api/routes/:routeId/stops → danh sách điểm dừng của tuyến
+  // 4) transformStopsForMap + calculateStopTimes → chuẩn dữ liệu cho map + ETA
+  // 5) Phân bổ danh sách học sinh (giả lập tạm) vào từng điểm dừng
   useEffect(() => {
     const loadScheduleData = async () => {
       try {
@@ -140,11 +195,9 @@ export default function DriverMapPage() {
 
         // 1. Lấy thông tin schedule
         const scheduleData = await schedulesService.getScheduleById(scheduleId, driverId);
-        console.log('📅 Schedule data:', scheduleData);
 
         // 2. Lấy route stops từ route_id
         const routeStops = await routesService.getRouteStops(scheduleData.routeId);
-        console.log('🗺️ Route stops:', routeStops);
 
         // 3. Transform stops
         const transformedStops = routesService.transformStopsForMap(routeStops);
@@ -184,10 +237,22 @@ export default function DriverMapPage() {
           totalStudents
         });
         setStops(stopsWithStudents);
-        
-        console.log('✅ Loaded schedule with', stopsWithStudents.length, 'stops and', totalStudents, 'students');
+
+        // Nếu trong sessionStorage đang lưu chuyến in_progress cho schedule này
+        // thì khôi phục trạng thái in_progress để không phải bấm Bắt đầu lại.
+        try {
+          const raw = sessionStorage.getItem("driverActiveTrip");
+          if (raw) {
+            const active = JSON.parse(raw);
+            if (String(active?.scheduleId) === String(scheduleId) && active.status === "in_progress") {
+              setStatus("in_progress");
+            }
+          }
+        } catch (err) {
+          console.warn("Không đọc được driverActiveTrip khi khôi phục trạng thái:", err);
+        }
       } catch (error) {
-        console.error('❌ Error loading schedule data:', error);
+        console.error(' Error loading schedule data:', error);
         pushNotice('error', 'Không thể tải dữ liệu chuyến đi');
       } finally {
         setLoading(false);
@@ -196,11 +261,6 @@ export default function DriverMapPage() {
 
     if (scheduleId) {
       loadScheduleData();
-    } else {
-      // Không có scheduleId trong URL: quay lại trang lịch để chọn chuyến
-      pushNotice('warning', 'Vui lòng chọn lịch trước khi vào bản đồ');
-      setLoading(false);
-      setTimeout(() => navigate('/driver/schedule'), 500);
     }
   }, [scheduleId]);
   
@@ -213,6 +273,7 @@ export default function DriverMapPage() {
   // Handlers
   const startTrip = () => {
     setStatus("in_progress");
+    updateActiveTripSession("in_progress");
     pushNotice("success", "Đã bắt đầu chuyến đi!");
     
     // Gửi status qua WebSocket
@@ -240,6 +301,7 @@ export default function DriverMapPage() {
     if (isCompleted) {
       pushNotice("success", " Đã hoàn thành tuyến đường");
       setStatus("completed");
+      updateActiveTripSession("cleared");
       
       // Gửi trạng thái hoàn thành
       busTrackingService.updateDriverStatus({
@@ -288,6 +350,7 @@ export default function DriverMapPage() {
   const confirmEndTrip = () => {
     setStatus("completed");
     setTracking(false);
+    updateActiveTripSession("cleared");
     
     // Gửi trạng thái kết thúc qua WebSocket
     busTrackingService.updateDriverStatus({
@@ -491,6 +554,22 @@ export default function DriverMapPage() {
           remainingDistance={remainingDistance}
           estimatedTime={estimatedTime}
           getRemainingStudents={remainingStudents}
+        />
+
+        {/* Dialog: chưa chọn lịch nhưng bấm Bắt đầu chuyến ở sidebar */}
+        <ConfirmDialog
+          isOpen={showNoActiveTripDialog}
+          title="Chưa chọn lịch làm việc"
+          message="Vui lòng vào trang Lịch làm việc và bấm 'Bắt đầu tuyến' cho ca bạn muốn trước khi bắt đầu chuyến."
+          confirmText="Đi tới Lịch làm việc"
+          cancelText="Đóng"
+          onConfirm={() => {
+            navigate("/driver/schedule");
+          }}
+          onClose={() => {
+            setShowNoActiveTripDialog(false);
+            navigate("/driver/schedule");
+          }}
         />
 
         {/* Floating Action Buttons */}

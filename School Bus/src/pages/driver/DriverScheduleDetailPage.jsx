@@ -29,6 +29,7 @@ export default function DriverScheduleDetailPage() {
   const [error, setError] = useState(null);
   const [updating, setUpdating] = useState(false);
   const [showStudentsModal, setShowStudentsModal] = useState(false);
+  const [showStopsModal, setShowStopsModal] = useState(false);
   const [currentDriverName, setCurrentDriverName] = useState("Tài xế");
 
 
@@ -48,19 +49,65 @@ export default function DriverScheduleDetailPage() {
     try {
       setLoading(true);
       
+      console.log(' [DEBUG] Bắt đầu tải lịch làm việc, scheduleId:', id);
+      
       const driverId = await getCurrentDriverId();
+      console.log(' [DEBUG] Driver ID:', driverId);
+      
       if (!driverId) {
         setError('Không tìm thấy thông tin tài xế. Vui lòng đăng nhập lại.');
+        console.error(' Không có driverId');
         return;
       }
       
+      console.log(' [API CALL] Gọi schedulesService.getScheduleById:', { id, driverId });
       const response = await schedulesService.getScheduleById(id, driverId);
+      console.log(' [API RESPONSE] Schedule data nhận được:', response);
+      
       const scheduleData = Array.isArray(response) ? response[0] : response;
       
-      setSchedule(scheduleData || null);
+      // Normalize: Convert camelCase từ API sang snake_case cho frontend
+      const normalizedSchedule = {
+        ...scheduleData,
+        // Map các field camelCase sang snake_case
+        route_name: scheduleData.routeName || scheduleData.route_name || '',
+        driver_name: scheduleData.driverName || scheduleData.driver_name || 'Tài xế',
+        license_plate: scheduleData.licensePlate || scheduleData.license_plate || scheduleData.busNumber || '',
+        scheduled_start_time: scheduleData.scheduledStartTime || scheduleData.scheduled_start_time || scheduleData.startTime || '',
+        scheduled_end_time: scheduleData.scheduledEndTime || scheduleData.scheduled_end_time || scheduleData.endTime || '',
+        shift_type: scheduleData.shiftType || scheduleData.shift_type || 'morning',
+        date: scheduleData.date || new Date().toISOString().split('T')[0],
+        start_point: scheduleData.startPoint || scheduleData.start_point || 'Không xác định',
+        end_point: scheduleData.endPoint || scheduleData.end_point || 'Không xác định',
+        max_capacity: scheduleData.maxCapacity || scheduleData.max_capacity || 30,
+        // Giữ nguyên các field khác
+        students: scheduleData.students || [],
+      };
+      
+      console.log(' [PROCESSED] Schedule data sau xử lý:', normalizedSchedule);
+      console.log(' [FIELDS CHECK]:', {
+        route_name: normalizedSchedule.route_name,
+        driver_name: normalizedSchedule.driver_name,
+        license_plate: normalizedSchedule.license_plate,
+        date: normalizedSchedule.date,
+        scheduled_start_time: normalizedSchedule.scheduled_start_time,
+        scheduled_end_time: normalizedSchedule.scheduled_end_time,
+        start_point: normalizedSchedule.start_point,
+        end_point: normalizedSchedule.end_point,
+        students: normalizedSchedule.students?.length || 0
+      });
+      
+      setSchedule(normalizedSchedule || null);
       setError(null);
     } catch (err) {
       setError('Lỗi khi tải chi tiết lịch làm việc: ' + err.message);
+      console.error(' [ERROR] Lỗi khi fetch schedule:', err);
+      console.error(' [ERROR DETAIL]:', {
+        message: err.message,
+        response: err.response,
+        status: err.response?.status,
+        data: err.response?.data
+      });
       setSchedule(null);
     } finally {
       setLoading(false);
@@ -69,15 +116,56 @@ export default function DriverScheduleDetailPage() {
 
   const fetchScheduleStops = async () => {
     try {
+      console.log(' [DEBUG] Bắt đầu tải điểm dừng, scheduleId:', id);
+      
       const driverId = await getCurrentDriverId();
+      console.log(' [DEBUG] Driver ID cho stops:', driverId);
+      
       if (!driverId) {
+        console.error(' Không có driverId cho stops');
         setStops([]);
         return;
       }
       
+      console.log(' [API CALL] Gọi schedulesService.getScheduleStops:', { driverId, id });
       const stopsData = await schedulesService.getScheduleStops(driverId, id);
-      setStops(stopsData?.stops || []);
+      console.log(' [API RESPONSE] Stops data nhận được:', stopsData);
+      
+      const stopsArray = stopsData?.stops || [];
+      
+      // Normalize stops: đảm bảo các field có sẵn và đúng format
+      const normalizedStops = stopsArray.map((stop, index) => ({
+        ...stop,
+        id: stop.id || stop.stopId || index,
+        name: stop.name || stop.stopName || `Điểm dừng ${index + 1}`,
+        address: stop.address || stop.stopAddress || 'Chưa có địa chỉ',
+        type: stop.type || stop.stopType || (stop.order === 0 ? 'Xuất phát' : stop.order === 99 ? 'Kết thúc' : 'Trung gian'),
+        order: stop.order !== undefined ? stop.order : index,
+      }));
+      
+      console.log(' [PROCESSED] Stops array:', normalizedStops);
+      console.log(' [STOPS COUNT]:', normalizedStops.length);
+      
+      if (normalizedStops.length > 0) {
+        console.log(' [FIRST STOP SAMPLE]:', normalizedStops[0]);
+        console.log(' [STOPS FIELDS CHECK]:', {
+          hasId: normalizedStops[0]?.id !== undefined,
+          hasName: normalizedStops[0]?.name !== undefined,
+          hasAddress: normalizedStops[0]?.address !== undefined,
+          hasType: normalizedStops[0]?.type !== undefined,
+          hasOrder: normalizedStops[0]?.order !== undefined
+        });
+      }
+      
+      setStops(normalizedStops);
     } catch (err) {
+      console.error(' [ERROR] Lỗi khi fetch stops:', err);
+      console.error(' [ERROR DETAIL]:', {
+        message: err.message,
+        response: err.response,
+        status: err.response?.status,
+        data: err.response?.data
+      });
       setStops([]);
     }
   };
@@ -251,6 +339,20 @@ export default function DriverScheduleDetailPage() {
                 </div>
               </div>
               <div className="flex items-center gap-3">
+                <span className="text-slate-600 font-medium min-w-[120px]">Điểm dừng:</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-slate-900">
+                    {stops.length} điểm
+                  </span>
+                  <button
+                    onClick={() => setShowStopsModal(true)}
+                    className="inline-flex items-center px-3 py-1 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    Xem danh sách
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
                 <span className="text-slate-600 font-medium min-w-[120px]">Trạng thái:</span>
                 <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-bold ${schedule.statusColor}`}>
                   {schedule.statusText}
@@ -362,74 +464,91 @@ export default function DriverScheduleDetailPage() {
           </div>
         )}
 
-        {/* Bảng điểm dừng */}
-        <div className="bg-white rounded-xl shadow-lg border border-[#D8E359]/20 overflow-hidden">
-          <div className="p-6 border-b border-slate-200">
-              <h2 className="text-xl font-bold text-[#174D2C] flex items-center gap-2">
-              <FiMapPin className="w-5 h-5" aria-hidden="true" /> Danh sách điểm dừng
-            </h2>
-            <p className="text-slate-600 mt-1">
-              Tuyến {schedule.route_name} - {stops.length} điểm dừng
-            </p>
-          </div>
-          
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                  <tr className="bg-slate-100 text-slate-700">
-                    <th className="px-6 py-4 text-center font-semibold">STT</th>
-                    <th className="px-6 py-4 text-left font-semibold">TÊN ĐIỂM DỪNG</th>
-                    <th className="px-6 py-4 text-center font-semibold">LOẠI</th>
-                    <th className="px-6 py-4 text-center font-semibold">THỜI GIAN DỰ KIẾN</th>
-                    <th className="px-6 py-4 text-left font-semibold">GHI CHÚ</th>
-                  </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {stops.length === 0 ? (
-                  <tr>
-                    <td colSpan="5" className="px-6 py-12 text-center">
-                      <div className="text-6xl mb-4"></div>
-                      <p className="text-slate-500 text-lg">Chưa có thông tin điểm dừng cho tuyến này</p>
-                      <p className="text-slate-400 text-sm mt-2">Vui lòng liên hệ quản trị viên để cập nhật</p>
-                    </td>
-                  </tr>
-                ) : stops.map((stop, index) => (
-                  <tr 
-                    key={`${stop.order}-${index}`} 
-                    className={`hover:bg-slate-50 transition-colors duration-200 ${
-                      index % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'
-                    }`}
+        {/* Modal danh sách điểm dừng */}
+        {showStopsModal && (
+          <div 
+            className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          >
+            <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden animate-in fade-in zoom-in duration-200">
+              {/* Modal Header */}
+              <div className="p-6 border-b border-slate-200 bg-gradient-to-r from-[#174D2C] to-[#1a5530] text-white">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold flex items-center gap-2">
+                      <FiMapPin className="w-6 h-6" aria-hidden="true" /> Danh sách điểm dừng
+                    </h2>
+                    <p className="text-green-100 mt-1">
+                      Tuyến {schedule.route_name} - {stops.length} điểm dừng
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowStopsModal(false)}
+                    className="p-2 hover:bg-white/20 rounded-lg transition-colors group"
+                    aria-label="Đóng"
                   >
-                    <td className="px-6 py-4 font-bold text-slate-900 text-lg text-center">
-                      {stop.order === 0 ? '1' : 
-                       stop.order === 99 ? stops.length : 
-                       stop.order + 1}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="font-semibold text-slate-900">{stop.name}</div>
-                      {stop.address && <div className="text-sm text-slate-500 mt-1">{stop.address}</div>}
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                        stop.order === 0 ? 'bg-green-100 text-green-700' :
-                        stop.order === 99 ? 'bg-red-100 text-red-700' :
-                        'bg-blue-100 text-blue-700'
-                      }`}>
-                        {stop.type}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 font-mono text-slate-900 text-center font-semibold">
-                      {stop.estimatedTime}
-                    </td>
-                    <td className="px-6 py-4 text-slate-600">
-                      {stop.note}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    <FiX className="w-5 h-5 group-hover:scale-110 transition-transform" aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
+              
+              {/* Modal Body */}
+              <div className="overflow-auto max-h-[calc(90vh-120px)]">
+                <table className="w-full">
+                  <thead className="sticky top-0 bg-slate-100 text-slate-700">
+                    <tr>
+                      <th className="px-6 py-4 text-center font-semibold">STT</th>
+                      <th className="px-6 py-4 text-left font-semibold">TÊN ĐIỂM DỪNG</th>
+                      <th className="px-6 py-4 text-left font-semibold">ĐỊA CHỈ</th>
+                      <th className="px-6 py-4 text-center font-semibold">LOẠI</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {stops.length === 0 ? (
+                      <tr>
+                        <td colSpan="4" className="px-6 py-12 text-center">
+                          <div className="text-6xl mb-4">📍</div>
+                          <p className="text-slate-500 text-lg">Chưa có thông tin điểm dừng cho tuyến này</p>
+                          <p className="text-slate-400 text-sm mt-2">Vui lòng liên hệ quản trị viên để cập nhật</p>
+                        </td>
+                      </tr>
+                    ) : stops.map((stop, index) => (
+                      <tr 
+                        key={`${stop.id || stop.order}-${index}`} 
+                        className={`hover:bg-slate-50 transition-colors duration-200 ${
+                          index % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'
+                        }`}
+                      >
+                        <td className="px-6 py-4 font-bold text-slate-900 text-lg text-center">
+                          {index + 1}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="font-semibold text-slate-900">{stop.name || 'Chưa có tên'}</div>
+                          {stop.id && <div className="text-sm text-slate-500 mt-1">ID: {stop.id}</div>}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-slate-700">
+                            {stop.address || 'Chưa có địa chỉ'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                            stop.order === 0 || stop.type?.toLowerCase().includes('xuất phát') || stop.type?.toLowerCase().includes('start') 
+                              ? 'bg-green-100 text-green-700' :
+                            stop.order === 99 || stop.type?.toLowerCase().includes('kết thúc') || stop.type?.toLowerCase().includes('end')
+                              ? 'bg-red-100 text-red-700' :
+                            'bg-blue-100 text-blue-700'
+                          }`}>
+                            {stop.type || (stop.order === 0 ? 'Xuất phát' : stop.order === 99 ? 'Kết thúc' : 'Trung gian')}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

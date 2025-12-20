@@ -1,5 +1,8 @@
 import React, { useMemo } from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+// [DEPRECATED][UNUSED] DriverRouteMap: wrapper dùng BusRouteControlled.
+// Hiện không được dùng ở đâu. Nếu trang Driver chỉ dùng BusRouteDriver,
+// hãy xóa file này để tránh trùng lặp kiến trúc.
 import BusRouteControlled from "../map/BusRouteControlled.jsx";
 import L from "leaflet";
 import iconUrl from "leaflet/dist/images/marker-icon.png";

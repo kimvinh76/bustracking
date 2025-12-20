@@ -3,7 +3,8 @@ import { useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet-routing-machine";
 
-// BusRouteAnimationV2: Animate a bus icon along real road route between waypoints.
+// [DEPRECATED][UNUSED] BusRouteAnimationV2: legacy animation component.
+// Ghi chú: Không thấy được import ở bất kỳ nơi nào. Có thể xóa/archived.
 // Props:
 // - waypoints: array of [lat,lng]
 // - speedMetersPerSec: movement speed

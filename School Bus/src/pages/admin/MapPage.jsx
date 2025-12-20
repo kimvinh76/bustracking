@@ -107,7 +107,7 @@ export default function MapPage() {
           }`}>
             {busStatus.driverStatus === 'in_progress' ? '🚌 Đang chạy' :
              busStatus.driverStatus === 'paused' ? '⏸️ Đang dừng' :
-             busStatus.driverStatus === 'completed' ? '✅ Hoàn thành' :
+             busStatus.driverStatus === 'completed' ? ' Hoàn thành' :
              '⏹️ Chưa bắt đầu'}
           </div>
           <div className="text-sm text-gray-600">

@@ -1,14 +1,11 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet } from "react-router-dom";
 
 export default function AdminLayout() {
-  const navigate = useNavigate();
-
   const handleLogout = () => {
-    // Xóa thông tin đăng nhập khỏi localStorage
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
-    // Chuyển hướng về trang đăng nhập
-    navigate('/login');
+    // Xóa thông tin đăng nhập theo phiên (per-tab)
+    sessionStorage.clear();
+    // Chuyển hướng và reload để đảm bảo state được reset
+    window.location.href = '/login';
   };
 
   return (

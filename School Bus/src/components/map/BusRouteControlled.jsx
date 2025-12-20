@@ -1,3 +1,4 @@
+// [DEPRECATED][UNUSED] BusRouteControlled: legacy controlled animation component.
 import React, { useEffect, useRef, useImperativeHandle } from "react";
 import { useMap } from "react-leaflet";
 import L from "leaflet";

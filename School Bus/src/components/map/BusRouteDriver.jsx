@@ -43,7 +43,6 @@ export default function BusRouteDriver({
         cancelAnimationFrame(animRef.current);
         animRef.current = null;
       }
-      console.log('[BusRouteDriver] Animation paused by isRunning=false');
     } else if (isRunning && initializedRef.current && stateRef.current.paused && stepRef.current) {
       // Resume animation
       stateRef.current.paused = false;
@@ -53,7 +52,6 @@ export default function BusRouteDriver({
       if (!animRef.current && stateRef.current.segments && stateRef.current.segments.length > 0) {
         animRef.current = requestAnimationFrame(stepRef.current);
       }
-      console.log('[BusRouteDriver] Animation resumed by isRunning=true');
     }
   }, [isRunning]);
 
@@ -62,7 +60,7 @@ export default function BusRouteDriver({
     if (!map || waypoints.length < 2 || initializedRef.current || !isRunning) return;
     
     initializedRef.current = true;
-    console.log('[BusRouteDriver] Initializing DRIVER component');
+    console.log('[BusRouteDriver] Initializing');
 
     const latLngWaypoints = waypoints.map(([lat, lng]) => L.latLng(lat, lng));
 
@@ -75,7 +73,6 @@ export default function BusRouteDriver({
       }),
     }).addTo(map);
     
-    console.log('[BusRouteDriver] Bus marker created');
 
     // Draw baseline polyline
     baselinePolylineRef.current = L.polyline(latLngWaypoints, {
@@ -100,7 +97,7 @@ export default function BusRouteDriver({
         const coords = latLngWaypoints.map(wp => `${wp.lng},${wp.lat}`).join(';');
         const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`;
         
-        console.log('[BusRouteDriver] Direct OSRM call:', url);
+        // OSRM direct call
         
         const response = await fetch(url);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -116,7 +113,7 @@ export default function BusRouteDriver({
           throw new Error('No routes found');
         }
       } catch (error) {
-        console.warn('[BusRouteDriver] Direct OSRM failed:', error);
+        console.warn('[BusRouteDriver] OSRM failed, using fallback');
         clearTimeout(routingTimeout);
         drawFallback();
       }
@@ -126,14 +123,14 @@ export default function BusRouteDriver({
     fetchDirectOSRM();
 
     function drawFallback() {
-      console.log("[BusRouteDriver] Using fallback route");
+      // Fallback to straight polyline between waypoints
       const coords = latLngWaypoints;
       handleRoutesFound({ routes: [{ coordinates: coords }] });
     }
 
     function handleRoutesFound(e) {
       const coords = e.routes[0].coordinates;
-      console.log("[BusRouteDriver] Route found with", coords.length, "points");
+      console.log("[BusRouteDriver] Route resolved");
 
       // Update route polyline
       if (routePolylineRef.current) {
@@ -169,7 +166,6 @@ export default function BusRouteDriver({
       stateRef.current.pauseIndices = pauseIndices;
       stateRef.current.startTime = Date.now();
 
-      console.log("[BusRouteDriver] Segments:", segments.length, "Pause points:", pauseIndices.length);
 
       // Start animation if running
       if (isRunning && !stateRef.current.paused) {
