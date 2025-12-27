@@ -1,164 +1,155 @@
-// /backend/routes/busRoutes.js
+// ===================================
+// ROUTES/CONTROLLER: BUS (VERSION MỚI - CẢI TIẾN)
+// ===================================
+// Chức năng: XỬ LÝ HTTP REQUEST/RESPONSE
+// - Nhận request từ client
+// - Gọi service xử lý
+// - Trả response cho client
+// - KHÔNG chứa logic nghiệp vụ, KHÔNG truy vấn database trực tiếp
+// ===================================
 
-import express from "express";
-import pool from "../config/db.js";
+import express from 'express';
+import BusService from '../services/busService.js';
 
 const router = express.Router();
 
+/**
+ * Helper function: Xử lý lỗi thống nhất
+ */
+const handleError = (res, error, defaultStatus = 500) => {
+  console.error('❌ Error:', error.message);
+  
+  // Xác định status code dựa trên loại lỗi
+  let statusCode = defaultStatus;
+  
+  if (error.message.includes('không hợp lệ') || 
+      error.message.includes('bắt buộc') ||
+      error.message.includes('đã tồn tại')) {
+    statusCode = 400; // Bad Request
+  } else if (error.message.includes('Không tìm thấy')) {
+    statusCode = 404; // Not Found
+  }
+
+  res.status(statusCode).json({
+    success: false,
+    message: error.message,
+    error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+  });
+};
+
+// ===================================
 // GET /api/buses - Lấy danh sách tất cả xe bus
-router.get("/", async (req, res) => {
+// ===================================
+router.get('/', async (req, res) => {
   try {
-    const [rows] = await pool.execute("SELECT * FROM buses");
+    const buses = await BusService.getAllBuses();
+    
     res.json({
       success: true,
-      data: rows,
+      data: buses,
+      count: buses.length
     });
   } catch (error) {
-    console.error("Error fetching buses:", error);
-    res.status(500).json({
-      success: false,
-      message: "Lỗi khi lấy danh sách xe bus",
-      error: error.message,
-    });
+    handleError(res, error);
   }
 });
 
-// // GET /api/buses/:id - Lấy thông tin xe bus theo ID
-// router.get("/:id", async (req, res) => {
-//   try {
-//     const { id } = req.params;
-//     const [rows] = await pool.execute("SELECT * FROM buses WHERE id = ?", [id]);
-
-//     if (rows.length === 0) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Không tìm thấy xe bus",
-//       });
-//     }
-
-//     res.json({
-//       success: true,
-//       data: rows[0],
-//     });
-//   } catch (error) {
-//     console.error("Error fetching bus:", error);
-//     res.status(500).json({
-//       success: false,
-//       message: "Lỗi khi lấy thông tin xe bus",
-//       error: error.message,
-//     });
-//   }
-// });
-
-// POST /api/buses - Tạo xe bus mới
-router.post("/", async (req, res) => {
+// ===================================
+// GET /api/buses/active - Lấy xe bus đang hoạt động
+// ===================================
+router.get('/active', async (req, res) => {
   try {
-    const { bus_number, license_plate, status } = req.body;
+    const buses = await BusService.getActiveBuses();
+    
+    res.json({
+      success: true,
+      data: buses,
+      count: buses.length
+    });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
 
-    // Validation cơ bản
-    if (!bus_number || !license_plate) {
-      return res.status(400).json({
-        success: false,
-        message: "Mã xe và biển số xe là bắt buộc",
-      });
-    }
+// ===================================
+// GET /api/buses/:id - Lấy thông tin xe bus theo ID
+// ===================================
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const bus = await BusService.getBusById(id);
+    
+    res.json({
+      success: true,
+      data: bus
+    });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
 
-    const [result] = await pool.execute(
-      "INSERT INTO buses (bus_number, license_plate, status) VALUES (?, ?, ?)",
-      [bus_number, license_plate, status || "active"]
-    );
-
-    // Lấy thông tin xe vừa tạo
-    const [newBus] = await pool.execute("SELECT * FROM buses WHERE id = ?", [
-      result.insertId,
-    ]);
-
+// ===================================
+// POST /api/buses - Tạo xe bus mới
+// ===================================
+router.post('/', async (req, res) => {
+  try {
+    console.log('🔹 ROUTES: Nhận request POST /api/buses');
+    console.log('📦 ROUTES: Body nhận được:', req.body);
+    
+    const busData = req.body;
+    
+    console.log('🔹 ROUTES: Đang gọi BusService.createBus()...');
+    const newBus = await BusService.createBus(busData);
+    
+    console.log('✅ ROUTES: Service trả về xe bus:', newBus);
+    console.log('🔹 ROUTES: Gửi response 201 cho client');
+    
     res.status(201).json({
       success: true,
-      message: "Tạo xe bus thành công",
-      data: newBus[0],
+      message: 'Tạo xe bus thành công',
+      data: newBus
     });
   } catch (error) {
-    console.error("Error creating bus:", error);
-    res.status(500).json({
-      success: false,
-      message: "Lỗi khi tạo xe bus",
-      error: error.message,
-    });
+    console.error('❌ ROUTES: Lỗi xảy ra:', error.message);
+    handleError(res, error);
   }
 });
 
+// ===================================
 // PUT /api/buses/:id - Cập nhật thông tin xe bus
-router.put("/:id", async (req, res) => {
+// ===================================
+router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { bus_number, license_plate, status } = req.body;
-
-    if (!bus_number || !license_plate) {
-      return res.status(400).json({
-        success: false,
-        message: "Mã xe và biển số xe là bắt buộc",
-      });
-    }
-
-    const [result] = await pool.execute(
-      "UPDATE buses SET bus_number = ?, license_plate = ?, status = ? WHERE id = ?",
-      [bus_number, license_plate, status, id]
-    );
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Không tìm thấy xe bus để cập nhật",
-      });
-    }
-
-    // Lấy thông tin xe đã cập nhật
-    const [updatedBus] = await pool.execute(
-      "SELECT * FROM buses WHERE id = ?",
-      [id]
-    );
-
+    const busData = req.body;
+    
+    const updatedBus = await BusService.updateBus(id, busData);
+    
     res.json({
       success: true,
-      message: "Cập nhật xe bus thành công",
-      data: updatedBus[0],
+      message: 'Cập nhật xe bus thành công',
+      data: updatedBus
     });
   } catch (error) {
-    console.error("Error updating bus:", error);
-    res.status(500).json({
-      success: false,
-      message: "Lỗi khi cập nhật xe bus",
-      error: error.message,
-    });
+    handleError(res, error);
   }
 });
 
+// ===================================
 // DELETE /api/buses/:id - Xóa xe bus
-router.delete("/:id", async (req, res) => {
+// ===================================
+router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-
-    const [result] = await pool.execute("DELETE FROM buses WHERE id = ?", [id]);
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Không tìm thấy xe bus để xóa",
-      });
-    }
-
+    
+    await BusService.deleteBus(id);
+    
     res.json({
       success: true,
-      message: "Xóa xe bus thành công",
+      message: 'Xóa xe bus thành công'
     });
   } catch (error) {
-    console.error("Error deleting bus:", error);
-    res.status(500).json({
-      success: false,
-      message: "Lỗi khi xóa xe bus",
-      error: error.message,
-    });
+    handleError(res, error);
   }
 });
 

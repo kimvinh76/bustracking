@@ -79,10 +79,4 @@ app.use('*', (req, res) => {
 busTrackingSocket.init(server);
 
 // Start server
-server.listen(PORT, () => {
-    console.log(`🚀 Backend server đang chạy tại http://localhost:${PORT}`);
-    console.log(`🔌 WebSocket server đang chạy tại ws://localhost:${PORT}`);
-    console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
-    console.log(`🚌 Bus API: http://localhost:${PORT}/api/buses`);
-    console.log(`🌍 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
-});
+server.listen(PORT);
