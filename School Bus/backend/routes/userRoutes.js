@@ -1,94 +1,82 @@
+// /backend/routes/userRoutes.js
 import express from "express";
-import pool from "../config/db.js";
+import UserService from "../services/userService.js";
 
 const router = express.Router();
 
 // GET /api/users → Lấy danh sách user
 router.get("/", async (req, res) => {
+    console.log('🔹 GET /api/users - Lấy danh sách user');
     try {
-        const [rows] = await pool.query("SELECT id, username, email, role, created_at, updated_at FROM users ORDER BY id DESC");
-        res.json(rows);
+        const users = await UserService.getAllUsers();
+        console.log(`✅ Lấy thành công ${users.length} user`);
+        res.json(users);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Lỗi server", error: err.message });
+        console.error('❌ Lỗi khi lấy danh sách user:', err.message);
+        res.status(500).json({ message: err.message });
     }
 });
 
 // GET /api/users/:id → Lấy 1 user
 router.get("/:id", async (req, res) => {
+    console.log(`🔹 GET /api/users/${req.params.id} - Lấy thông tin user`);
     try {
-        const [rows] = await pool.query("SELECT id, username, email, role, created_at, updated_at FROM users WHERE id = ?", [req.params.id]);
-        res.json(rows[0] || null);
+        const user = await UserService.getUserById(req.params.id);
+        if (!user) {
+            console.log('❌ Không tìm thấy user');
+            return res.status(404).json({ message: 'Không tìm thấy user' });
+        }
+        console.log(`✅ Lấy thông tin user ${user.username}`);
+        res.json(user);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Lỗi server", error: err.message });
+        console.error('❌ Lỗi khi lấy user:', err.message);
+        res.status(500).json({ message: err.message });
     }
 });
 
 // POST /api/users → Thêm user mới
 router.post("/", async (req, res) => {
+    console.log('🔹 POST /api/users - Thêm user mới');
     try {
-        const { username, email, password, role } = req.body;
-
-        if (!username || !email || !password) {
-            return res.status(400).json({ message: "Username, email và password bắt buộc" });
-        }
-
-        const [result] = await pool.query(
-            "INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)",
-            [username, email, password, role || "parent"]
-        );
-
-        // Trả về created user data với timestamps
-        const [createdRows] = await pool.query(
-            "SELECT id, username, email, role, created_at, updated_at FROM users WHERE id = ?",
-            [result.insertId]
-        );
-
-        res.json(createdRows[0]);
+        const userData = req.body;
+        const newUser = await UserService.createUser(userData);
+        console.log(`✅ Tạo user thành công: ${newUser.username}`);
+        res.json(newUser);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Lỗi server", error: err.message });
+        console.error('❌ Lỗi khi tạo user:', err.message);
+        const statusCode = err.message.includes('Thiếu thông tin') || err.message.includes('đã tồn tại') ? 400 : 500;
+        res.status(statusCode).json({ message: err.message });
     }
 });
 
 // PUT /api/users/:id → Cập nhật user
 router.put("/:id", async (req, res) => {
+    console.log(`🔹 PUT /api/users/${req.params.id} - Cập nhật user`);
     try {
-        let { username, email, password, role } = req.body;
-
-        if (!password) {
-            // giữ nguyên password cũ
-            const [rows] = await pool.query("SELECT password FROM users WHERE id = ?", [req.params.id]);
-            password = rows[0]?.password || "";
-        }
-
-        await pool.query(
-            "UPDATE users SET username = ?, email = ?, role = ?, password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-            [username, email, role || "parent", password, req.params.id]
-        );
-
-        // Trả về updated user data
-        const [updatedRows] = await pool.query(
-            "SELECT id, username, email, role, created_at, updated_at FROM users WHERE id = ?", 
-            [req.params.id]
-        );
-
-        res.json(updatedRows[0]);
+        const { id } = req.params;
+        const userData = req.body;
+        const updatedUser = await UserService.updateUser(id, userData);
+        console.log(`✅ Cập nhật user thành công: ${updatedUser.username}`);
+        res.json(updatedUser);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Lỗi server", error: err.message });
+        console.error('❌ Lỗi khi cập nhật user:', err.message);
+        const statusCode = err.message.includes('Không tìm thấy') ? 404 :
+                           err.message.includes('đã tồn tại') ? 400 : 500;
+        res.status(statusCode).json({ message: err.message });
     }
 });
 
 // DELETE /api/users/:id → Xóa user
 router.delete("/:id", async (req, res) => {
+    console.log(`🔹 DELETE /api/users/${req.params.id} - Xóa user`);
     try {
-        await pool.query("DELETE FROM users WHERE id = ?", [req.params.id]);
+        await UserService.deleteUser(req.params.id);
+        console.log(`✅ Xóa user thành công`);
         res.json({ message: "Xóa thành công" });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Lỗi server", error: err.message });
+        console.error('❌ Lỗi khi xóa user:', err.message);
+        const statusCode = err.message.includes('Không tìm thấy') ? 404 : 500;
+        res.status(statusCode).json({ message: err.message });
     }
 });
 

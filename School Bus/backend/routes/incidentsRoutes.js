@@ -1,203 +1,145 @@
+// /backend/routes/incidentsRoutes.js
 import express from 'express';
-import pool from '../config/db.js';
+import IncidentService from '../services/incidentService.js';
 
 const router = express.Router();
 
 // Tạo sự cố mới
 router.post('/create', async (req, res) => {
+    console.log('🔹 POST /api/incidents/create - Tạo sự cố mới');
     try {
-        const { driver_id, bus_id, route_id, incident_type, description, latitude, longitude, severity } = req.body;
-
-        if (!driver_id || !incident_type || !description) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Thiếu thông tin bắt buộc: driver_id, incident_type, description' 
-            });
-        }
-
-        // Chuyển undefined thành null để MySQL chấp nhận
-        const [result] = await pool.execute(
-            `INSERT INTO incidents (driver_id, bus_id, route_id, incident_type, description, 
-             latitude, longitude, severity, status, created_at) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())`,
-            [
-                driver_id, 
-                bus_id || null, 
-                route_id || null, 
-                incident_type, 
-                description, 
-                latitude || null, 
-                longitude || null, 
-                severity || 'medium'
-            ]
-        );
-
-        // Lấy sự cố vừa tạo để trả về với thông tin đầy đủ
-        const [incident] = await pool.execute(
-            `SELECT i.*, d.name as driver_name, b.bus_number, r.route_name 
-             FROM incidents i
-             LEFT JOIN drivers d ON i.driver_id = d.id
-             LEFT JOIN buses b ON i.bus_id = b.id
-             LEFT JOIN routes r ON i.route_id = r.id
-             WHERE i.id = ?`,
-            [result.insertId]
-        );
-
+        const incidentData = req.body;
+        const incident = await IncidentService.createIncident(incidentData);
+        
+        console.log(`✅ Báo cáo sự cố đã được tạo thành công: ${incident.incident_type}`);
         res.status(201).json({
             success: true,
             message: 'Báo cáo sự cố đã được tạo thành công',
-            incident: incident[0]
+            incident: incident
         });
     } catch (error) {
-        console.error('Lỗi tạo sự cố:', error);
-        console.error('Chi tiết lỗi:', error.message);
-        console.error('Stack trace:', error.stack);
-        res.status(500).json({ 
+        console.error('❌ Lỗi tạo sự cố:', error.message);
+        const statusCode = error.message.includes('Thiếu thông tin') || error.message.includes('không tồn tại') ? 400 : 500;
+        res.status(statusCode).json({ 
             success: false, 
-            message: 'Lỗi server khi tạo sự cố: ' + error.message 
+            message: error.message
         });
     }
 });
 
 // Lấy danh sách sự cố (cho admin)
 router.get('/', async (req, res) => {
+    console.log('🔹 GET /api/incidents - Lấy danh sách sự cố');
     try {
         const { status, severity, route_id, limit = 50, offset = 0 } = req.query;
         
-        let query = `
-            SELECT i.*, d.name as driver_name, d.phone as driver_phone, 
-                   b.bus_number, r.route_name
-            FROM incidents i
-            LEFT JOIN drivers d ON i.driver_id = d.id
-            LEFT JOIN buses b ON i.bus_id = b.id
-            LEFT JOIN routes r ON i.route_id = r.id
-            WHERE 1=1
-        `;
-        const params = [];
-
+        // Lấy theo filter
+        let incidents;
         if (status) {
-            query += ' AND i.status = ?';
-            params.push(status);
-        }
-        if (severity) {
-            query += ' AND i.severity = ?';
-            params.push(severity);
-        }
-        if (route_id) {
-            query += ' AND i.route_id = ?';
-            params.push(route_id);
+            incidents = await IncidentService.getIncidentsByStatus(status);
+        } else if (severity) {
+            incidents = await IncidentService.getIncidentsBySeverity(severity);
+        } else if (route_id) {
+            incidents = await IncidentService.getIncidentsByRoute(route_id);
+        } else {
+            incidents = await IncidentService.getAllIncidents();
         }
 
-        query += ' ORDER BY i.created_at DESC LIMIT ? OFFSET ?';
-        params.push(parseInt(limit), parseInt(offset));
+        // Pagination
+        const startIndex = parseInt(offset);
+        const endIndex = startIndex + parseInt(limit);
+        const paginatedIncidents = incidents.slice(startIndex, endIndex);
 
-        const [incidents] = await pool.execute(query, params);
-
-        // Đếm tổng số sự cố để phân trang
-        const [countResult] = await pool.execute(
-            'SELECT COUNT(*) as total FROM incidents i WHERE 1=1' + 
-            (status ? ' AND i.status = ?' : '') +
-            (severity ? ' AND i.severity = ?' : '') +
-            (route_id ? ' AND i.route_id = ?' : ''),
-            params.slice(0, -2) // Loại bỏ limit và offset
-        );
-
+        console.log(`✅ Lấy ${paginatedIncidents.length}/${incidents.length} sự cố`);
         res.json({
             success: true,
-            incidents,
+            incidents: paginatedIncidents,
             pagination: {
-                total: countResult[0].total,
+                total: incidents.length,
                 limit: parseInt(limit),
                 offset: parseInt(offset),
-                hasMore: countResult[0].total > parseInt(offset) + parseInt(limit)
+                hasMore: incidents.length > endIndex
             }
         });
     } catch (error) {
-        console.error('Lỗi lấy danh sách sự cố:', error);
+        console.error('❌ Lỗi lấy danh sách sự cố:', error.message);
         res.status(500).json({ 
             success: false, 
-            message: 'Lỗi server khi lấy danh sách sự cố' 
+            message: error.message
         });
     }
 });
 
 // Lấy sự cố theo route_id (cho parent)
 router.get('/route/:routeId', async (req, res) => {
+    console.log(`🔹 GET /api/incidents/route/${req.params.routeId} - Lấy sự cố theo tuyến`);
     try {
         const { routeId } = req.params;
-        const { status = 'pending,investigating' } = req.query;
+        const { status = 'reported,in_progress' } = req.query;
         
+        // Lấy sự cố theo route
+        const allIncidents = await IncidentService.getIncidentsByRoute(routeId);
+        
+        // Filter theo status
         const statusList = status.split(',').map(s => s.trim());
-        const placeholders = statusList.map(() => '?').join(',');
-        
-        const [incidents] = await pool.execute(
-            `SELECT i.*, d.name as driver_name, b.bus_number, r.route_name
-             FROM incidents i
-             LEFT JOIN drivers d ON i.driver_id = d.id
-             LEFT JOIN buses b ON i.bus_id = b.id
-             LEFT JOIN routes r ON i.route_id = r.id
-             WHERE i.route_id = ? AND i.status IN (${placeholders})
-             ORDER BY i.created_at DESC
-             LIMIT 10`,
-            [routeId, ...statusList]
-        );
+        const filteredIncidents = allIncidents
+            .filter(incident => statusList.includes(incident.status))
+            .slice(0, 10); // Limit 10
 
+        console.log(`✅ Lấy ${filteredIncidents.length} sự cố của tuyến`);
         res.json({
             success: true,
-            incidents
+            incidents: filteredIncidents
         });
     } catch (error) {
-        // Bảng incidents chưa tồn tại - trả về mảng rỗng thay vì spam log
-        if (error.code === 'ER_NO_SUCH_TABLE') {
-            return res.json({
-                success: true,
-                incidents: []
-            });
-        }
-        console.error('Lỗi lấy sự cố theo route:', error);
+        console.error('❌ Lỗi lấy sự cố theo route:', error.message);
         res.status(500).json({ 
             success: false, 
-            message: 'Lỗi server khi lấy sự cố theo tuyến' 
+            message: error.message
         });
     }
 });
 
 // Cập nhật trạng thái sự cố (cho admin)
 router.put('/:id/status', async (req, res) => {
+    console.log(`🔹 PUT /api/incidents/${req.params.id}/status - Cập nhật trạng thái sự cố`);
     try {
         const { id } = req.params;
         const { status, admin_notes } = req.body;
 
         if (!status) {
+            console.log('❌ Thiếu trạng thái cần cập nhật');
             return res.status(400).json({
                 success: false,
                 message: 'Thiếu trạng thái cần cập nhật'
             });
         }
 
-        const validStatuses = ['pending', 'investigating', 'resolved', 'dismissed'];
+        const validStatuses = ['reported', 'in_progress', 'resolved', 'closed'];
         if (!validStatuses.includes(status)) {
+            console.log('❌ Trạng thái không hợp lệ');
             return res.status(400).json({
                 success: false,
                 message: 'Trạng thái không hợp lệ'
             });
         }
 
-        await pool.execute(
-            `UPDATE incidents SET status = ?, admin_notes = ?, resolved_at = ${status === 'resolved' ? 'NOW()' : 'resolved_at'}
-             WHERE id = ?`,
-            [status, admin_notes, id]
-        );
-
+        await IncidentService.updateIncidentStatus(id, status, admin_notes);
+        console.log(`✅ Đã cập nhật trạng thái sự cố thành ${status}`);
+        
         res.json({
             success: true,
             message: 'Đã cập nhật trạng thái sự cố'
         });
     } catch (error) {
-        console.error('Lỗi cập nhật sự cố:', error);
-        res.status(500).json({ 
+        console.error('❌ Lỗi cập nhật sự cố:', error.message);
+        const statusCode = error.message.includes('Không tìm thấy') ? 404 : 500;
+        res.status(statusCode).json({ 
             success: false, 
-            message: 'Lỗi server khi cập nhật sự cố' 
+            message: error.message
+        });
+    }
+}); 
         });
     }
 });

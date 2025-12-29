@@ -1,172 +1,102 @@
 // /backend/routes/parentsRoutes.js
-
 import express from 'express';
-import pool from '../config/db.js';
+import ParentService from '../services/parentService.js';
 
 const router = express.Router();
 
-const sendError = (res, err, msg = 'Lỗi server') => {
-  console.error(msg, err);
-  return res.status(500).json({ success: false, message: msg, error: err?.message });
-};
-
-const getParentById = async (id) => {
-  const [rows] = await pool.execute(
-    `SELECT p.id, p.name, COALESCE(u.email, 'Chưa có') AS email, COALESCE(u.username, '') AS username, p.phone, p.address, p.relationship, 'active' AS status, p.user_id
-     FROM parents p LEFT JOIN users u ON p.user_id = u.id WHERE p.id = ?`,
-    [id]
-  );
-  return rows[0];
-};
-
 // GET /api/parents - danh sách phụ huynh
 router.get('/', async (req, res) => {
+  console.log('🔹 GET /api/parents - Lấy danh sách phụ huynh');
   try {
-    const [rows] = await pool.execute(`
-      SELECT p.id, p.name, COALESCE(u.email, 'Chưa có') AS email, COALESCE(u.username, '') AS username, p.phone, p.address, p.relationship, 'active' AS status,
-             COUNT(s.id) AS children_count, GROUP_CONCAT(s.name SEPARATOR ', ') AS children_names
-      FROM parents p
-      LEFT JOIN users u ON p.user_id = u.id
-      LEFT JOIN students s ON p.id = s.parent_id
-      GROUP BY p.id, p.name, u.email, u.username, p.phone, p.address, p.relationship
-      ORDER BY p.id DESC
-    `);
-    res.json({ success: true, data: rows, count: rows.length });
+    const parents = await ParentService.getAllParents();
+    console.log(`✅ Lấy thành công ${parents.length} phụ huynh`);
+    res.json({ success: true, data: parents, count: parents.length });
   } catch (err) {
-    sendError(res, err, 'Lỗi khi lấy danh sách phụ huynh');
+    console.error('❌ Lỗi khi lấy danh sách phụ huynh:', err.message);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
 // GET /api/parents/:id
 router.get('/:id', async (req, res) => {
+  console.log(`🔹 GET /api/parents/${req.params.id} - Lấy thông tin phụ huynh`);
   try {
-    const parent = await getParentById(req.params.id);
-    if (!parent) return res.status(404).json({ success: false, message: 'Không tìm thấy phụ huynh' });
+    const parent = await ParentService.getParentById(req.params.id);
+    if (!parent) {
+      console.log('❌ Không tìm thấy phụ huynh');
+      return res.status(404).json({ success: false, message: 'Không tìm thấy phụ huynh' });
+    }
+    console.log(`✅ Lấy thông tin phụ huynh ${parent.name}`);
     res.json({ success: true, data: parent });
   } catch (err) {
-    sendError(res, err, 'Lỗi khi lấy thông tin phụ huynh');
+    console.error('❌ Lỗi khi lấy thông tin phụ huynh:', err.message);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
 // GET /api/parents/:id/children
 router.get('/:id/children', async (req, res) => {
+  console.log(`🔹 GET /api/parents/${req.params.id}/children - Lấy danh sách con`);
   try {
     const { id } = req.params;
-    const [children] = await pool.execute(`
-      SELECT s.id, s.name, s.grade, s.class, c.class_name, s.address, s.phone AS student_phone, s.status,
-             s.morning_route_id, mr.route_name AS morning_route_name, s.morning_pickup_stop_id, mps.name AS morning_pickup_stop_name,
-             s.afternoon_route_id, ar.route_name AS afternoon_route_name, s.afternoon_dropoff_stop_id, ads.name AS afternoon_dropoff_stop_name
-      FROM students s
-      LEFT JOIN classes c ON s.class_id = c.id
-      LEFT JOIN routes mr ON s.morning_route_id = mr.id
-      LEFT JOIN routes ar ON s.afternoon_route_id = ar.id
-      LEFT JOIN stops mps ON s.morning_pickup_stop_id = mps.id
-      LEFT JOIN stops ads ON s.afternoon_dropoff_stop_id = ads.id
-      WHERE s.parent_id = ? AND s.status = 'active' ORDER BY s.name ASC
-    `, [id]);
-    res.json({ success: true, data: children, count: children.length });
+    const parent = await ParentService.getParentWithChildren(id);
+    if (!parent) {
+      console.log('❌ Không tìm thấy phụ huynh');
+      return res.status(404).json({ success: false, message: 'Không tìm thấy phụ huynh' });
+    }
+    console.log(`✅ Lấy ${parent.children.length} con của phụ huynh ${parent.name}`);
+    res.json({ success: true, data: parent.children, count: parent.children.length });
   } catch (err) {
-    sendError(res, err, 'Lỗi khi lấy danh sách con');
+    console.error('❌ Lỗi khi lấy danh sách con:', err.message);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
 // POST /api/parents - thêm phụ huynh
 router.post('/', async (req, res) => {
+  console.log('🔹 POST /api/parents - Thêm phụ huynh mới');
   try {
-  const { name, username, email, phone, address, relationship } = req.body;
-    if (!name || !phone) return res.status(400).json({ success: false, message: 'Thiếu thông tin bắt buộc: tên và số điện thoại' });
-
-    const [existingPhone] = await pool.execute('SELECT id FROM parents WHERE phone = ?', [phone]);
-    if (existingPhone.length) return res.status(400).json({ success: false, message: 'Số điện thoại đã tồn tại' });
-
-    let user_id = null;
-    if (email && email !== '') {
-     
-      if (!username) return res.status(400).json({ success: false, message: 'Username là bắt buộc khi tạo tài khoản phụ huynh' });
-
-   
-      const [existingUsername] = await pool.execute('SELECT id FROM users WHERE username = ?', [username]);
-      if (existingUsername.length) return res.status(400).json({ success: false, message: 'Username đã tồn tại' });
-
-      const [existingEmail] = await pool.execute('SELECT id FROM users WHERE email = ?', [email]);
-      if (existingEmail.length) return res.status(400).json({ success: false, message: 'Email đã tồn tại' });
-
-      const defaultPassword = 'parent123'; // Password thống nhất
-
-      const [userResult] = await pool.execute('INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, "parent")', [username, email, defaultPassword]);
-      user_id = userResult.insertId;
-    }
-
-    const [result] = await pool.execute('INSERT INTO parents (name, phone, address, relationship, user_id) VALUES (?, ?, ?, ?, ?)', [name, phone, address || null, relationship || 'Phụ huynh', user_id]);
-    const parent = await getParentById(result.insertId);
+    const parentData = req.body;
+    const parent = await ParentService.createParent(parentData);
+    console.log(`✅ Thêm phụ huynh thành công: ${parent.name}`);
     res.status(201).json({ success: true, message: 'Thêm phụ huynh thành công', data: parent });
   } catch (err) {
-    sendError(res, err, 'Lỗi khi thêm phụ huynh');
+    console.error('❌ Lỗi khi thêm phụ huynh:', err.message);
+    const statusCode = err.message.includes('Thiếu thông tin') || err.message.includes('đã tồn tại') ? 400 : 500;
+    res.status(statusCode).json({ success: false, message: err.message });
   }
 });
 
 // PUT /api/parents/:id - cập nhật phụ huynh
 router.put('/:id', async (req, res) => {
+  console.log(`🔹 PUT /api/parents/${req.params.id} - Cập nhật phụ huynh`);
   try {
     const { id } = req.params;
-  const { name, username, email, phone, address, relationship } = req.body;
-    const [existing] = await pool.execute('SELECT id, user_id FROM parents WHERE id = ?', [id]);
-    if (!existing.length) return res.status(404).json({ success: false, message: 'Không tìm thấy phụ huynh' });
-
-    const [existingPhone] = await pool.execute('SELECT id FROM parents WHERE phone = ? AND id != ?', [phone, id]);
-    if (existingPhone.length) return res.status(400).json({ success: false, message: 'Số điện thoại đã tồn tại' });
-
-    let user_id = existing[0].user_id;
-    if (email && email !== '' && email !== 'Chưa có') {
-      if (user_id) {
-
-        const [existingEmail] = await pool.execute('SELECT id FROM users WHERE email = ? AND id != ?', [email, user_id]);
-        if (existingEmail.length) return res.status(400).json({ success: false, message: 'Email đã tồn tại' });
-
-        if (username) {
-          const [existingUsername] = await pool.execute('SELECT id FROM users WHERE username = ? AND id != ?', [username, user_id]);
-          if (existingUsername.length) return res.status(400).json({ success: false, message: 'Username đã tồn tại' });
-          await pool.execute('UPDATE users SET email = ?, username = ? WHERE id = ?', [email, username, user_id]);
-        } else {
-          await pool.execute('UPDATE users SET email = ? WHERE id = ?', [email, user_id]);
-        }
-      } else {
-   
-        if (!username) return res.status(400).json({ success: false, message: 'Username là bắt buộc khi tạo tài khoản phụ huynh' });
-        const [existingEmail] = await pool.execute('SELECT id FROM users WHERE email = ?', [email]);
-        if (existingEmail.length) return res.status(400).json({ success: false, message: 'Email đã tồn tại' });
-        const [existingUsername] = await pool.execute('SELECT id FROM users WHERE username = ?', [username]);
-        if (existingUsername.length) return res.status(400).json({ success: false, message: 'Username đã tồn tại' });
-        const defaultPassword = '123456';
-        const [userResult] = await pool.execute('INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, "parent")', [username, email, defaultPassword]);
-        user_id = userResult.insertId;
-      }
-    } else if ((!email || email === '' || email === 'Chưa có') && user_id) {
-      await pool.execute('DELETE FROM users WHERE id = ?', [user_id]);
-      user_id = null;
-    }
-
-    await pool.execute('UPDATE parents SET name = ?, phone = ?, address = ?, relationship = ?, user_id = ? WHERE id = ?', [name, phone, address || null, relationship || 'Phụ huynh', user_id, id]);
-    const parent = await getParentById(id);
+    const parentData = req.body;
+    const parent = await ParentService.updateParent(id, parentData);
+    console.log(`✅ Cập nhật phụ huynh thành công: ${parent.name}`);
     res.json({ success: true, message: 'Cập nhật phụ huynh thành công', data: parent });
   } catch (err) {
-    sendError(res, err, 'Lỗi khi cập nhật phụ huynh');
+    console.error('❌ Lỗi khi cập nhật phụ huynh:', err.message);
+    const statusCode = err.message.includes('Không tìm thấy') ? 404 : 
+                       err.message.includes('Thiếu thông tin') || err.message.includes('đã tồn tại') ? 400 : 500;
+    res.status(statusCode).json({ success: false, message: err.message });
   }
 });
 
 // DELETE /api/parents/:id
 router.delete('/:id', async (req, res) => {
+  console.log(`🔹 DELETE /api/parents/${req.params.id} - Xóa phụ huynh`);
   try {
     const { id } = req.params;
-    const [existing] = await pool.execute('SELECT id, user_id FROM parents WHERE id = ?', [id]);
-    if (!existing.length) return res.status(404).json({ success: false, message: 'Không tìm thấy phụ huynh' });
-    const [children] = await pool.execute('SELECT id FROM students WHERE parent_id = ?', [id]);
-    if (children.length) return res.status(400).json({ success: false, message: 'Không thể xóa phụ huynh vì còn có con đang học' });
-    await pool.execute('DELETE FROM parents WHERE id = ?', [id]);
-    if (existing[0].user_id) await pool.execute('DELETE FROM users WHERE id = ?', [existing[0].user_id]);
+    await ParentService.deleteParent(id);
+    console.log(`✅ Xóa phụ huynh thành công`);
     res.json({ success: true, message: 'Xóa phụ huynh thành công' });
   } catch (err) {
-    sendError(res, err, 'Lỗi khi xóa phụ huynh');
+    console.error('❌ Lỗi khi xóa phụ huynh:', err.message);
+    const statusCode = err.message.includes('Không tìm thấy') ? 404 : 
+                       err.message.includes('còn có con') ? 400 : 500;
+    res.status(statusCode).json({ success: false, message: err.message });
   }
 });
 

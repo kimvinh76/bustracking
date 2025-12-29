@@ -72,6 +72,23 @@ router.get('/active', async (req, res) => {
 });
 
 // ===================================
+// GET /api/buses/license/:license_plate - Tìm xe bus theo biển số
+// ===================================
+router.get('/license/:license_plate', async (req, res) => {
+  try {
+    const { license_plate } = req.params;
+    const bus = await BusService.getBusByLicensePlate(license_plate);
+    
+    res.json({
+      success: true,
+      data: bus
+    });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+// ===================================
 // GET /api/buses/:id - Lấy thông tin xe bus theo ID
 // ===================================
 router.get('/:id', async (req, res) => {

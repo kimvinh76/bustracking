@@ -142,6 +142,24 @@ class BusService {
   static async getActiveBuses() {
     return await BusModel.findByStatus('active');
   }
+
+  /**
+   * Lấy xe bus theo biển số
+   */
+  static async getBusByLicensePlate(licensePlate) {
+    // Validation
+    if (!licensePlate || licensePlate.trim() === '') {
+      throw new Error('Biển số xe không hợp lệ');
+    }
+
+    const bus = await BusModel.findByLicensePlate(licensePlate.trim());
+    
+    if (!bus) {
+      throw new Error(`Không tìm thấy xe bus với biển số ${licensePlate}`);
+    }
+
+    return bus;
+  }
 }
 
 export default BusService;

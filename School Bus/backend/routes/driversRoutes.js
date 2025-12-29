@@ -1,144 +1,116 @@
 // /backend/routes/driversRoutes.js
-
 import express from 'express';
-import pool from '../config/db.js';
+import DriverService from '../services/driverService.js';
 
 const router = express.Router();
 
-const sendError = (res, err, msg = 'Lỗi server') => {
-
-  return res.status(500).json({ success: false, message: msg, error: err?.message });
-};
-
-const getDriverById = async (id) => {
-  const [rows] = await pool.execute(
-    `SELECT d.*, u.email, u.username FROM drivers d LEFT JOIN users u ON d.user_id = u.id WHERE d.id = ?`,
-    [id]
-  );
-  return rows[0];
-};
-
 // GET /api/drivers - danh sách tài xế
 router.get('/', async (req, res) => {
+  console.log('🔹 GET /api/drivers - Lấy danh sách tài xế');
   try {
-    const [rows] = await pool.execute(`SELECT d.*, u.email, u.username FROM drivers d LEFT JOIN users u ON d.user_id = u.id ORDER BY d.id ASC`);
-    res.json({ success: true, data: rows, count: rows.length });
+    const drivers = await DriverService.getAllDrivers();
+    console.log(`✅ Lấy thành công ${drivers.length} tài xế`);
+    res.json({ success: true, data: drivers, count: drivers.length });
   } catch (err) {
-    sendError(res, err, 'Lỗi khi lấy danh sách tài xế');
+    console.error('❌ Lỗi khi lấy danh sách tài xế:', err.message);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
 // GET /api/drivers/by-user/:userId - lấy driver_id từ user_id (ĐẶT TRƯỚC /:id để tránh conflict)
 router.get('/by-user/:userId', async (req, res) => {
+  console.log(`🔹 GET /api/drivers/by-user/${req.params.userId} - Lấy driver_id từ user_id`);
   try {
     const { userId } = req.params;
-    const [rows] = await pool.execute('SELECT id FROM drivers WHERE user_id = ? AND status = "active"', [userId]);
-    if (!rows.length) return res.status(404).json({ success: false, message: 'Không tìm thấy tài xế với user_id này' });
-    res.json({ success: true, driver_id: rows[0].id });
+    const driver = await DriverService.getDriverByUserId(userId);
+    if (!driver) {
+      console.log('❌ Không tìm thấy tài xế với user_id này');
+      return res.status(404).json({ success: false, message: 'Không tìm thấy tài xế với user_id này' });
+    }
+    console.log(`✅ Tìm thấy driver_id: ${driver.id}`);
+    res.json({ success: true, driver_id: driver.id });
   } catch (err) {
-    sendError(res, err, 'Lỗi khi lấy driver_id từ user_id');
+    console.error('❌ Lỗi khi lấy driver_id từ user_id:', err.message);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
 // GET /api/drivers/:id
 router.get('/:id', async (req, res) => {
+  console.log(`🔹 GET /api/drivers/${req.params.id} - Lấy thông tin tài xế`);
   try {
-    const driver = await getDriverById(req.params.id);
-    if (!driver) return res.status(404).json({ success: false, message: 'Không tìm thấy tài xế' });
+    const driver = await DriverService.getDriverById(req.params.id);
+    if (!driver) {
+      console.log('❌ Không tìm thấy tài xế');
+      return res.status(404).json({ success: false, message: 'Không tìm thấy tài xế' });
+    }
+    console.log(`✅ Lấy thông tin tài xế ${driver.name}`);
     res.json({ success: true, data: driver });
   } catch (err) {
-    sendError(res, err, 'Lỗi khi lấy thông tin tài xế');
+    console.error('❌ Lỗi khi lấy thông tin tài xế:', err.message);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
 // POST /api/drivers - thêm tài xế
 router.post('/', async (req, res) => {
+  console.log('🔹 POST /api/drivers - Thêm tài xế mới');
   try {
-    const { name, phone, license_number, address, status = 'active' } = req.body;
-    if (!name || !phone || !license_number) return res.status(400).json({ success: false, message: 'Thiếu thông tin bắt buộc: tên, số điện thoại, số bằng lái' });
-
-    const [existing] = await pool.execute('SELECT id FROM drivers WHERE license_number = ?', [license_number]);
-    if (existing.length) return res.status(400).json({ success: false, message: 'Số bằng lái đã tồn tại' });
-
-    const username = `driver_${license_number}`;
-    const email = `${username}@schoolbus.com`;
-    const defaultPassword = "driver123";
-
-    let user_id = null;
-    try {
-      const [userResult] = await pool.execute('INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, "driver")', [username, email, defaultPassword]);
-      user_id = userResult.insertId;
-    } catch (userErr) {
-      if (userErr.code === 'ER_DUP_ENTRY') return res.status(400).json({ success: false, message: 'Tài khoản với số bằng lái này đã tồn tại' });
-      throw userErr;
-    }
-
-    const [result] = await pool.execute('INSERT INTO drivers (name, phone, license_number, address, status, user_id) VALUES (?, ?, ?, ?, ?, ?)', [name, phone, license_number, address || null, status, user_id]);
-    const driver = await getDriverById(result.insertId);
+    const driverData = req.body;
+    const driver = await DriverService.createDriver(driverData);
+    console.log(`✅ Thêm tài xế thành công: ${driver.name}`);
     res.status(201).json({ success: true, message: 'Thêm tài xế thành công', data: driver });
   } catch (err) {
-    sendError(res, err, 'Lỗi khi thêm tài xế');
+    console.error('❌ Lỗi khi thêm tài xế:', err.message);
+    const statusCode = err.message.includes('Thiếu thông tin') || err.message.includes('đã tồn tại') ? 400 : 500;
+    res.status(statusCode).json({ success: false, message: err.message });
   }
 });
 
 // PUT /api/drivers/:id - cập nhật tài xế
 router.put('/:id', async (req, res) => {
+  console.log(`🔹 PUT /api/drivers/${req.params.id} - Cập nhật tài xế`);
   try {
     const { id } = req.params;
-    const { name, phone, license_number, address, status } = req.body;
-
-    const [existing] = await pool.execute('SELECT id, user_id, license_number FROM drivers WHERE id = ?', [id]);
-    if (!existing.length) return res.status(404).json({ success: false, message: 'Không tìm thấy tài xế' });
-    const current = existing[0];
-
-    const [licenseExists] = await pool.execute('SELECT id FROM drivers WHERE license_number = ? AND id != ?', [license_number, id]);
-    if (licenseExists.length) return res.status(400).json({ success: false, message: 'Số bằng lái đã tồn tại' });
-  
-    const user_id = current.user_id;
-
-    await pool.execute('UPDATE drivers SET name = ?, phone = ?, license_number = ?, address = ?, status = ?, user_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [name, phone, license_number, address || null, status, user_id, id]);
-    const driver = await getDriverById(id);
+    const driverData = req.body;
+    const driver = await DriverService.updateDriver(id, driverData);
+    console.log(`✅ Cập nhật tài xế thành công: ${driver.name}`);
     res.json({ success: true, message: 'Cập nhật tài xế thành công', data: driver });
   } catch (err) {
-    sendError(res, err, 'Lỗi khi cập nhật tài xế');
+    console.error('❌ Lỗi khi cập nhật tài xế:', err.message);
+    const statusCode = err.message.includes('Không tìm thấy') ? 404 : 
+                       err.message.includes('đã tồn tại') ? 400 : 500;
+    res.status(statusCode).json({ success: false, message: err.message });
   }
 });
 
 // DELETE /api/drivers/:id
 router.delete('/:id', async (req, res) => {
+  console.log(`🔹 DELETE /api/drivers/${req.params.id} - Xóa tài xế`);
   try {
     const { id } = req.params;
-    const [existing] = await pool.execute('SELECT id, user_id FROM drivers WHERE id = ?', [id]);
-    if (!existing.length) return res.status(404).json({ success: false, message: 'Không tìm thấy tài xế' });
-    const driver = existing[0];
-    await pool.execute('DELETE FROM drivers WHERE id = ?', [id]);
-    if (driver.user_id) await pool.execute('DELETE FROM users WHERE id = ?', [driver.user_id]);
+    await DriverService.deleteDriver(id);
+    console.log(`✅ Xóa tài xế thành công`);
     res.json({ success: true, message: 'Xóa tài xế thành công' });
   } catch (err) {
-    sendError(res, err, 'Lỗi khi xóa tài xế');
+    console.error('❌ Lỗi khi xóa tài xế:', err.message);
+    const statusCode = err.message.includes('Không tìm thấy') ? 404 : 500;
+    res.status(statusCode).json({ success: false, message: err.message });
   }
 });
 
 // GET /api/drivers/:id/details - thông tin tài xế và lịch trình
 router.get('/:id/details', async (req, res) => {
+  console.log(`🔹 GET /api/drivers/${req.params.id}/details - Lấy chi tiết tài xế và lịch trình`);
   try {
     const { id } = req.params;
-    const driver = await getDriverById(id);
-    if (!driver) return res.status(404).json({ success: false, message: 'Không tìm thấy tài xế' });
-
-    const [scheduleRows] = await pool.execute(`
-      SELECT s.id, s.date, s.shift_type, s.scheduled_start_time AS start_time, s.scheduled_end_time AS end_time,
-             r.route_name, r.distance, b.bus_number, b.license_plate, b.status AS bus_status
-      FROM schedules s
-      JOIN routes r ON s.route_id = r.id
-      JOIN buses b ON s.bus_id = b.id
-      WHERE s.driver_id = ?
-      ORDER BY s.date DESC, s.scheduled_start_time ASC
-    `, [id]);
-
-    res.json({ success: true, data: { ...driver, schedules: scheduleRows } });
+    const details = await DriverService.getDriverDetails(id);
+    console.log(`✅ Lấy chi tiết tài xế với ${details.schedules.length} lịch trình`);
+    res.json({ success: true, data: details });
   } catch (err) {
-    sendError(res, err, 'Lỗi khi lấy thông tin chi tiết tài xế');
+    console.error('❌ Lỗi khi lấy thông tin chi tiết tài xế:', err.message);
+    const statusCode = err.message.includes('Không tìm thấy') ? 404 : 500;
+    res.status(statusCode).json({ success: false, message: err.message });
   }
 });
 

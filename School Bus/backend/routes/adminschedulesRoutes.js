@@ -1,126 +1,42 @@
 // /backend/routes/adminSchedulesRoutes.js
 import express from 'express';
-import pool from '../config/db.js';
+import ScheduleService from '../services/scheduleService.js';
 
 const router = express.Router();
 
-// Helper function to check schedule conflicts
-async function checkScheduleConflicts(driver_id, bus_id, route_id, date, shift_type, excludeId = null) {
-    const conflicts = [];
-    
-    // Check driver conflict
-    let driverQuery = `
-        SELECT id FROM schedules 
-        WHERE driver_id = ? AND date = ? AND shift_type = ?
-    `;
-    let driverParams = [driver_id, date, shift_type];
-    
-    if (excludeId) {
-        driverQuery += ' AND id != ?';
-        driverParams.push(excludeId);
-    }
-    
-    const [driverConflict] = await pool.execute(driverQuery, driverParams);
-    if (driverConflict.length > 0) {
-        conflicts.push({
-            type: 'DRIVER_CONFLICT',
-            message: `Tài xế đã có lịch trình khác vào ${date} ca ${shift_type === 'morning' ? 'sáng' : 'chiều'}`
-        });
-    }
-    
-    // Check bus conflict  
-    let busQuery = `
-        SELECT id FROM schedules 
-        WHERE bus_id = ? AND date = ? AND shift_type = ?
-    `;
-    let busParams = [bus_id, date, shift_type];
-    
-    if (excludeId) {
-        busQuery += ' AND id != ?';
-        busParams.push(excludeId);
-    }
-    
-    const [busConflict] = await pool.execute(busQuery, busParams);
-    if (busConflict.length > 0) {
-        conflicts.push({
-            type: 'BUS_CONFLICT',
-            message: `Xe bus đã có lịch trình khác vào ${date} ca ${shift_type === 'morning' ? 'sáng' : 'chiều'}`
-        });
-    }
-    
-    // Check route conflict
-    let routeQuery = `
-        SELECT id FROM schedules 
-        WHERE route_id = ? AND date = ? AND shift_type = ?
-    `;
-    let routeParams = [route_id, date, shift_type];
-    if (excludeId) {
-        routeQuery += ' AND id != ?';
-        routeParams.push(excludeId);
-    }
-
-    const [routeConflict] = await pool.execute(routeQuery, routeParams);
-    if (routeConflict.length > 0) {
-        conflicts.push({
-            type: 'ROUTE_CONFLICT',
-            message: `Tuyến đã có lịch trình khác vào ${date} ca ${shift_type === 'morning' ? 'sáng' : 'chiều'}`
-        });
-    }
-    
-    return conflicts;
-}
-
 // GET /api/admin-schedules - Lấy danh sách tất cả lịch trình
 router.get('/', async (req, res) => {
+    console.log('🔹 GET /api/admin-schedules - Lấy danh sách lịch trình');
     try {
-        const [rows] = await pool.execute(`
-            SELECT 
-                s.id,
-                s.driver_id,
-                s.bus_id,
-                s.route_id,
-                d.name AS driver_name,
-                b.bus_number,
-                b.license_plate,
-                r.route_name,
-                DATE_FORMAT(s.date, '%Y-%m-%d') as date,
-                s.shift_type,
-                s.scheduled_start_time as start_time,
-                s.scheduled_end_time as end_time,
-                s.student_count,
-                s.status,
-                s.notes
-            FROM schedules s
-            LEFT JOIN drivers d ON s.driver_id = d.id
-            LEFT JOIN buses b ON s.bus_id = b.id
-            LEFT JOIN routes r ON s.route_id = r.id
-            ORDER BY s.date DESC, s.scheduled_start_time ASC
-        `);
+        const schedules = await ScheduleService.getAllSchedules();
 
-        const formattedRows = rows.map(row => ({
+        const formattedRows = schedules.map(row => ({
             ...row,
             id: `CH${String(row.id).padStart(3, '0')}`,
             schedule_id: row.id,
-            shift_display: row.shift_type === 'morning' ? 'Ca Sáng' : 'Ca Chiều'
+            shift_display: row.shift_type === 'morning' ? 'Ca Sáng' : 'Ca Chiều',
+            start_time: row.scheduled_start_time,
+            end_time: row.scheduled_end_time
         }));
 
+        console.log(`✅ Lấy ${formattedRows.length} lịch trình`);
         res.json({
             success: true,
             data: formattedRows,
             count: formattedRows.length
         });
     } catch (error) {
-        console.error('Error fetching schedules:', error);
+        console.error('❌ Error fetching schedules:', error.message);
         res.status(500).json({
             success: false,
-            message: 'Lỗi khi lấy danh sách lịch trình',
-            error: error.message
+            message: error.message
         });
     }
 });
 
 // GET /api/admin-schedules/:id - Lấy thông tin một lịch trình
 router.get('/:id', async (req, res) => {
+    console.log(`🔹 GET /api/admin-schedules/${req.params.id} - Lấy chi tiết lịch trình`);
     try {
         let { id } = req.params;
         
@@ -129,74 +45,158 @@ router.get('/:id', async (req, res) => {
             id = parseInt(id.substring(2));
         }
         
-        const [rows] = await pool.execute(`
-            SELECT 
-                s.id,
-                s.driver_id,
-                s.bus_id,
-                s.route_id,
-                d.name AS driver_name,
-                b.bus_number,
-                r.route_name,
-                DATE_FORMAT(s.date, '%Y-%m-%d') as date,
-                s.shift_type,
-                s.scheduled_start_time as start_time,
-                s.scheduled_end_time as end_time,
-                s.student_count,
-                s.status,
-                s.notes
-            FROM schedules s
-            LEFT JOIN drivers d ON s.driver_id = d.id
-            LEFT JOIN buses b ON s.bus_id = b.id
-            LEFT JOIN routes r ON s.route_id = r.id
-            WHERE s.id = ?
-        `, [id]);
+        const schedule = await ScheduleService.getScheduleById(id);
 
-        if (rows.length === 0) {
+        if (!schedule) {
+            console.log('❌ Không tìm thấy lịch trình');
             return res.status(404).json({
                 success: false,
                 message: 'Không tìm thấy lịch trình'
             });
         }
 
-        const schedule = {
-            ...rows[0],
-            id: `CH${String(rows[0].id).padStart(3, '0')}`,
-            schedule_id: rows[0].id,
-            shift_display: rows[0].shift_type === 'morning' ? 'Ca Sáng' : 'Ca Chiều'
+        const formattedSchedule = {
+            ...schedule,
+            id: `CH${String(schedule.id).padStart(3, '0')}`,
+            schedule_id: schedule.id,
+            shift_display: schedule.shift_type === 'morning' ? 'Ca Sáng' : 'Ca Chiều',
+            start_time: schedule.scheduled_start_time,
+            end_time: schedule.scheduled_end_time
         };
 
+        console.log(`✅ Lấy lịch trình ${formattedSchedule.id}`);
         res.json({
             success: true,
-            data: schedule
+            data: formattedSchedule
         });
     } catch (error) {
-        console.error('Error fetching schedule:', error);
+        console.error('❌ Error fetching schedule:', error.message);
         res.status(500).json({
             success: false,
-            message: 'Lỗi khi lấy thông tin lịch trình',
-            error: error.message
+            message: error.message
         });
     }
 });
 
 // POST /api/admin-schedules - Thêm lịch trình mới
 router.post('/', async (req, res) => {
+    console.log('🔹 POST /api/admin-schedules - Thêm lịch trình mới');
     try {
-        const {
-            driver_id,
-            bus_id,
-            route_id,
-            date,
-            shift_type,
-            start_time,
-            end_time,
-            student_count,
-            notes
-        } = req.body;
+        const scheduleData = {
+            driver_id: req.body.driver_id,
+            bus_id: req.body.bus_id,
+            route_id: req.body.route_id,
+            date: req.body.date,
+            shift_type: req.body.shift_type,
+            scheduled_start_time: req.body.start_time,
+            scheduled_end_time: req.body.end_time,
+            student_count: req.body.student_count,
+            notes: req.body.notes
+        };
 
         // Validate required fields
-        if (!driver_id || !bus_id || !route_id || !date || !shift_type || !start_time || !end_time) {
+        if (!scheduleData.driver_id || !scheduleData.bus_id || !scheduleData.route_id || 
+            !scheduleData.date || !scheduleData.shift_type || 
+            !scheduleData.scheduled_start_time || !scheduleData.scheduled_end_time) {
+            console.log('❌ Thiếu thông tin bắt buộc');
+            return res.status(400).json({
+                success: false,
+                message: 'Thiếu thông tin bắt buộc'
+            });
+        }
+
+        // ScheduleService.createSchedule sẽ tự động check duplicate (conflict)
+        const newSchedule = await ScheduleService.createSchedule(scheduleData);
+
+        console.log(`✅ Thêm lịch trình thành công`);
+        res.status(201).json({
+            success: true,
+            message: 'Thêm lịch trình thành công',
+            data: newSchedule
+        });
+    } catch (error) {
+        console.error('❌ Error creating schedule:', error.message);
+        // Check if it's a conflict error (duplicate)
+        const statusCode = error.message.includes('đã tồn tại') || error.message.includes('Trùng lịch') ? 409 :
+                           error.message.includes('Thiếu thông tin') || error.message.includes('không tồn tại') ? 400 : 500;
+        res.status(statusCode).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
+// PUT /api/admin-schedules/:id - Cập nhật lịch trình
+router.put('/:id', async (req, res) => {
+    console.log(`🔹 PUT /api/admin-schedules/${req.params.id} - Cập nhật lịch trình`);
+    try {
+        let { id } = req.params;
+        
+        // Xử lý ID format
+        if (typeof id === 'string' && id.startsWith('CH')) {
+            id = parseInt(id.substring(2));
+        }
+        
+        const scheduleData = {
+            driver_id: req.body.driver_id,
+            bus_id: req.body.bus_id,
+            route_id: req.body.route_id,
+            date: req.body.date,
+            shift_type: req.body.shift_type,
+            scheduled_start_time: req.body.start_time,
+            scheduled_end_time: req.body.end_time,
+            student_count: req.body.student_count,
+            status: req.body.status,
+            notes: req.body.notes
+        };
+
+        const updatedSchedule = await ScheduleService.updateSchedule(id, scheduleData);
+
+        console.log(`✅ Cập nhật lịch trình thành công`);
+        res.json({
+            success: true,
+            message: 'Cập nhật lịch trình thành công',
+            data: updatedSchedule
+        });
+    } catch (error) {
+        console.error('❌ Error updating schedule:', error.message);
+        const statusCode = error.message.includes('Không tìm thấy') ? 404 :
+                           error.message.includes('đã tồn tại') || error.message.includes('Trùng lịch') ? 409 :
+                           error.message.includes('không tồn tại') ? 400 : 500;
+        res.status(statusCode).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
+// DELETE /api/admin-schedules/:id - Xóa lịch trình
+router.delete('/:id', async (req, res) => {
+    console.log(`🔹 DELETE /api/admin-schedules/${req.params.id} - Xóa lịch trình`);
+    try {
+        let { id } = req.params;
+
+        // Xử lý ID format
+        if (typeof id === 'string' && id.startsWith('CH')) {
+            id = parseInt(id.substring(2));
+        }
+
+        await ScheduleService.deleteSchedule(id);
+
+        console.log(`✅ Xóa lịch trình thành công`);
+        res.json({
+            success: true,
+            message: 'Xóa lịch trình thành công'
+        });
+    } catch (error) {
+        console.error('❌ Error deleting schedule:', error.message);
+        const statusCode = error.message.includes('Không tìm thấy') ? 404 : 500;
+        res.status(statusCode).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
             return res.status(400).json({
                 success: false,
                 message: 'Thiếu thông tin bắt buộc'
