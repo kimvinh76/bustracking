@@ -14,7 +14,7 @@ class UserModel {
       'SELECT id, username, email, role, created_at FROM users ORDER BY id DESC'
     );
     
-    console.log(`✅ MODEL: Tìm thấy ${rows.length} người dùng`);
+    console.log(` MODEL: Tìm thấy ${rows.length} người dùng`);
     return rows;
   }
 
@@ -31,7 +31,7 @@ class UserModel {
     );
     
     const user = rows[0] || null;
-    console.log(user ? '✅ MODEL: Tìm thấy người dùng' : '❌ MODEL: Không tìm thấy người dùng');
+    console.log(user ? ' MODEL: Tìm thấy người dùng' : ' MODEL: Không tìm thấy người dùng');
     return user;
   }
 
@@ -48,7 +48,7 @@ class UserModel {
     );
     
     const user = rows[0] || null;
-    console.log(user ? '✅ MODEL: Tìm thấy người dùng' : '❌ MODEL: Không tìm thấy người dùng');
+    console.log(user ? ' MODEL: Tìm thấy người dùng' : ' MODEL: Không tìm thấy người dùng');
     return user;
   }
 
@@ -65,7 +65,7 @@ class UserModel {
     );
     
     const user = rows[0] || null;
-    console.log(user ? '✅ MODEL: Tìm thấy người dùng' : '❌ MODEL: Không tìm thấy người dùng');
+    console.log(user ? ' MODEL: Tìm thấy người dùng' : ' MODEL: Không tìm thấy người dùng');
     return user;
   }
 
@@ -82,7 +82,7 @@ class UserModel {
     );
     
     const user = rows[0] || null;
-    console.log(user ? '✅ MODEL: Tìm thấy người dùng' : '❌ MODEL: Không tìm thấy người dùng');
+    console.log(user ? ' MODEL: Tìm thấy người dùng' : ' MODEL: Không tìm thấy người dùng');
     return user;
   }
 
@@ -98,7 +98,7 @@ class UserModel {
       [role]
     );
     
-    console.log(`✅ MODEL: Tìm thấy ${rows.length} người dùng`);
+    console.log(` MODEL: Tìm thấy ${rows.length} người dùng`);
     return rows;
   }
 
@@ -118,7 +118,7 @@ class UserModel {
       [username, email, password, role]
     );
     
-    console.log(`✅ MODEL: Insert thành công! insertId: ${result.insertId}`);
+    console.log(` MODEL: Insert thành công! insertId: ${result.insertId}`);
     
     // Lấy người dùng vừa tạo (không có password)
     const newUser = await this.findById(result.insertId);
@@ -141,7 +141,7 @@ class UserModel {
       [username, email, role, id]
     );
     
-    console.log('✅ MODEL: Cập nhật thành công');
+    console.log(' MODEL: Cập nhật thành công');
     
     // Lấy người dùng sau khi cập nhật
     const updatedUser = await this.findById(id);
@@ -163,7 +163,7 @@ class UserModel {
     );
     
     const updated = result.affectedRows > 0;
-    console.log(updated ? '✅ MODEL: Cập nhật mật khẩu thành công' : '❌ MODEL: Không tìm thấy người dùng');
+    console.log(updated ? ' MODEL: Cập nhật mật khẩu thành công' : ' MODEL: Không tìm thấy người dùng');
     return updated;
   }
 
@@ -177,7 +177,7 @@ class UserModel {
     const [result] = await pool.execute('DELETE FROM users WHERE id = ?', [id]);
     
     const deleted = result.affectedRows > 0;
-    console.log(deleted ? '✅ MODEL: Xóa thành công' : '❌ MODEL: Không tìm thấy để xóa');
+    console.log(deleted ? ' MODEL: Xóa thành công' : ' MODEL: Không tìm thấy để xóa');
     return deleted;
   }
 
@@ -211,7 +211,7 @@ class UserModel {
     const [rows] = await pool.execute(query, params);
     const exists = rows.length > 0;
     
-    console.log(exists ? '⚠️ MODEL: Email đã tồn tại' : '✅ MODEL: Email hợp lệ');
+    console.log(exists ? '⚠️ MODEL: Email đã tồn tại' : ' MODEL: Email hợp lệ');
     return exists;
   }
 
@@ -235,7 +235,7 @@ class UserModel {
     const [rows] = await pool.execute(query, params);
     const exists = rows.length > 0;
     
-    console.log(exists ? '⚠️ MODEL: Username đã tồn tại' : '✅ MODEL: Username hợp lệ');
+    console.log(exists ? '⚠️ MODEL: Username đã tồn tại' : ' MODEL: Username hợp lệ');
     return exists;
   }
 }

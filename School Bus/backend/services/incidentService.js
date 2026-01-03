@@ -124,11 +124,11 @@ class IncidentService {
     } = incidentData;
     
     if (!driver_id || !bus_id || !incident_type || !description) {
-      console.log('❌ SERVICE: Thiếu thông tin bắt buộc');
+      console.log(' SERVICE: Thiếu thông tin bắt buộc');
       throw new Error('Thiếu thông tin bắt buộc: driver_id, bus_id, incident_type, description');
     }
 
-    console.log('✅ SERVICE: Validation passed');
+    console.log(' SERVICE: Validation passed');
 
     // 2. Kiểm tra driver, bus tồn tại
     const [driverExists, busExists] = await Promise.all([
@@ -143,7 +143,7 @@ class IncidentService {
       throw new Error('Không tìm thấy xe bus');
     }
 
-    console.log('✅ SERVICE: Driver và Bus đều tồn tại');
+    console.log(' SERVICE: Driver và Bus đều tồn tại');
 
     // 3. Kiểm tra route (nếu có)
     if (route_id) {
@@ -192,7 +192,7 @@ class IncidentService {
     // 8. Tạo incident
     const newIncident = await IncidentModel.create(formattedData);
     
-    console.log('✅ SERVICE: Tạo sự cố thành công');
+    console.log(' SERVICE: Tạo sự cố thành công');
     
     // 9. TODO: Gửi thông báo đến admin/quản lý nếu severity cao
     if (severity === 'high' || severity === 'critical') {
@@ -246,7 +246,7 @@ class IncidentService {
     // 5. Cập nhật
     const updatedIncident = await IncidentModel.update(id, formattedData);
     
-    console.log('✅ SERVICE: Cập nhật sự cố thành công');
+    console.log(' SERVICE: Cập nhật sự cố thành công');
     return updatedIncident;
   }
 
@@ -268,7 +268,7 @@ class IncidentService {
     // 3. Cập nhật status
     const updatedIncident = await IncidentModel.updateStatus(id, status, resolutionNotes);
     
-    console.log('✅ SERVICE: Cập nhật trạng thái thành công');
+    console.log(' SERVICE: Cập nhật trạng thái thành công');
     return updatedIncident;
   }
 
@@ -287,7 +287,7 @@ class IncidentService {
       throw new Error('Không thể xóa sự cố');
     }
 
-    console.log('✅ SERVICE: Xóa sự cố thành công');
+    console.log(' SERVICE: Xóa sự cố thành công');
     return { message: 'Xóa sự cố thành công' };
   }
 }

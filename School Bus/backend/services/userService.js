@@ -70,22 +70,22 @@ class UserService {
     const { username, email, password, role = 'parent' } = userData;
     
     if (!username || !email || !password) {
-      console.log('❌ SERVICE: Thiếu thông tin bắt buộc');
+      console.log(' SERVICE: Thiếu thông tin bắt buộc');
       throw new Error('Thiếu thông tin bắt buộc: username, email, password');
     }
 
-    console.log('✅ SERVICE: Validation passed');
+    console.log(' SERVICE: Validation passed');
 
     // 2. Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      console.log('❌ SERVICE: Email không hợp lệ');
+      console.log(' SERVICE: Email không hợp lệ');
       throw new Error('Email không hợp lệ');
     }
 
     // 3. Validate password length
     if (password.length < 6) {
-      console.log('❌ SERVICE: Mật khẩu quá ngắn');
+      console.log(' SERVICE: Mật khẩu quá ngắn');
       throw new Error('Mật khẩu phải có ít nhất 6 ký tự');
     }
 
@@ -98,20 +98,20 @@ class UserService {
     // 5. Kiểm tra trùng email
     const emailExists = await UserModel.emailExists(email);
     if (emailExists) {
-      console.log('❌ SERVICE: Email đã tồn tại');
+      console.log(' SERVICE: Email đã tồn tại');
       throw new Error('Email đã được sử dụng');
     }
     
-    console.log('✅ SERVICE: Email hợp lệ');
+    console.log(' SERVICE: Email hợp lệ');
 
     // 6. Kiểm tra trùng username
     const usernameExists = await UserModel.usernameExists(username);
     if (usernameExists) {
-      console.log('❌ SERVICE: Username đã tồn tại');
+      console.log(' SERVICE: Username đã tồn tại');
       throw new Error('Username đã được sử dụng');
     }
     
-    console.log('✅ SERVICE: Username hợp lệ');
+    console.log(' SERVICE: Username hợp lệ');
 
     // 7. TODO: Hash password
     // const hashedPassword = await bcrypt.hash(password, 10);
@@ -130,7 +130,7 @@ class UserService {
     // 9. Tạo user
     const newUser = await UserModel.create(formattedData);
     
-    console.log('✅ SERVICE: Tạo người dùng thành công');
+    console.log(' SERVICE: Tạo người dùng thành công');
     return newUser;
   }
 
@@ -184,7 +184,7 @@ class UserService {
     // 8. Cập nhật
     const updatedUser = await UserModel.update(id, formattedData);
     
-    console.log('✅ SERVICE: Cập nhật người dùng thành công');
+    console.log(' SERVICE: Cập nhật người dùng thành công');
     return updatedUser;
   }
 
@@ -221,7 +221,7 @@ class UserService {
       throw new Error('Không thể cập nhật mật khẩu');
     }
 
-    console.log('✅ SERVICE: Cập nhật mật khẩu thành công');
+    console.log(' SERVICE: Cập nhật mật khẩu thành công');
     return { message: 'Cập nhật mật khẩu thành công' };
   }
 
@@ -243,7 +243,7 @@ class UserService {
       throw new Error('Không thể xóa người dùng');
     }
 
-    console.log('✅ SERVICE: Xóa người dùng thành công');
+    console.log(' SERVICE: Xóa người dùng thành công');
     return { message: 'Xóa người dùng thành công' };
   }
 }

@@ -10,8 +10,8 @@ class RouteModel {
    */
   static async findAll() {
     console.log('🔷 MODEL: Lấy tất cả tuyến đường từ database');
-    const [rows] = await pool.query('SELECT * FROM routes ORDER BY id ASC');
-    console.log(`✅ MODEL: Tìm thấy ${rows.length} tuyến đường`);
+    const [rows] = await pool.query('SELECT id, route_name, distance, status, created_at FROM routes ORDER BY id ASC');
+    console.log(` MODEL: Tìm thấy ${rows.length} tuyến đường`);
     return rows;
   }
 
@@ -22,10 +22,10 @@ class RouteModel {
    */
   static async findById(id) {
     console.log('🔷 MODEL: Tìm tuyến đường theo ID:', id);
-    const [rows] = await pool.query('SELECT * FROM routes WHERE id = ?', [id]);
+    const [rows] = await pool.query('SELECT id, route_name, distance, status, created_at FROM routes WHERE id = ?', [id]);
     
     const route = rows[0] || null;
-    console.log(route ? '✅ MODEL: Tìm thấy tuyến đường' : '❌ MODEL: Không tìm thấy tuyến đường');
+    console.log(route ? ' MODEL: Tìm thấy tuyến đường' : ' MODEL: Không tìm thấy tuyến đường');
     return route;
   }
 
@@ -36,7 +36,7 @@ class RouteModel {
    */
   static async findByName(routeName) {
     console.log('🔷 MODEL: Tìm tuyến đường theo tên:', routeName);
-    const [rows] = await pool.query('SELECT * FROM routes WHERE route_name = ?', [routeName]);
+    const [rows] = await pool.query('SELECT id, route_name, distance, status, created_at FROM routes WHERE route_name = ?', [routeName]);
     return rows[0] || null;
   }
 
@@ -51,7 +51,7 @@ class RouteModel {
     // Lấy thông tin tuyến
     const route = await this.findById(id);
     if (!route) {
-      console.log('❌ MODEL: Không tìm thấy tuyến đường');
+      console.log(' MODEL: Không tìm thấy tuyến đường');
       return null;
     }
 
@@ -72,7 +72,7 @@ class RouteModel {
       ORDER BY rs.stop_order ASC
     `, [id]);
 
-    console.log(`✅ MODEL: Tìm thấy ${stops.length} điểm dừng`);
+    console.log(` MODEL: Tìm thấy ${stops.length} điểm dừng`);
     
     return {
       ...route,
@@ -106,7 +106,7 @@ class RouteModel {
       LIMIT 1
     `, [id]);
 
-    console.log('✅ MODEL: Lấy điểm đón/trả thành công');
+    console.log(' MODEL: Lấy điểm đón/trả thành công');
     
     return {
       pickupStop: pickupStop[0] || null,
@@ -120,17 +120,17 @@ class RouteModel {
    * @returns {Promise<Object>} Tuyến đường vừa tạo
    */
   static async create(routeData) {
-    const { route_name, start_location, end_location, distance, duration, polyline, waypoints } = routeData;
+    const { route_name, distance, status = 'active' } = routeData;
     
     console.log('🔷 MODEL: Tạo tuyến đường mới trong database');
-    console.log('📦 MODEL: Dữ liệu:', { route_name, start_location, end_location });
+    console.log('📦 MODEL: Dữ liệu:', { route_name, distance, status });
     
     const [result] = await pool.execute(
-      'INSERT INTO routes (route_name, start_location, end_location, distance, duration, polyline, waypoints) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [route_name, start_location, end_location, distance || null, duration || null, polyline || null, waypoints || null]
+      'INSERT INTO routes (route_name, distance, status) VALUES (?, ?, ?)',
+      [route_name, distance || null, status]
     );
     
-    console.log(`✅ MODEL: Insert thành công! insertId: ${result.insertId}`);
+    console.log(` MODEL: Insert thành công! insertId: ${result.insertId}`);
     
     // Lấy tuyến đường vừa tạo
     const newRoute = await this.findById(result.insertId);
@@ -144,16 +144,16 @@ class RouteModel {
    * @returns {Promise<Object>} Tuyến đường sau khi cập nhật
    */
   static async update(id, routeData) {
-    const { route_name, start_location, end_location, distance, duration, polyline, waypoints } = routeData;
+    const { route_name, distance, status = 'active' } = routeData;
     
     console.log('🔷 MODEL: Cập nhật tuyến đường ID:', id);
     
     await pool.execute(
-      'UPDATE routes SET route_name = ?, start_location = ?, end_location = ?, distance = ?, duration = ?, polyline = ?, waypoints = ? WHERE id = ?',
-      [route_name, start_location, end_location, distance || null, duration || null, polyline || null, waypoints || null, id]
+      'UPDATE routes SET route_name = ?, distance = ?, status = ? WHERE id = ?',
+      [route_name, distance || null, status, id]
     );
     
-    console.log('✅ MODEL: Cập nhật thành công');
+    console.log(' MODEL: Cập nhật thành công');
     
     // Lấy tuyến đường sau khi cập nhật
     const updatedRoute = await this.findById(id);
@@ -170,7 +170,7 @@ class RouteModel {
     const [result] = await pool.execute('DELETE FROM routes WHERE id = ?', [id]);
     
     const deleted = result.affectedRows > 0;
-    console.log(deleted ? '✅ MODEL: Xóa thành công' : '❌ MODEL: Không tìm thấy để xóa');
+    console.log(deleted ? ' MODEL: Xóa thành công' : ' MODEL: Không tìm thấy để xóa');
     return deleted;
   }
 
@@ -190,7 +190,7 @@ class RouteModel {
       [routeId, stopId, stopOrder, studentPickupCount]
     );
     
-    console.log('✅ MODEL: Thêm điểm dừng thành công');
+    console.log(' MODEL: Thêm điểm dừng thành công');
     return result;
   }
 
@@ -205,7 +205,7 @@ class RouteModel {
     const [result] = await pool.execute('DELETE FROM route_stops WHERE id = ?', [routeStopId]);
     
     const deleted = result.affectedRows > 0;
-    console.log(deleted ? '✅ MODEL: Xóa điểm dừng thành công' : '❌ MODEL: Không tìm thấy để xóa');
+    console.log(deleted ? ' MODEL: Xóa điểm dừng thành công' : ' MODEL: Không tìm thấy để xóa');
     return deleted;
   }
 

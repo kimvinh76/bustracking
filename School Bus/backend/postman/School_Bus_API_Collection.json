@@ -1,0 +1,413 @@
+{
+  "info": {
+    "name": "School Bus Management API",
+    "description": "Complete API collection for testing backend endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000/api",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Buses",
+      "item": [
+        {
+          "name": "Get All Buses",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/buses",
+              "host": ["{{base_url}}"],
+              "path": ["buses"]
+            }
+          }
+        },
+        {
+          "name": "Get Active Buses",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/buses/active",
+              "host": ["{{base_url}}"],
+              "path": ["buses", "active"]
+            }
+          }
+        },
+        {
+          "name": "Get Bus by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/buses/1",
+              "host": ["{{base_url}}"],
+              "path": ["buses", "1"]
+            }
+          }
+        },
+        {
+          "name": "Create Bus",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bus_number\": \"BUS-POSTMAN-001\",\n  \"license_plate\": \"51K-POSTMAN-001\",\n  \"capacity\": 30,\n  \"status\": \"active\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/buses",
+              "host": ["{{base_url}}"],
+              "path": ["buses"]
+            }
+          }
+        },
+        {
+          "name": "Update Bus",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bus_number\": \"BUS-UPDATED-001\",\n  \"license_plate\": \"51K-UPDATED-001\",\n  \"capacity\": 35,\n  \"status\": \"active\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/buses/1",
+              "host": ["{{base_url}}"],
+              "path": ["buses", "1"]
+            }
+          }
+        },
+        {
+          "name": "Delete Bus",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/buses/7",
+              "host": ["{{base_url}}"],
+              "path": ["buses", "7"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Drivers",
+      "item": [
+        {
+          "name": "Get All Drivers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/drivers",
+              "host": ["{{base_url}}"],
+              "path": ["drivers"]
+            }
+          }
+        },
+        {
+          "name": "Get Driver by User ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/drivers/by-user/2",
+              "host": ["{{base_url}}"],
+              "path": ["drivers", "by-user", "2"]
+            }
+          }
+        },
+        {
+          "name": "Get Driver Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/drivers/1/details",
+              "host": ["{{base_url}}"],
+              "path": ["drivers", "1", "details"]
+            }
+          }
+        },
+        {
+          "name": "Create Driver",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Driver Postman\",\n  \"phone\": \"0988888888\",\n  \"license_number\": \"POSTMAN-LICENSE-001\",\n  \"address\": \"123 Test Street\",\n  \"status\": \"active\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/drivers",
+              "host": ["{{base_url}}"],
+              "path": ["drivers"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Routes",
+      "item": [
+        {
+          "name": "Get All Routes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/routes",
+              "host": ["{{base_url}}"],
+              "path": ["routes"]
+            }
+          }
+        },
+        {
+          "name": "Get Route Stops",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/routes/1/stops",
+              "host": ["{{base_url}}"],
+              "path": ["routes", "1", "stops"]
+            }
+          }
+        },
+        {
+          "name": "Get Pickup-Drop Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/routes/1/pickup-drop-info",
+              "host": ["{{base_url}}"],
+              "path": ["routes", "1", "pickup-drop-info"]
+            }
+          }
+        },
+        {
+          "name": "Create Route",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"route_name\": \"Tuyến Test Postman\",\n  \"distance\": 15.5,\n  \"status\": \"active\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/routes",
+              "host": ["{{base_url}}"],
+              "path": ["routes"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Schedules (Admin)",
+      "item": [
+        {
+          "name": "Get All Schedules",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin-schedules",
+              "host": ["{{base_url}}"],
+              "path": ["admin-schedules"]
+            }
+          }
+        },
+        {
+          "name": "Create Schedule",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"driver_id\": 1,\n  \"bus_id\": 1,\n  \"route_id\": 1,\n  \"date\": \"2026-01-10\",\n  \"shift_type\": \"morning\",\n  \"start_time\": \"06:00:00\",\n  \"end_time\": \"07:00:00\",\n  \"student_count\": 30,\n  \"notes\": \"Test schedule from Postman\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin-schedules",
+              "host": ["{{base_url}}"],
+              "path": ["admin-schedules"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Schedules (Driver)",
+      "item": [
+        {
+          "name": "Get Driver Schedules",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/schedules/driver/1",
+              "host": ["{{base_url}}"],
+              "path": ["schedules", "driver", "1"]
+            }
+          }
+        },
+        {
+          "name": "Get Driver Schedules by Date",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/schedules/driver/1?date=2026-01-10",
+              "host": ["{{base_url}}"],
+              "path": ["schedules", "driver", "1"],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2026-01-10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Schedule Stops",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/schedules/driver/1/stops/43",
+              "host": ["{{base_url}}"],
+              "path": ["schedules", "driver", "1", "stops", "43"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Parents",
+      "item": [
+        {
+          "name": "Get All Parents",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/parents",
+              "host": ["{{base_url}}"],
+              "path": ["parents"]
+            }
+          }
+        },
+        {
+          "name": "Get Parent Children",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/parents/4/children",
+              "host": ["{{base_url}}"],
+              "path": ["parents", "4", "children"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Incidents",
+      "item": [
+        {
+          "name": "Get All Incidents",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/incidents",
+              "host": ["{{base_url}}"],
+              "path": ["incidents"]
+            }
+          }
+        },
+        {
+          "name": "Create Incident",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"driver_id\": 1,\n  \"bus_id\": 1,\n  \"route_id\": 1,\n  \"incident_type\": \"traffic\",\n  \"description\": \"Kẹt xe trên đường\",\n  \"latitude\": 10.75875,\n  \"longitude\": 106.68095,\n  \"severity\": \"medium\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/incidents/create",
+              "host": ["{{base_url}}"],
+              "path": ["incidents", "create"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -22,7 +22,7 @@ class IncidentModel {
       ORDER BY i.created_at DESC
     `);
     
-    console.log(`✅ MODEL: Tìm thấy ${rows.length} sự cố`);
+    console.log(` MODEL: Tìm thấy ${rows.length} sự cố`);
     return rows;
   }
 
@@ -46,7 +46,7 @@ class IncidentModel {
     `, [id]);
     
     const incident = rows[0] || null;
-    console.log(incident ? '✅ MODEL: Tìm thấy sự cố' : '❌ MODEL: Không tìm thấy sự cố');
+    console.log(incident ? ' MODEL: Tìm thấy sự cố' : ' MODEL: Không tìm thấy sự cố');
     return incident;
   }
 
@@ -68,7 +68,7 @@ class IncidentModel {
       ORDER BY i.created_at DESC
     `, [driverId]);
     
-    console.log(`✅ MODEL: Tìm thấy ${rows.length} sự cố`);
+    console.log(` MODEL: Tìm thấy ${rows.length} sự cố`);
     return rows;
   }
 
@@ -90,7 +90,7 @@ class IncidentModel {
       ORDER BY i.created_at DESC
     `, [busId]);
     
-    console.log(`✅ MODEL: Tìm thấy ${rows.length} sự cố`);
+    console.log(` MODEL: Tìm thấy ${rows.length} sự cố`);
     return rows;
   }
 
@@ -112,7 +112,7 @@ class IncidentModel {
       ORDER BY i.created_at DESC
     `, [routeId]);
     
-    console.log(`✅ MODEL: Tìm thấy ${rows.length} sự cố`);
+    console.log(` MODEL: Tìm thấy ${rows.length} sự cố`);
     return rows;
   }
 
@@ -136,7 +136,7 @@ class IncidentModel {
       ORDER BY i.created_at DESC
     `, [severity]);
     
-    console.log(`✅ MODEL: Tìm thấy ${rows.length} sự cố`);
+    console.log(` MODEL: Tìm thấy ${rows.length} sự cố`);
     return rows;
   }
 
@@ -160,7 +160,7 @@ class IncidentModel {
       ORDER BY i.created_at DESC
     `, [status]);
     
-    console.log(`✅ MODEL: Tìm thấy ${rows.length} sự cố`);
+    console.log(` MODEL: Tìm thấy ${rows.length} sự cố`);
     return rows;
   }
 
@@ -185,7 +185,7 @@ class IncidentModel {
       [driver_id, bus_id, route_id || null, incident_type, description, severity, status, location || null, latitude || null, longitude || null]
     );
     
-    console.log(`✅ MODEL: Insert thành công! insertId: ${result.insertId}`);
+    console.log(` MODEL: Insert thành công! insertId: ${result.insertId}`);
     
     // Lấy sự cố vừa tạo
     const newIncident = await this.findById(result.insertId);
@@ -214,7 +214,7 @@ class IncidentModel {
       [incident_type, description, severity, status, resolution_notes || null, resolved_at || null, id]
     );
     
-    console.log('✅ MODEL: Cập nhật thành công');
+    console.log(' MODEL: Cập nhật thành công');
     
     // Lấy sự cố sau khi cập nhật
     const updatedIncident = await this.findById(id);
@@ -238,7 +238,7 @@ class IncidentModel {
       [status, resolutionNotes, resolvedAt, id]
     );
     
-    console.log('✅ MODEL: Cập nhật trạng thái thành công');
+    console.log(' MODEL: Cập nhật trạng thái thành công');
     
     // Lấy sự cố sau khi cập nhật
     const updatedIncident = await this.findById(id);
@@ -255,7 +255,7 @@ class IncidentModel {
     const [result] = await pool.execute('DELETE FROM incidents WHERE id = ?', [id]);
     
     const deleted = result.affectedRows > 0;
-    console.log(deleted ? '✅ MODEL: Xóa thành công' : '❌ MODEL: Không tìm thấy để xóa');
+    console.log(deleted ? ' MODEL: Xóa thành công' : ' MODEL: Không tìm thấy để xóa');
     return deleted;
   }
 

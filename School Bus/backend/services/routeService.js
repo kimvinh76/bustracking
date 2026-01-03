@@ -65,20 +65,20 @@ class RouteService {
     const { route_name, start_location, end_location, distance, duration } = routeData;
     
     if (!route_name || !start_location || !end_location) {
-      console.log('❌ SERVICE: Thiếu thông tin bắt buộc');
+      console.log(' SERVICE: Thiếu thông tin bắt buộc');
       throw new Error('Thiếu thông tin bắt buộc: tên tuyến, điểm đầu, điểm cuối');
     }
 
-    console.log('✅ SERVICE: Validation passed');
+    console.log(' SERVICE: Validation passed');
 
     // 2. Kiểm tra trùng tên tuyến
     const existingRoute = await RouteModel.findByName(route_name);
     if (existingRoute) {
-      console.log('❌ SERVICE: Tên tuyến đã tồn tại');
+      console.log(' SERVICE: Tên tuyến đã tồn tại');
       throw new Error('Tên tuyến đường đã tồn tại');
     }
     
-    console.log('✅ SERVICE: Không trùng tên tuyến');
+    console.log(' SERVICE: Không trùng tên tuyến');
 
     // 3. Validate distance và duration (nếu có)
     if (distance && distance < 0) {
@@ -104,7 +104,7 @@ class RouteService {
     // 5. Tạo route
     const newRoute = await RouteModel.create(formattedData);
     
-    console.log('✅ SERVICE: Tạo tuyến đường thành công');
+    console.log(' SERVICE: Tạo tuyến đường thành công');
     return newRoute;
   }
 
@@ -152,7 +152,7 @@ class RouteService {
     // 6. Cập nhật
     const updatedRoute = await RouteModel.update(id, formattedData);
     
-    console.log('✅ SERVICE: Cập nhật tuyến đường thành công');
+    console.log(' SERVICE: Cập nhật tuyến đường thành công');
     return updatedRoute;
   }
 
@@ -177,7 +177,7 @@ class RouteService {
       throw new Error('Không thể xóa tuyến đường');
     }
 
-    console.log('✅ SERVICE: Xóa tuyến đường thành công');
+    console.log(' SERVICE: Xóa tuyến đường thành công');
     return { message: 'Xóa tuyến đường thành công' };
   }
 
@@ -204,7 +204,7 @@ class RouteService {
     // 3. Thêm điểm dừng
     await RouteModel.addStop(routeId, stop_id, stop_order, student_pickup_count);
     
-    console.log('✅ SERVICE: Thêm điểm dừng thành công');
+    console.log(' SERVICE: Thêm điểm dừng thành công');
     return { message: 'Thêm điểm dừng thành công' };
   }
 
@@ -219,7 +219,7 @@ class RouteService {
       throw new Error('Không tìm thấy điểm dừng để xóa');
     }
 
-    console.log('✅ SERVICE: Xóa điểm dừng thành công');
+    console.log(' SERVICE: Xóa điểm dừng thành công');
     return { message: 'Xóa điểm dừng thành công' };
   }
 }

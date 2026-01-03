@@ -25,7 +25,7 @@ class ParentModel {
       ORDER BY p.id DESC
     `);
     
-    console.log(`✅ MODEL: Tìm thấy ${rows.length} phụ huynh`);
+    console.log(` MODEL: Tìm thấy ${rows.length} phụ huynh`);
     return rows;
   }
 
@@ -48,7 +48,7 @@ class ParentModel {
     `, [id]);
     
     const parent = rows[0] || null;
-    console.log(parent ? '✅ MODEL: Tìm thấy phụ huynh' : '❌ MODEL: Không tìm thấy phụ huynh');
+    console.log(parent ? ' MODEL: Tìm thấy phụ huynh' : ' MODEL: Không tìm thấy phụ huynh');
     return parent;
   }
 
@@ -65,7 +65,7 @@ class ParentModel {
     );
     
     const parent = rows[0] || null;
-    console.log(parent ? '✅ MODEL: Tìm thấy phụ huynh' : '❌ MODEL: Không tìm thấy phụ huynh');
+    console.log(parent ? ' MODEL: Tìm thấy phụ huynh' : ' MODEL: Không tìm thấy phụ huynh');
     return parent;
   }
 
@@ -94,23 +94,33 @@ class ParentModel {
     // Lấy thông tin phụ huynh
     const parent = await this.findById(id);
     if (!parent) {
-      console.log('❌ MODEL: Không tìm thấy phụ huynh');
+      console.log(' MODEL: Không tìm thấy phụ huynh');
       return null;
     }
 
     // Lấy danh sách con
     const [children] = await pool.execute(`
-      SELECT s.id, s.name, s.student_code, s.grade, s.date_of_birth, 
-             c.class_name, r.route_name, b.bus_number
+      SELECT s.id,
+             s.name,
+             s.grade,
+             s.class_id,
+             c.class_name,
+             s.morning_route_id,
+             mr.route_name AS morning_route_name,
+             s.afternoon_route_id,
+             ar.route_name AS afternoon_route_name,
+             s.morning_pickup_stop_id,
+             s.afternoon_dropoff_stop_id,
+             s.status
       FROM students s
       LEFT JOIN classes c ON s.class_id = c.id
-      LEFT JOIN routes r ON s.route_id = r.id
-      LEFT JOIN buses b ON r.id = b.id
+      LEFT JOIN routes mr ON s.morning_route_id = mr.id
+      LEFT JOIN routes ar ON s.afternoon_route_id = ar.id
       WHERE s.parent_id = ?
       ORDER BY s.name ASC
     `, [id]);
 
-    console.log(`✅ MODEL: Tìm thấy ${children.length} học sinh`);
+    console.log(` MODEL: Tìm thấy ${children.length} học sinh`);
     
     return {
       ...parent,
@@ -134,7 +144,7 @@ class ParentModel {
       [name, phone, address || null, relationship, user_id || null]
     );
     
-    console.log(`✅ MODEL: Insert thành công! insertId: ${result.insertId}`);
+    console.log(` MODEL: Insert thành công! insertId: ${result.insertId}`);
     
     // Lấy phụ huynh vừa tạo
     const newParent = await this.findById(result.insertId);
@@ -157,7 +167,7 @@ class ParentModel {
       [name, phone, address || null, relationship, user_id || null, id]
     );
     
-    console.log('✅ MODEL: Cập nhật thành công');
+    console.log(' MODEL: Cập nhật thành công');
     
     // Lấy phụ huynh sau khi cập nhật
     const updatedParent = await this.findById(id);
@@ -174,7 +184,7 @@ class ParentModel {
     const [result] = await pool.execute('DELETE FROM parents WHERE id = ?', [id]);
     
     const deleted = result.affectedRows > 0;
-    console.log(deleted ? '✅ MODEL: Xóa thành công' : '❌ MODEL: Không tìm thấy để xóa');
+    console.log(deleted ? ' MODEL: Xóa thành công' : ' MODEL: Không tìm thấy để xóa');
     return deleted;
   }
 
@@ -205,7 +215,7 @@ class ParentModel {
       LIMIT 50
     `, [parentId]);
     
-    console.log(`✅ MODEL: Tìm thấy ${rows.length} thông báo`);
+    console.log(` MODEL: Tìm thấy ${rows.length} thông báo`);
     return rows;
   }
 }

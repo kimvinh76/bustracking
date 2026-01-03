@@ -68,26 +68,26 @@ class DriverService {
     const { name, phone, license_number, address, status = 'active' } = driverData;
     
     if (!name || !phone || !license_number) {
-      console.log('❌ SERVICE: Thiếu thông tin bắt buộc');
+      console.log(' SERVICE: Thiếu thông tin bắt buộc');
       throw new Error('Thiếu thông tin bắt buộc: tên, số điện thoại, số bằng lái');
     }
 
     // 2. Validate phone format (10 số)
     if (!/^[0-9]{10}$/.test(phone)) {
-      console.log('❌ SERVICE: Số điện thoại không hợp lệ');
+      console.log(' SERVICE: Số điện thoại không hợp lệ');
       throw new Error('Số điện thoại không hợp lệ (phải 10 số)');
     }
 
-    console.log('✅ SERVICE: Validation passed');
+    console.log(' SERVICE: Validation passed');
 
     // 3. Kiểm tra trùng số bằng lái
     const existingDriver = await DriverModel.findByLicenseNumber(license_number);
     if (existingDriver) {
-      console.log('❌ SERVICE: Số bằng lái đã tồn tại');
+      console.log(' SERVICE: Số bằng lái đã tồn tại');
       throw new Error('Số bằng lái đã tồn tại');
     }
     
-    console.log('✅ SERVICE: Không trùng số bằng lái');
+    console.log(' SERVICE: Không trùng số bằng lái');
 
     // 4. Tạo user account
     console.log('🔸 SERVICE: Tạo user account cho tài xế');
@@ -109,9 +109,9 @@ class DriverService {
         role: 'driver'
       });
       user_id = newUser.id;
-      console.log('✅ SERVICE: Tạo user account thành công, user_id:', user_id);
+      console.log(' SERVICE: Tạo user account thành công, user_id:', user_id);
     } catch (err) {
-      console.log('❌ SERVICE: Lỗi tạo user account:', err.message);
+      console.log(' SERVICE: Lỗi tạo user account:', err.message);
       throw new Error(`Lỗi tạo tài khoản: ${err.message}`);
     }
 
@@ -130,7 +130,7 @@ class DriverService {
     // 6. Tạo driver
     const newDriver = await DriverModel.create(formattedData);
     
-    console.log('✅ SERVICE: Tạo tài xế thành công');
+    console.log(' SERVICE: Tạo tài xế thành công');
     return newDriver;
   }
 
@@ -173,7 +173,7 @@ class DriverService {
     // 5. Cập nhật
     const updatedDriver = await DriverModel.update(id, formattedData);
     
-    console.log('✅ SERVICE: Cập nhật tài xế thành công');
+    console.log(' SERVICE: Cập nhật tài xế thành công');
     return updatedDriver;
   }
 
@@ -204,7 +204,7 @@ class DriverService {
       await UserModel.delete(driver.user_id);
     }
 
-    console.log('✅ SERVICE: Xóa tài xế thành công');
+    console.log(' SERVICE: Xóa tài xế thành công');
     return { message: 'Xóa tài xế thành công' };
   }
 }

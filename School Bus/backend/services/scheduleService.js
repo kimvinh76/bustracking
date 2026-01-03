@@ -107,7 +107,7 @@ class ScheduleService {
     } = scheduleData;
     
     if (!route_id || !bus_id || !driver_id || !date || !shift_type) {
-      console.log('❌ SERVICE: Thiếu thông tin bắt buộc');
+      console.log(' SERVICE: Thiếu thông tin bắt buộc');
       throw new Error('Thiếu thông tin bắt buộc: route_id, bus_id, driver_id, date, shift_type');
     }
 
@@ -115,7 +115,7 @@ class ScheduleService {
       throw new Error('Thiếu thông tin: scheduled_start_time, scheduled_end_time');
     }
 
-    console.log('✅ SERVICE: Validation passed');
+    console.log(' SERVICE: Validation passed');
 
     // 2. Kiểm tra route, bus, driver tồn tại
     const [routeExists, busExists, driverExists] = await Promise.all([
@@ -134,7 +134,7 @@ class ScheduleService {
       throw new Error('Không tìm thấy tài xế');
     }
 
-    console.log('✅ SERVICE: Route, Bus, Driver đều tồn tại');
+    console.log(' SERVICE: Route, Bus, Driver đều tồn tại');
 
     // 3. Validate date format
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -157,11 +157,11 @@ class ScheduleService {
     });
 
     if (duplicate) {
-      console.log('❌ SERVICE: Lịch trình đã tồn tại');
+      console.log(' SERVICE: Lịch trình đã tồn tại');
       throw new Error('Lịch trình này đã tồn tại (trùng tuyến, xe, tài xế, ngày, ca)');
     }
 
-    console.log('✅ SERVICE: Không trùng lịch trình');
+    console.log(' SERVICE: Không trùng lịch trình');
 
     // 6. Format dữ liệu
     const formattedData = {
@@ -180,7 +180,7 @@ class ScheduleService {
     // 7. Tạo schedule
     const newSchedule = await ScheduleModel.create(formattedData);
     
-    console.log('✅ SERVICE: Tạo lịch trình thành công');
+    console.log(' SERVICE: Tạo lịch trình thành công');
     return newSchedule;
   }
 
@@ -246,7 +246,7 @@ class ScheduleService {
     // 6. Cập nhật
     const updatedSchedule = await ScheduleModel.update(id, formattedData);
     
-    console.log('✅ SERVICE: Cập nhật lịch trình thành công');
+    console.log(' SERVICE: Cập nhật lịch trình thành công');
     return updatedSchedule;
   }
 
@@ -271,7 +271,7 @@ class ScheduleService {
       throw new Error('Không thể xóa lịch trình');
     }
 
-    console.log('✅ SERVICE: Xóa lịch trình thành công');
+    console.log(' SERVICE: Xóa lịch trình thành công');
     return { message: 'Xóa lịch trình thành công' };
   }
 }

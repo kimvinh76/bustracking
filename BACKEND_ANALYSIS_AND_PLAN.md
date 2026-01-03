@@ -11,17 +11,17 @@ Dự án SSB 1.0 của bạn đã có cấu trúc cơ bản, nhưng còn nhiều
 ```
 School Bus/backend/
 ├── config/
-│   └── db.js                  ✅ Tốt - Kết nối database riêng biệt
+│   └── db.js                   Tốt - Kết nối database riêng biệt
 ├── models/
-│   ├── Bus.js                 ✅ Tốt - Đã tách Model
-│   ├── Student.js             ✅ Tốt - Đã tách Model
-│   └── Class.js               ✅ Tốt - Đã tách Model
+│   ├── Bus.js                  Tốt - Đã tách Model
+│   ├── Student.js              Tốt - Đã tách Model
+│   └── Class.js                Tốt - Đã tách Model
 ├── services/
-│   ├── busService.js          ✅ Tốt - Đã tách Service
-│   └── studentService.js      ✅ Tốt - Đã tách Service
+│   ├── busService.js           Tốt - Đã tách Service
+│   └── studentService.js       Tốt - Đã tách Service
 ├── routes/
-│   ├── BusesRoutes.js         ✅ Tốt - Đã refactor
-│   ├── studentsRoutes.js      ✅ Tốt - Đã refactor
+│   ├── BusesRoutes.js          Tốt - Đã refactor
+│   ├── studentsRoutes.js       Tốt - Đã refactor
 │   ├── driversRoutes.js       ⚠️ CẦN CẢI THIỆN - SQL trực tiếp
 │   ├── routeRoutes.js         ⚠️ CẦN CẢI THIỆN - SQL trực tiếp
 │   ├── parentsRoutes.js       ⚠️ CẦN CẢI THIỆN - SQL trực tiếp
@@ -33,27 +33,27 @@ School Bus/backend/
 │   └── adminschedulesRoutes.js ⚠️ CẦN CẢI THIỆN
 ├── websocket/
 │   └── busTrackingSocket.js   ℹ️ Chưa kiểm tra
-└── server.js                  ✅ OK - Server entry point
+└── server.js                   OK - Server entry point
 ```
 
 ---
 
-## ❌ VẤN ĐỀ HIỆN TẠI
+##  VẤN ĐỀ HIỆN TẠI
 
 ### 1. **Không nhất quán trong kiến trúc**
 
-- ✅ Bus, Student đã có: **Model → Service → Routes** (3-layer)
-- ❌ Driver, Route, Parent, Classes, Schedules: **Routes + SQL trực tiếp** (1-layer)
+-  Bus, Student đã có: **Model → Service → Routes** (3-layer)
+-  Driver, Route, Parent, Classes, Schedules: **Routes + SQL trực tiếp** (1-layer)
 
 **VÍ DỤ:**
 ```javascript
-// driversRoutes.js - SQL trực tiếp trong Routes ❌
+// driversRoutes.js - SQL trực tiếp trong Routes 
 router.get('/', async (req, res) => {
   const [rows] = await pool.execute(`SELECT d.*, u.email FROM drivers...`);
   res.json({ success: true, data: rows });
 });
 
-// BusesRoutes.js - Dùng Service ✅
+// BusesRoutes.js - Dùng Service 
 router.get('/', async (req, res) => {
   const buses = await BusService.getAllBuses();
   res.json({ success: true, data: buses });
@@ -80,10 +80,10 @@ Hầu hết routes không kiểm tra:
 ### 4. **Error handling chưa chuẩn**
 
 ```javascript
-// ❌ Chưa chuẩn
+//  Chưa chuẩn
 res.status(500).json({ success: false, message: 'Lỗi máy chủ' });
 
-// ✅ Nên có
+//  Nên có
 - Mã lỗi rõ ràng (400, 404, 409, 500)
 - Message cụ thể
 - Error middleware tập trung
@@ -93,7 +93,7 @@ res.status(500).json({ success: false, message: 'Lỗi máy chủ' });
 
 Không có log để debug khi có lỗi:
 ```javascript
-console.log('Request received:', req.body); // ❌ Không có
+console.log('Request received:', req.body); //  Không có
 ```
 
 ---
@@ -107,9 +107,9 @@ console.log('Request received:', req.body); // ❌ Không có
 **Tạo các file:**
 ```
 models/
-├── Bus.js         ✅ Đã có
-├── Student.js     ✅ Đã có
-├── Class.js       ✅ Đã có
+├── Bus.js          Đã có
+├── Student.js      Đã có
+├── Class.js        Đã có
 ├── Driver.js      ⬜ CẦN TẠO
 ├── Route.js       ⬜ CẦN TẠO
 ├── Parent.js      ⬜ CẦN TẠO
@@ -196,8 +196,8 @@ export default DriverModel;
 **Tạo các file:**
 ```
 services/
-├── busService.js      ✅ Đã có
-├── studentService.js  ✅ Đã có
+├── busService.js       Đã có
+├── studentService.js   Đã có
 ├── driverService.js   ⬜ CẦN TẠO
 ├── routeService.js    ⬜ CẦN TẠO
 ├── parentService.js   ⬜ CẦN TẠO
@@ -442,7 +442,7 @@ export default router;
 ```javascript
 // middleware/errorHandler.js
 export const errorHandler = (err, req, res, next) => {
-  console.error('❌ ERROR:', err);
+  console.error(' ERROR:', err);
 
   const statusCode = err.statusCode || 500;
   const message = err.message || 'Lỗi server';
@@ -490,7 +490,7 @@ export const asyncHandler = (fn) => {
 
 ## 📊 SO SÁNH TRƯỚC VÀ SAU
 
-### ❌ TRƯỚC (driversRoutes.js - 145 dòng)
+###  TRƯỚC (driversRoutes.js - 145 dòng)
 
 ```javascript
 router.get('/', async (req, res) => {
@@ -509,13 +509,13 @@ router.get('/', async (req, res) => {
 ```
 
 **Vấn đề:**
-- ❌ SQL trực tiếp trong Routes
-- ❌ Không có validation
-- ❌ Không kiểm tra business rules
-- ❌ Code lặp lại (sendError)
-- ❌ Khó test
+-  SQL trực tiếp trong Routes
+-  Không có validation
+-  Không kiểm tra business rules
+-  Code lặp lại (sendError)
+-  Khó test
 
-### ✅ SAU (driversRoutes.js - 80 dòng)
+###  SAU (driversRoutes.js - 80 dòng)
 
 ```javascript
 router.get('/', async (req, res) => {
@@ -536,12 +536,12 @@ router.get('/', async (req, res) => {
 ```
 
 **Ưu điểm:**
-- ✅ Gọn gàng, dễ đọc (10 dòng thay vì 15 dòng)
-- ✅ SQL đã tách ra Model
-- ✅ Business logic ở Service
-- ✅ Routes chỉ lo HTTP
-- ✅ Dễ test từng layer
-- ✅ Dễ mở rộng
+-  Gọn gàng, dễ đọc (10 dòng thay vì 15 dòng)
+-  SQL đã tách ra Model
+-  Business logic ở Service
+-  Routes chỉ lo HTTP
+-  Dễ test từng layer
+-  Dễ mở rộng
 
 ---
 
@@ -550,23 +550,23 @@ router.get('/', async (req, res) => {
 ### **TUẦN 3: Backend Development Foundation** (Hiện tại)
 
 #### Ngày 1-2: Tạo Models
-- ✅ Bus.js (Đã có)
-- ✅ Student.js (Đã có)
-- ✅ Class.js (Đã có)
+-  Bus.js (Đã có)
+-  Student.js (Đã có)
+-  Class.js (Đã có)
 - ⬜ Driver.js
 - ⬜ Route.js
 - ⬜ Parent.js
 
 #### Ngày 3-4: Tạo Services
-- ✅ busService.js (Đã có)
-- ✅ studentService.js (Đã có)
+-  busService.js (Đã có)
+-  studentService.js (Đã có)
 - ⬜ driverService.js
 - ⬜ routeService.js
 - ⬜ parentService.js
 
 #### Ngày 5-6: Refactor Routes
-- ✅ BusesRoutes.js (Đã refactor)
-- ✅ studentsRoutes.js (Đã refactor)
+-  BusesRoutes.js (Đã refactor)
+-  studentsRoutes.js (Đã refactor)
 - ⬜ driversRoutes.js
 - ⬜ routeRoutes.js
 - ⬜ parentsRoutes.js

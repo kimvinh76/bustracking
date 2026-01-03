@@ -15,35 +15,35 @@ class AuthService {
     const { identifier, password } = credentials; // identifier có thể là email hoặc username
     
     if (!identifier || !password) {
-      console.log('❌ SERVICE: Thiếu thông tin đăng nhập');
+      console.log(' SERVICE: Thiếu thông tin đăng nhập');
       throw new Error('Thiếu thông tin: email/username và password');
     }
 
-    console.log('✅ SERVICE: Validation passed');
+    console.log(' SERVICE: Validation passed');
 
     // 2. Tìm user theo email hoặc username
     const user = await UserModel.findByEmailOrUsername(identifier);
     if (!user) {
-      console.log('❌ SERVICE: Không tìm thấy người dùng');
+      console.log(' SERVICE: Không tìm thấy người dùng');
       throw new Error('Email/Username hoặc mật khẩu không đúng');
     }
 
-    console.log('✅ SERVICE: Tìm thấy user, id:', user.id);
+    console.log(' SERVICE: Tìm thấy user, id:', user.id);
 
     // 3. TODO: Verify password
     // const isMatch = await bcrypt.compare(password, user.password);
     // if (!isMatch) {
-    //   console.log('❌ SERVICE: Mật khẩu không đúng');
+    //   console.log(' SERVICE: Mật khẩu không đúng');
     //   throw new Error('Email/Username hoặc mật khẩu không đúng');
     // }
 
     // Tạm thời so sánh trực tiếp (KHÔNG AN TOÀN - chỉ dùng để test)
     if (password !== user.password) {
-      console.log('❌ SERVICE: Mật khẩu không đúng');
+      console.log(' SERVICE: Mật khẩu không đúng');
       throw new Error('Email/Username hoặc mật khẩu không đúng');
     }
 
-    console.log('✅ SERVICE: Mật khẩu đúng');
+    console.log(' SERVICE: Mật khẩu đúng');
 
     // 4. TODO: Tạo JWT token
     // const token = jwt.sign(
@@ -58,7 +58,7 @@ class AuthService {
     // 5. Trả về user info (không có password)
     const { password: _, ...userWithoutPassword } = user;
 
-    console.log('✅ SERVICE: Đăng nhập thành công');
+    console.log(' SERVICE: Đăng nhập thành công');
     
     return {
       token,
@@ -77,42 +77,42 @@ class AuthService {
     const { username, email, password, role = 'parent' } = userData;
     
     if (!username || !email || !password) {
-      console.log('❌ SERVICE: Thiếu thông tin bắt buộc');
+      console.log(' SERVICE: Thiếu thông tin bắt buộc');
       throw new Error('Thiếu thông tin bắt buộc: username, email, password');
     }
 
-    console.log('✅ SERVICE: Validation passed');
+    console.log(' SERVICE: Validation passed');
 
     // 2. Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      console.log('❌ SERVICE: Email không hợp lệ');
+      console.log(' SERVICE: Email không hợp lệ');
       throw new Error('Email không hợp lệ');
     }
 
     // 3. Validate password length
     if (password.length < 6) {
-      console.log('❌ SERVICE: Mật khẩu quá ngắn');
+      console.log(' SERVICE: Mật khẩu quá ngắn');
       throw new Error('Mật khẩu phải có ít nhất 6 ký tự');
     }
 
     // 4. Kiểm tra trùng email
     const emailExists = await UserModel.emailExists(email);
     if (emailExists) {
-      console.log('❌ SERVICE: Email đã tồn tại');
+      console.log(' SERVICE: Email đã tồn tại');
       throw new Error('Email đã được sử dụng');
     }
     
-    console.log('✅ SERVICE: Email hợp lệ');
+    console.log(' SERVICE: Email hợp lệ');
 
     // 5. Kiểm tra trùng username
     const usernameExists = await UserModel.usernameExists(username);
     if (usernameExists) {
-      console.log('❌ SERVICE: Username đã tồn tại');
+      console.log(' SERVICE: Username đã tồn tại');
       throw new Error('Username đã được sử dụng');
     }
     
-    console.log('✅ SERVICE: Username hợp lệ');
+    console.log(' SERVICE: Username hợp lệ');
 
     // 6. TODO: Hash password
     // const hashedPassword = await bcrypt.hash(password, 10);
@@ -126,7 +126,7 @@ class AuthService {
       role
     });
 
-    console.log('✅ SERVICE: Đăng ký thành công, user_id:', newUser.id);
+    console.log(' SERVICE: Đăng ký thành công, user_id:', newUser.id);
 
     // 8. TODO: Tạo JWT token
     const token = `mock_token_${newUser.id}`;
@@ -182,7 +182,7 @@ class AuthService {
 
     // Tạm thời so sánh trực tiếp
     if (oldPassword !== user.password) {
-      console.log('❌ SERVICE: Mật khẩu cũ không đúng');
+      console.log(' SERVICE: Mật khẩu cũ không đúng');
       throw new Error('Mật khẩu cũ không đúng');
     }
 
@@ -198,7 +198,7 @@ class AuthService {
     // 5. Cập nhật password
     await UserModel.updatePassword(userId, hashedPassword);
 
-    console.log('✅ SERVICE: Đổi mật khẩu thành công');
+    console.log(' SERVICE: Đổi mật khẩu thành công');
     return { message: 'Đổi mật khẩu thành công' };
   }
 
@@ -220,7 +220,7 @@ class AuthService {
     // const resetToken = crypto.randomBytes(32).toString('hex');
     // await sendResetPasswordEmail(email, resetToken);
 
-    console.log('✅ SERVICE: Đã gửi link reset password (mock)');
+    console.log(' SERVICE: Đã gửi link reset password (mock)');
     return { message: 'Nếu email tồn tại, chúng tôi đã gửi link reset mật khẩu' };
   }
 }

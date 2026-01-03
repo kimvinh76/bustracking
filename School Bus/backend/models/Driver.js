@@ -16,7 +16,7 @@ class DriverModel {
       LEFT JOIN users u ON d.user_id = u.id 
       ORDER BY d.id ASC
     `);
-    console.log(`✅ MODEL: Tìm thấy ${rows.length} tài xế`);
+    console.log(` MODEL: Tìm thấy ${rows.length} tài xế`);
     return rows;
   }
 
@@ -35,7 +35,7 @@ class DriverModel {
     `, [id]);
     
     const driver = rows[0] || null;
-    console.log(driver ? '✅ MODEL: Tìm thấy tài xế' : '❌ MODEL: Không tìm thấy tài xế');
+    console.log(driver ? ' MODEL: Tìm thấy tài xế' : ' MODEL: Không tìm thấy tài xế');
     return driver;
   }
 
@@ -52,7 +52,7 @@ class DriverModel {
     );
     
     const driver = rows[0] || null;
-    console.log(driver ? '✅ MODEL: Tìm thấy tài xế' : '❌ MODEL: Không tìm thấy tài xế');
+    console.log(driver ? ' MODEL: Tìm thấy tài xế' : ' MODEL: Không tìm thấy tài xế');
     return driver;
   }
 
@@ -83,7 +83,7 @@ class DriverModel {
     );
     
     const driver = rows[0] || null;
-    console.log(driver ? '⚠️ MODEL: Số bằng lái đã tồn tại' : '✅ MODEL: Số bằng lái hợp lệ');
+    console.log(driver ? '⚠️ MODEL: Số bằng lái đã tồn tại' : ' MODEL: Số bằng lái hợp lệ');
     return driver;
   }
 
@@ -103,7 +103,7 @@ class DriverModel {
       [name, phone, license_number, address || null, status, user_id]
     );
     
-    console.log(`✅ MODEL: Insert thành công! insertId: ${result.insertId}`);
+    console.log(` MODEL: Insert thành công! insertId: ${result.insertId}`);
     
     // Lấy tài xế vừa tạo
     const newDriver = await this.findById(result.insertId);
@@ -126,7 +126,7 @@ class DriverModel {
       [name, phone, license_number, address || null, status, user_id, id]
     );
     
-    console.log('✅ MODEL: Cập nhật thành công');
+    console.log(' MODEL: Cập nhật thành công');
     
     // Lấy tài xế sau khi cập nhật
     const updatedDriver = await this.findById(id);
@@ -143,7 +143,7 @@ class DriverModel {
     const [result] = await pool.execute('DELETE FROM drivers WHERE id = ?', [id]);
     
     const deleted = result.affectedRows > 0;
-    console.log(deleted ? '✅ MODEL: Xóa thành công' : '❌ MODEL: Không tìm thấy để xóa');
+    console.log(deleted ? ' MODEL: Xóa thành công' : ' MODEL: Không tìm thấy để xóa');
     return deleted;
   }
 
@@ -167,7 +167,7 @@ class DriverModel {
       ORDER BY s.date DESC, s.scheduled_start_time ASC
     `, [id]);
     
-    console.log(`✅ MODEL: Tìm thấy ${rows.length} lịch trình`);
+    console.log(` MODEL: Tìm thấy ${rows.length} lịch trình`);
     return rows;
   }
 

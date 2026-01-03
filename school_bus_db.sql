@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Máy chủ: 127.0.0.1
--- Thời gian đã tạo: Th12 14, 2025 lúc 05:29 PM
+-- Thời gian đã tạo: Th1 03, 2026 lúc 06:20 AM
 -- Phiên bản máy phục vụ: 10.4.32-MariaDB
 -- Phiên bản PHP: 8.2.12
 
@@ -44,7 +44,27 @@ INSERT INTO `buses` (`id`, `bus_number`, `license_plate`, `capacity`, `status`, 
 (1, 'BUS-04', '51K-123.45', 20, 'active', '2025-10-20 13:44:19'),
 (2, 'BUS-02', '51K-678.90', 20, 'active', '2025-10-20 13:44:19'),
 (3, 'BUS-03', '51K-111.22', 15, 'active', '2025-10-20 13:44:19'),
-(6, 'BUS-05', '51K-123.94', 25, 'active', '2025-11-10 15:15:58');
+(6, 'BUS-06', '51K-123.964', 25, 'active', '2025-11-10 15:15:58'),
+(7, 'B899', 'LICENTEST899', 25, 'active', '2025-12-27 15:48:56');
+
+-- --------------------------------------------------------
+
+--
+-- Cấu trúc bảng cho bảng `bus_locations`
+--
+
+CREATE TABLE `bus_locations` (
+  `id` int(11) NOT NULL,
+  `bus_id` int(11) NOT NULL COMMENT 'ID xe bus',
+  `driver_id` int(11) NOT NULL COMMENT 'ID tài xế đang lái',
+  `schedule_id` int(11) DEFAULT NULL COMMENT 'ID lịch trình hiện tại',
+  `latitude` decimal(10,8) NOT NULL COMMENT 'Vĩ độ (-90 to 90)',
+  `longitude` decimal(11,8) NOT NULL COMMENT 'Kinh độ (-180 to 180)',
+  `speed` decimal(5,2) DEFAULT 0.00 COMMENT 'Vận tốc hiện tại (km/h)',
+  `heading` decimal(5,2) DEFAULT NULL COMMENT 'Hướng di chuyển (0-360 degrees, 0=North)',
+  `accuracy` decimal(6,2) DEFAULT NULL COMMENT 'Độ chính xác GPS (meters)',
+  `timestamp` datetime DEFAULT current_timestamp() COMMENT 'Thời điểm ghi nhận'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Lịch sử vị trí GPS của xe bus';
 
 -- --------------------------------------------------------
 
@@ -107,6 +127,30 @@ INSERT INTO `drivers` (`id`, `user_id`, `name`, `phone`, `license_number`, `addr
 (1, 2, 'Nguyễn Văn A', '0901234567', 'A1-12345', '23 an dương vương\n', 'active', '2025-10-20 13:44:19', '2025-11-23 03:33:24'),
 (2, 3, 'Trần Thị B', '0912345678', 'A1-54321', '273 an dương vương', 'active', '2025-10-20 13:44:19', '2025-10-23 03:03:13'),
 (3, 7, 'Lê Văn C', '0923456789', 'A1-98765', '273 an dương vương ', 'active', '2025-10-20 13:44:19', '2025-10-23 02:40:09');
+
+-- --------------------------------------------------------
+
+--
+-- Cấu trúc bảng cho bảng `incidents`
+--
+
+CREATE TABLE `incidents` (
+  `id` int(11) NOT NULL,
+  `driver_id` int(11) NOT NULL,
+  `bus_id` int(11) NOT NULL,
+  `route_id` int(11) DEFAULT NULL,
+  `incident_type` varchar(50) NOT NULL,
+  `description` text NOT NULL,
+  `severity` enum('low','medium','high','critical') DEFAULT 'medium',
+  `status` enum('reported','in_progress','resolved','closed') DEFAULT 'reported',
+  `location` varchar(255) DEFAULT NULL,
+  `latitude` decimal(10,8) DEFAULT NULL,
+  `longitude` decimal(11,8) DEFAULT NULL,
+  `resolution_notes` text DEFAULT NULL,
+  `resolved_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -276,7 +320,7 @@ CREATE TABLE `schedules` (
 --
 
 INSERT INTO `schedules` (`id`, `driver_id`, `bus_id`, `route_id`, `date`, `shift_type`, `scheduled_start_time`, `scheduled_end_time`, `student_count`, `status`, `actual_start_time`, `actual_end_time`, `notes`, `created_at`, `updated_at`) VALUES
-(4, 2, 3, 2, '2025-11-09', 'morning', '06:30:00', '07:30:00', 30, 'scheduled', NULL, NULL, NULL, '2025-10-24 05:00:15', '2025-11-12 05:20:38'),
+(4, 2, 3, 2, '2025-11-09', 'morning', '06:30:00', '07:30:00', 31, 'scheduled', NULL, NULL, NULL, '2025-10-24 05:00:15', '2025-12-18 07:29:29'),
 (6, 3, 6, 6, '2025-11-09', 'morning', '06:45:00', '07:45:00', 30, 'scheduled', NULL, NULL, NULL, '2025-10-24 05:00:15', '2025-11-12 05:22:18'),
 (10, 3, 6, 3, '2025-11-09', 'afternoon', '17:00:00', '18:00:00', 30, 'scheduled', NULL, NULL, NULL, '2025-10-24 05:00:15', '2025-11-12 05:22:32'),
 (23, 1, 1, 5, '2025-10-23', 'afternoon', '17:30:00', '18:30:00', 30, 'scheduled', NULL, NULL, NULL, '2025-11-07 10:26:54', '2025-11-11 04:45:27'),
@@ -326,6 +370,37 @@ INSERT INTO `stops` (`id`, `name`, `address`, `latitude`, `longitude`, `status`)
 (57, 'Cau Sai Gon', 'Cau Sai Gon, TP.HCM', 10.82000000, 106.74000000, 'active'),
 (100, 'Nguyễn Văn Cừ', 'Đường Nguyễn Văn Cừ, Q.1, TP.HCM', 10.76055000, 106.68340000, 'active'),
 (101, 'Nguyễn Biểu', 'Đường Nguyễn Biểu, Q.1, TP.HCM', 10.75790000, 106.68310000, 'active');
+
+-- --------------------------------------------------------
+
+--
+-- Cấu trúc bảng cho bảng `stop_arrivals`
+--
+
+CREATE TABLE `stop_arrivals` (
+  `id` int(11) NOT NULL,
+  `schedule_id` int(11) NOT NULL COMMENT 'ID lịch trình',
+  `stop_id` int(11) NOT NULL COMMENT 'ID điểm dừng',
+  `stop_order` int(11) NOT NULL COMMENT 'Thứ tự điểm dừng trong tuyến',
+  `scheduled_time` time DEFAULT NULL COMMENT 'Giờ dự kiến đến điểm (tính từ schedule start time)',
+  `estimated_arrival_time` datetime DEFAULT NULL COMMENT 'Thời gian đến dự kiến (ETA) - tính real-time',
+  `distance_remaining` decimal(8,2) DEFAULT NULL COMMENT 'Khoảng cách còn lại đến điểm (km)',
+  `actual_arrival_time` datetime DEFAULT NULL COMMENT 'Thời gian đến thực tế',
+  `actual_departure_time` datetime DEFAULT NULL COMMENT 'Thời gian rời điểm thực tế',
+  `arrival_status` enum('pending','approaching','arrived','departed') DEFAULT 'pending' COMMENT 'pending: chưa đến, approaching: sắp đến (<500m), arrived: đã đến, departed: đã rời',
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Thông tin đến/rời điểm dừng (ETA và thực tế)';
+
+--
+-- Đang đổ dữ liệu cho bảng `stop_arrivals`
+--
+
+INSERT INTO `stop_arrivals` (`id`, `schedule_id`, `stop_id`, `stop_order`, `scheduled_time`, `estimated_arrival_time`, `distance_remaining`, `actual_arrival_time`, `actual_departure_time`, `arrival_status`, `created_at`, `updated_at`) VALUES
+(1, 43, 1, 0, '06:00:00', NULL, NULL, NULL, NULL, 'pending', '2026-01-03 11:24:04', NULL),
+(2, 43, 100, 1, '06:15:00', NULL, NULL, NULL, NULL, 'pending', '2026-01-03 11:24:04', NULL),
+(3, 43, 101, 2, '06:30:00', NULL, NULL, NULL, NULL, 'pending', '2026-01-03 11:24:04', NULL),
+(4, 43, 43, 99, '07:00:00', NULL, NULL, NULL, NULL, 'pending', '2026-01-03 11:24:04', NULL);
 
 -- --------------------------------------------------------
 
@@ -416,6 +491,16 @@ ALTER TABLE `buses`
   ADD UNIQUE KEY `license_plate` (`license_plate`);
 
 --
+-- Chỉ mục cho bảng `bus_locations`
+--
+ALTER TABLE `bus_locations`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_bus_timestamp` (`bus_id`,`timestamp`),
+  ADD KEY `idx_schedule` (`schedule_id`),
+  ADD KEY `idx_timestamp` (`timestamp`),
+  ADD KEY `driver_id` (`driver_id`);
+
+--
 -- Chỉ mục cho bảng `classes`
 --
 ALTER TABLE `classes`
@@ -429,6 +514,18 @@ ALTER TABLE `drivers`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `license_number` (`license_number`),
   ADD KEY `user_id` (`user_id`);
+
+--
+-- Chỉ mục cho bảng `incidents`
+--
+ALTER TABLE `incidents`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_incidents_severity` (`severity`),
+  ADD KEY `idx_incidents_status` (`status`),
+  ADD KEY `idx_incidents_created_at` (`created_at`),
+  ADD KEY `idx_incidents_driver` (`driver_id`),
+  ADD KEY `idx_incidents_bus` (`bus_id`),
+  ADD KEY `idx_incidents_route` (`route_id`);
 
 --
 -- Chỉ mục cho bảng `notifications`
@@ -479,6 +576,16 @@ ALTER TABLE `stops`
   ADD PRIMARY KEY (`id`);
 
 --
+-- Chỉ mục cho bảng `stop_arrivals`
+--
+ALTER TABLE `stop_arrivals`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `unique_schedule_stop` (`schedule_id`,`stop_id`),
+  ADD KEY `idx_schedule` (`schedule_id`),
+  ADD KEY `idx_status` (`arrival_status`),
+  ADD KEY `stop_id` (`stop_id`);
+
+--
 -- Chỉ mục cho bảng `students`
 --
 ALTER TABLE `students`
@@ -507,7 +614,13 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT cho bảng `buses`
 --
 ALTER TABLE `buses`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+
+--
+-- AUTO_INCREMENT cho bảng `bus_locations`
+--
+ALTER TABLE `bus_locations`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT cho bảng `classes`
@@ -520,6 +633,12 @@ ALTER TABLE `classes`
 --
 ALTER TABLE `drivers`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
+
+--
+-- AUTO_INCREMENT cho bảng `incidents`
+--
+ALTER TABLE `incidents`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT cho bảng `notifications`
@@ -537,7 +656,7 @@ ALTER TABLE `parents`
 -- AUTO_INCREMENT cho bảng `routes`
 --
 ALTER TABLE `routes`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT cho bảng `route_stops`
@@ -558,6 +677,12 @@ ALTER TABLE `stops`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=102;
 
 --
+-- AUTO_INCREMENT cho bảng `stop_arrivals`
+--
+ALTER TABLE `stop_arrivals`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+
+--
 -- AUTO_INCREMENT cho bảng `students`
 --
 ALTER TABLE `students`
@@ -574,10 +699,26 @@ ALTER TABLE `users`
 --
 
 --
+-- Các ràng buộc cho bảng `bus_locations`
+--
+ALTER TABLE `bus_locations`
+  ADD CONSTRAINT `bus_locations_ibfk_1` FOREIGN KEY (`bus_id`) REFERENCES `buses` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `bus_locations_ibfk_2` FOREIGN KEY (`driver_id`) REFERENCES `drivers` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `bus_locations_ibfk_3` FOREIGN KEY (`schedule_id`) REFERENCES `schedules` (`id`) ON DELETE SET NULL;
+
+--
 -- Các ràng buộc cho bảng `drivers`
 --
 ALTER TABLE `drivers`
   ADD CONSTRAINT `drivers_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
+
+--
+-- Các ràng buộc cho bảng `incidents`
+--
+ALTER TABLE `incidents`
+  ADD CONSTRAINT `fk_incidents_bus` FOREIGN KEY (`bus_id`) REFERENCES `buses` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_incidents_driver` FOREIGN KEY (`driver_id`) REFERENCES `drivers` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_incidents_route` FOREIGN KEY (`route_id`) REFERENCES `routes` (`id`) ON DELETE SET NULL;
 
 --
 -- Các ràng buộc cho bảng `notifications`
@@ -606,6 +747,13 @@ ALTER TABLE `schedules`
   ADD CONSTRAINT `schedules_ibfk_1` FOREIGN KEY (`driver_id`) REFERENCES `drivers` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `schedules_ibfk_2` FOREIGN KEY (`bus_id`) REFERENCES `buses` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `schedules_ibfk_3` FOREIGN KEY (`route_id`) REFERENCES `routes` (`id`) ON DELETE CASCADE;
+
+--
+-- Các ràng buộc cho bảng `stop_arrivals`
+--
+ALTER TABLE `stop_arrivals`
+  ADD CONSTRAINT `stop_arrivals_ibfk_1` FOREIGN KEY (`schedule_id`) REFERENCES `schedules` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `stop_arrivals_ibfk_2` FOREIGN KEY (`stop_id`) REFERENCES `stops` (`id`) ON DELETE CASCADE;
 
 --
 -- Các ràng buộc cho bảng `students`

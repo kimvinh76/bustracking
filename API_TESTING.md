@@ -42,9 +42,9 @@ curl http://localhost:5000/api/students
 2. Chọn schedule ID 24 (hoặc schedule nào có sẵn)
 3. Click "Bắt đầu tuyến"
 4. Kiểm tra console log:
-   - ✅ "📅 Schedule data: ..."
-   - ✅ "🗺️ Route stops: ..."
-   - ✅ "✅ Loaded schedule with X stops and Y students"
+   -  "📅 Schedule data: ..."
+   -  "🗺️ Route stops: ..."
+   -  " Loaded schedule with X stops and Y students"
 
 ## Expected Response
 

@@ -80,26 +80,26 @@ class ParentService {
     const { name, phone, address, relationship = 'Cha/Mẹ' } = parentData;
     
     if (!name || !phone) {
-      console.log('❌ SERVICE: Thiếu thông tin bắt buộc');
+      console.log(' SERVICE: Thiếu thông tin bắt buộc');
       throw new Error('Thiếu thông tin bắt buộc: tên, số điện thoại');
     }
 
     // 2. Validate phone format (10 số)
     if (!/^[0-9]{10}$/.test(phone)) {
-      console.log('❌ SERVICE: Số điện thoại không hợp lệ');
+      console.log(' SERVICE: Số điện thoại không hợp lệ');
       throw new Error('Số điện thoại không hợp lệ (phải 10 số)');
     }
 
-    console.log('✅ SERVICE: Validation passed');
+    console.log(' SERVICE: Validation passed');
 
     // 3. Kiểm tra trùng số điện thoại
     const existingParent = await ParentModel.findByPhone(phone);
     if (existingParent) {
-      console.log('❌ SERVICE: Số điện thoại đã tồn tại');
+      console.log(' SERVICE: Số điện thoại đã tồn tại');
       throw new Error('Số điện thoại đã được sử dụng');
     }
     
-    console.log('✅ SERVICE: Không trùng số điện thoại');
+    console.log(' SERVICE: Không trùng số điện thoại');
 
     // 4. Tạo user account (nếu cần)
     let user_id = null;
@@ -122,9 +122,9 @@ class ParentService {
           role: 'parent'
         });
         user_id = newUser.id;
-        console.log('✅ SERVICE: Tạo user account thành công, user_id:', user_id);
+        console.log(' SERVICE: Tạo user account thành công, user_id:', user_id);
       } catch (err) {
-        console.log('❌ SERVICE: Lỗi tạo user account:', err.message);
+        console.log(' SERVICE: Lỗi tạo user account:', err.message);
         throw new Error(`Lỗi tạo tài khoản: ${err.message}`);
       }
     }
@@ -143,7 +143,7 @@ class ParentService {
     // 6. Tạo parent
     const newParent = await ParentModel.create(formattedData);
     
-    console.log('✅ SERVICE: Tạo phụ huynh thành công');
+    console.log(' SERVICE: Tạo phụ huynh thành công');
     return newParent;
   }
 
@@ -185,7 +185,7 @@ class ParentService {
     // 5. Cập nhật
     const updatedParent = await ParentModel.update(id, formattedData);
     
-    console.log('✅ SERVICE: Cập nhật phụ huynh thành công');
+    console.log(' SERVICE: Cập nhật phụ huynh thành công');
     return updatedParent;
   }
 
@@ -216,7 +216,7 @@ class ParentService {
       await UserModel.delete(parent.user_id);
     }
 
-    console.log('✅ SERVICE: Xóa phụ huynh thành công');
+    console.log(' SERVICE: Xóa phụ huynh thành công');
     return { message: 'Xóa phụ huynh thành công' };
   }
 }

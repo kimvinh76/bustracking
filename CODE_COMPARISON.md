@@ -15,7 +15,7 @@ backend/
     └── parentsRoutes.js
 ```
 
-### ✅ MỚI (Cải tiến)
+###  MỚI (Cải tiến)
 ```
 backend/
 ├── server.js
@@ -102,7 +102,7 @@ export default router;
 
 ---
 
-### ✅ CODE MỚI (3 files riêng biệt)
+###  CODE MỚI (3 files riêng biệt)
 
 #### FILE 1: models/Bus.js (Database Layer)
 ```javascript
@@ -161,18 +161,18 @@ class BusService {
   static async createBus(busData) {
     const { bus_number, license_plate } = busData;
 
-    // ✅ VALIDATION chi tiết
+    //  VALIDATION chi tiết
     if (!bus_number || !license_plate) {
       throw new Error('Mã xe và biển số xe là bắt buộc');
     }
 
-    // ✅ BUSINESS RULE: Kiểm tra biển số trùng
+    //  BUSINESS RULE: Kiểm tra biển số trùng
     const existingBus = await BusModel.findByLicensePlate(license_plate);
     if (existingBus) {
       throw new Error(`Biển số xe ${license_plate} đã tồn tại`);
     }
 
-    // ✅ FORMAT dữ liệu
+    //  FORMAT dữ liệu
     busData.license_plate = license_plate.toUpperCase().trim();
     busData.bus_number = bus_number.trim();
 
@@ -200,7 +200,7 @@ router.post('/', async (req, res) => {
   try {
     const busData = req.body;
     
-    // ✅ Chỉ gọi service, không có logic phức tạp
+    //  Chỉ gọi service, không có logic phức tạp
     const newBus = await BusService.createBus(busData);
     
     res.status(201).json({
@@ -209,7 +209,7 @@ router.post('/', async (req, res) => {
       data: newBus
     });
   } catch (error) {
-    // ✅ Xử lý lỗi thống nhất
+    //  Xử lý lỗi thống nhất
     let statusCode = 500;
     
     if (error.message.includes('bắt buộc') || error.message.includes('đã tồn tại')) {
@@ -232,7 +232,7 @@ export default router;
 
 ## 📊 SO SÁNH TÍNH NĂNG
 
-| Tính năng | ❌ Cũ | ✅ Mới |
+| Tính năng | ❌ Cũ |  Mới |
 |-----------|------|-------|
 | **Validation** | Chỉ kiểm tra rỗng | Kiểm tra đầy đủ + trùng biển số |
 | **Format dữ liệu** | Không | Chữ hoa biển số, trim khoảng trắng |
@@ -274,7 +274,7 @@ export default router;
 
 ---
 
-### ✅ MỚI: 3 LAYERS
+###  MỚI: 3 LAYERS
 
 ```
 ┌──────────────────────────────────────────┐
@@ -344,7 +344,7 @@ it('should create a bus', async () => {
 
 ---
 
-### ✅ MỚI: DỄ TEST
+###  MỚI: DỄ TEST
 
 ```javascript
 import BusService from '../services/busService.js';
@@ -376,14 +376,14 @@ describe('BusService', () => {
     
     expect(BusModel.create).toHaveBeenCalledWith({
       bus_number: 'B01',
-      license_plate: '30A-12345' // ✅ Đã chuyển thành chữ hoa
+      license_plate: '30A-12345' //  Đã chuyển thành chữ hoa
     });
   });
 });
 
-// ✅ Test logic riêng biệt
-// ✅ Không cần server
-// ✅ Không cần database thật
+//  Test logic riêng biệt
+//  Không cần server
+//  Không cần database thật
 ```
 
 ---
@@ -412,10 +412,10 @@ router.post("/", async (req, res) => {
 
 ---
 
-#### ✅ MỚI: Chỉ sửa 1 chỗ
+####  MỚI: Chỉ sửa 1 chỗ
 
 ```javascript
-// ✅ busService.js - CHỈ SỬA Ở ĐÂY
+//  busService.js - CHỈ SỬA Ở ĐÂY
 class BusService {
   static async createBus(busData) {
     const { bus_number, license_plate, capacity } = busData;
@@ -425,7 +425,7 @@ class BusService {
       throw new Error('Mã xe và biển số xe là bắt buộc');
     }
 
-    // ✅ THÊM validation mới
+    //  THÊM validation mới
     if (capacity && capacity < 10) {
       throw new Error('Số chỗ ngồi phải từ 10 trở lên');
     }
@@ -434,15 +434,15 @@ class BusService {
   }
 }
 
-// ✅ Routes không cần sửa gì
-// ✅ Tất cả nơi gọi BusService.createBus() đều được áp dụng rule mới
+//  Routes không cần sửa gì
+//  Tất cả nơi gọi BusService.createBus() đều được áp dụng rule mới
 ```
 
 ---
 
 ## 📈 KẾT LUẬN
 
-| Khía cạnh | ❌ Cũ | ✅ Mới |
+| Khía cạnh | ❌ Cũ |  Mới |
 |-----------|------|-------|
 | **Số dòng code/function** | 30-50 dòng | 10-20 dòng |
 | **Độ phức tạp** | Cao | Thấp |
@@ -477,12 +477,12 @@ class BusService {
 ---
 
 **📌 Files đã tạo sẵn cho bạn**:
-- ✅ `models/Bus.js` - Model layer
-- ✅ `models/Student.js` - Model phức tạp hơn (nhiều JOIN)
-- ✅ `models/Class.js` - Helper model
-- ✅ `services/busService.js` - Service layer
-- ✅ `services/studentService.js` - Service phức tạp hơn
-- ✅ `routes/BusesRoutes_NEW.js` - Routes cải tiến
+-  `models/Bus.js` - Model layer
+-  `models/Student.js` - Model phức tạp hơn (nhiều JOIN)
+-  `models/Class.js` - Helper model
+-  `services/busService.js` - Service layer
+-  `services/studentService.js` - Service phức tạp hơn
+-  `routes/BusesRoutes_NEW.js` - Routes cải tiến
 
 Bây giờ bạn có thể:
 1. So sánh file cũ vs mới

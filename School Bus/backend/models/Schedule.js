@@ -13,8 +13,8 @@ class ScheduleModel {
     const [rows] = await pool.execute(`
       SELECT s.*, 
              r.route_name, 
-             b.bus_number, b.license_plate,
-             d.name AS driver_name
+              b.bus_number, b.license_plate,
+              d.name AS driver_name
       FROM schedules s
       LEFT JOIN routes r ON s.route_id = r.id
       LEFT JOIN buses b ON s.bus_id = b.id
@@ -22,7 +22,7 @@ class ScheduleModel {
       ORDER BY s.date DESC, s.scheduled_start_time ASC
     `);
     
-    console.log(`✅ MODEL: Tìm thấy ${rows.length} lịch trình`);
+    console.log(` MODEL: Tìm thấy ${rows.length} lịch trình`);
     return rows;
   }
 
@@ -35,7 +35,7 @@ class ScheduleModel {
     console.log('🔷 MODEL: Tìm lịch trình theo ID:', id);
     const [rows] = await pool.execute(`
       SELECT s.*, 
-             r.route_name, r.start_location, r.end_location,
+              r.route_name,
              b.bus_number, b.license_plate, b.capacity,
              d.name AS driver_name, d.phone AS driver_phone
       FROM schedules s
@@ -46,7 +46,7 @@ class ScheduleModel {
     `, [id]);
     
     const schedule = rows[0] || null;
-    console.log(schedule ? '✅ MODEL: Tìm thấy lịch trình' : '❌ MODEL: Không tìm thấy lịch trình');
+    console.log(schedule ? ' MODEL: Tìm thấy lịch trình' : ' MODEL: Không tìm thấy lịch trình');
     return schedule;
   }
 
@@ -68,7 +68,7 @@ class ScheduleModel {
       ORDER BY s.date DESC, s.scheduled_start_time ASC
     `, [routeId]);
     
-    console.log(`✅ MODEL: Tìm thấy ${rows.length} lịch trình`);
+    console.log(` MODEL: Tìm thấy ${rows.length} lịch trình`);
     return rows;
   }
 
@@ -90,7 +90,7 @@ class ScheduleModel {
       ORDER BY s.date DESC, s.scheduled_start_time ASC
     `, [driverId]);
     
-    console.log(`✅ MODEL: Tìm thấy ${rows.length} lịch trình`);
+    console.log(` MODEL: Tìm thấy ${rows.length} lịch trình`);
     return rows;
   }
 
@@ -112,7 +112,7 @@ class ScheduleModel {
       ORDER BY s.date DESC, s.scheduled_start_time ASC
     `, [busId]);
     
-    console.log(`✅ MODEL: Tìm thấy ${rows.length} lịch trình`);
+    console.log(` MODEL: Tìm thấy ${rows.length} lịch trình`);
     return rows;
   }
 
@@ -136,7 +136,7 @@ class ScheduleModel {
       ORDER BY s.scheduled_start_time ASC
     `, [date]);
     
-    console.log(`✅ MODEL: Tìm thấy ${rows.length} lịch trình`);
+    console.log(` MODEL: Tìm thấy ${rows.length} lịch trình`);
     return rows;
   }
 
@@ -148,7 +148,8 @@ class ScheduleModel {
   static async create(scheduleData) {
     const { 
       route_id, bus_id, driver_id, date, shift_type,
-      scheduled_start_time, scheduled_end_time, status = 'scheduled'
+      scheduled_start_time, scheduled_end_time,
+      student_count = 0, notes = null, status = 'scheduled'
     } = scheduleData;
     
     console.log('🔷 MODEL: Tạo lịch trình mới trong database');
@@ -156,12 +157,12 @@ class ScheduleModel {
     
     const [result] = await pool.execute(
       `INSERT INTO schedules 
-       (route_id, bus_id, driver_id, date, shift_type, scheduled_start_time, scheduled_end_time, status) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [route_id, bus_id, driver_id, date, shift_type, scheduled_start_time, scheduled_end_time, status]
+       (route_id, bus_id, driver_id, date, shift_type, scheduled_start_time, scheduled_end_time, student_count, notes, status) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      [route_id, bus_id, driver_id, date, shift_type, scheduled_start_time, scheduled_end_time, student_count, notes, status]
     );
     
-    console.log(`✅ MODEL: Insert thành công! insertId: ${result.insertId}`);
+    console.log(` MODEL: Insert thành công! insertId: ${result.insertId}`);
     
     // Lấy lịch trình vừa tạo
     const newSchedule = await this.findById(result.insertId);
@@ -178,7 +179,7 @@ class ScheduleModel {
     const { 
       route_id, bus_id, driver_id, date, shift_type,
       scheduled_start_time, scheduled_end_time, 
-      actual_start_time, actual_end_time, status
+      actual_start_time, actual_end_time, student_count = 0, notes = null, status
     } = scheduleData;
     
     console.log('🔷 MODEL: Cập nhật lịch trình ID:', id);
@@ -187,14 +188,14 @@ class ScheduleModel {
       `UPDATE schedules SET 
        route_id = ?, bus_id = ?, driver_id = ?, date = ?, shift_type = ?,
        scheduled_start_time = ?, scheduled_end_time = ?,
-       actual_start_time = ?, actual_end_time = ?, status = ?
+       actual_start_time = ?, actual_end_time = ?, student_count = ?, notes = ?, status = ?
        WHERE id = ?`,
       [route_id, bus_id, driver_id, date, shift_type, 
        scheduled_start_time, scheduled_end_time,
-       actual_start_time || null, actual_end_time || null, status, id]
+       actual_start_time || null, actual_end_time || null, student_count, notes, status, id]
     );
     
-    console.log('✅ MODEL: Cập nhật thành công');
+    console.log(' MODEL: Cập nhật thành công');
     
     // Lấy lịch trình sau khi cập nhật
     const updatedSchedule = await this.findById(id);
@@ -211,7 +212,7 @@ class ScheduleModel {
     const [result] = await pool.execute('DELETE FROM schedules WHERE id = ?', [id]);
     
     const deleted = result.affectedRows > 0;
-    console.log(deleted ? '✅ MODEL: Xóa thành công' : '❌ MODEL: Không tìm thấy để xóa');
+    console.log(deleted ? ' MODEL: Xóa thành công' : ' MODEL: Không tìm thấy để xóa');
     return deleted;
   }
 
@@ -239,7 +240,7 @@ class ScheduleModel {
     const [rows] = await pool.execute(query, params);
     
     const duplicate = rows[0] || null;
-    console.log(duplicate ? '⚠️ MODEL: Lịch trình đã tồn tại' : '✅ MODEL: Lịch trình hợp lệ');
+    console.log(duplicate ? '⚠️ MODEL: Lịch trình đã tồn tại' : ' MODEL: Lịch trình hợp lệ');
     return duplicate;
   }
 
