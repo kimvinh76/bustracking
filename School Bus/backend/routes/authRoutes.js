@@ -19,7 +19,7 @@ router.post('/login', async (req, res) => {
 
     try {
         // 2. Sử dụng AuthService để xác thực
-        const result = await AuthService.login(username, password);
+        const result = await AuthService.login({ identifier: username, password });
         
         // 3. Nếu là driver, lấy thêm driver_id từ bảng drivers
         let driverId = null;

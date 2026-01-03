@@ -16,6 +16,7 @@ import schedulesRoutes from './routes/schedulesRoutes.js';
 import userRoutes  from './routes/userRoutes.js';
 import authRoutes from './routes/authRoutes.js'; // Thêm dòng này
 import incidentsRoutes from './routes/incidentsRoutes.js';
+import trackingRoutes from './routes/trackingRoutes.js';
 import adminschedulesRoutes from './routes/adminschedulesRoutes.js';
 import busTrackingSocket from './websocket/busTrackingSocket.js';
 
@@ -46,6 +47,7 @@ app.use('/api/admin-schedules', adminschedulesRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes); // Thêm dòng này
 app.use("/api/incidents", incidentsRoutes);
+app.use('/api/tracking', trackingRoutes);
 // check
 app.get('/api/health', async (req, res) => {
     try {

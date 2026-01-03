@@ -30,6 +30,19 @@ export const studentsService = {
         }
     },
 
+    // Lấy học sinh theo route và shift (morning/afternoon)
+    getStudentsByRoute: async (routeId, timeOfDay = 'morning') => {
+        try {
+            console.log(` Calling GET /students/route/${routeId}?timeOfDay=${timeOfDay}...`);
+            const response = await apiClient.get(`${ENDPOINT}/route/${routeId}?timeOfDay=${timeOfDay}`);
+            console.log(' Students by route response:', response);
+            return Array.isArray(response) ? response : [];
+        } catch (error) {
+            console.error('Error fetching students by route:', error);
+            throw error;
+        }
+    },
+
     // Tạo học sinh mới
     createStudent: async (studentData) => {
         try {

@@ -209,22 +209,34 @@ export default function DriverMapPage() {
           25 // Vận tốc trung bình 25 km/h
         );
 
-        // 5. Load students
-        const allStudents = await studentsService.getAllStudents();
+        // 5. Load students theo route và shift (morning/afternoon)
+        const timeOfDay = scheduleData.shiftType === 'morning' ? 'morning' : 'afternoon';
+        const routeStudents = await studentsService.getStudentsByRoute(scheduleData.routeId, timeOfDay);
         
-        // 6. Gán students vào stops (tạm thời phân bổ đều)
-        let studentIndex = 0;
+        // 6. Gán students vào đúng stops dựa trên pickup_stop_id hoặc dropoff_stop_id
         const stopsWithStudents = stopsWithTime.map((stop) => {
           if (stop.isStartOrEnd) {
             return { ...stop, students: [] };
           }
           
-          const studentsForStop = allStudents.slice(studentIndex, studentIndex + 2);
-          studentIndex += 2;
+          // Lọc học sinh thuộc điểm dừng này
+          const studentsForStop = routeStudents.filter(student => {
+            if (timeOfDay === 'morning') {
+              return student.morningPickupStopId === stop.id;
+            } else {
+              return student.afternoonDropoffStopId === stop.id;
+            }
+          });
           
           return {
             ...stop,
-            students: studentsForStop.map(s => ({ ...s, status: 'waiting' }))
+            students: studentsForStop.map(s => ({ 
+              id: s.id,
+              name: s.name,
+              class: s.class,
+              phone: s.phone,
+              status: 'waiting' 
+            }))
           };
         });
 
@@ -511,7 +523,7 @@ export default function DriverMapPage() {
             {status === "in_progress" && stops.length > 0 && (
               <BusRouteDriver
                 waypoints={routeWaypoints}
-                speedMetersPerSec={50}
+                speedMetersPerSec={15}
                 loop={false}
                 isRunning={true} // Driver component - always running when in_progress
                 onPositionUpdate={(position) => {

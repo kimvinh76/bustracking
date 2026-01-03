@@ -64,13 +64,15 @@ export default function BusRouteDriver({
 
     const latLngWaypoints = waypoints.map(([lat, lng]) => L.latLng(lat, lng));
 
-    // Create bus marker
+    // Create bus marker với icon lớn hơn, dễ nhìn
     markerRef.current = L.marker(latLngWaypoints[0], {
       icon: L.divIcon({
-        html: "<div style='font-size:30px'>🚌</div>",
-        iconSize: [24, 24],
+        html: "<div style='font-size:40px; filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));'>🚌</div>",
+        iconSize: [40, 40],
+        iconAnchor: [20, 20],
         className: "bus-driver-icon",
       }),
+      zIndexOffset: 1000,
     }).addTo(map);
     
 
@@ -151,10 +153,10 @@ export default function BusRouteDriver({
         const distance = from.distanceTo(to);
         segments.push({ from, to, distance, duration: (distance / speedMetersPerSec) * 1000 });
 
-        // Check if this segment ends at a waypoint (for pausing)
+        // Check nếu segment kết thúc gần waypoint (cho pause) - giảm tolerance để chính xác hơn
         for (let wpIdx = 1; wpIdx < waypoints.length - 1; wpIdx++) {
           const wp = L.latLng(waypoints[wpIdx][0], waypoints[wpIdx][1]);
-          if (to.distanceTo(wp) < 50) { // 50m tolerance
+          if (to.distanceTo(wp) < 20) { // 20m tolerance để tránh nhận sai điểm dừng
             pauseIndices.push({ segmentIndex: i, waypointIndex: wpIdx });
             break;
           }
