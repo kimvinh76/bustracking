@@ -39,38 +39,38 @@ class BusService {
    * Tạo xe bus mới
    */
   static async createBus(busData) {
-    console.log('🔸 SERVICE: Bắt đầu xử lý tạo xe bus');
-    console.log('📦 SERVICE: Dữ liệu nhận từ Routes:', busData);
+    console.log(' SERVICE: Bắt đầu xử lý tạo xe bus');
+    console.log(' SERVICE: Dữ liệu nhận từ Routes:', busData);
 
     // Validation chi tiết
     const { bus_number, license_plate } = busData;
 
-    console.log('🔸 SERVICE: Kiểm tra validation...');
+    console.log(' SERVICE: Kiểm tra validation...');
     if (!bus_number || !license_plate) {
       console.error('❌ SERVICE: Validation failed - Thiếu thông tin');
       throw new Error('Mã xe và biển số xe là bắt buộc');
     }
-    console.log('✅ SERVICE: Validation passed');
+    console.log(' SERVICE: Validation passed');
 
     // Business rule: Kiểm tra biển số có trùng không
-    console.log('🔸 SERVICE: Kiểm tra biển số trùng...');
+    console.log(' SERVICE: Kiểm tra biển số trùng...');
     const existingBus = await BusModel.findByLicensePlate(license_plate);
     if (existingBus) {
       console.error('❌ SERVICE: Biển số đã tồn tại:', license_plate);
       throw new Error(`Biển số xe ${license_plate} đã tồn tại`);
     }
-    console.log('✅ SERVICE: Không trùng biển số');
+    console.log(' SERVICE: Không trùng biển số');
 
     // Business rule: Format biển số (VD: chuyển thành chữ hoa)
-    console.log('🔸 SERVICE: Format dữ liệu...');
+    console.log(' SERVICE: Format dữ liệu...');
     busData.license_plate = license_plate.toUpperCase().trim();
     busData.bus_number = bus_number.trim();
-    console.log('✅ SERVICE: Dữ liệu đã format:', busData);
+    console.log(' SERVICE: Dữ liệu đã format:', busData);
 
     // Tạo xe bus
-    console.log('🔸 SERVICE: Gọi BusModel.create()...');
+    console.log(' SERVICE: Gọi BusModel.create()...');
     const newBus = await BusModel.create(busData);
-    console.log('✅ SERVICE: Model trả về xe bus:', newBus);
+    console.log(' SERVICE: Model trả về xe bus:', newBus);
     
     return newBus;
   }

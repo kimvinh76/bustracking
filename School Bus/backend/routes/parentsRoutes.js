@@ -9,7 +9,7 @@ router.get('/', async (req, res) => {
   console.log('🔹 GET /api/parents - Lấy danh sách phụ huynh');
   try {
     const parents = await ParentService.getAllParents();
-    console.log(`✅ Lấy thành công ${parents.length} phụ huynh`);
+    console.log(` Lấy thành công ${parents.length} phụ huynh`);
     res.json({ success: true, data: parents, count: parents.length });
   } catch (err) {
     console.error('❌ Lỗi khi lấy danh sách phụ huynh:', err.message);
@@ -26,7 +26,7 @@ router.get('/:id', async (req, res) => {
       console.log('❌ Không tìm thấy phụ huynh');
       return res.status(404).json({ success: false, message: 'Không tìm thấy phụ huynh' });
     }
-    console.log(`✅ Lấy thông tin phụ huynh ${parent.name}`);
+    console.log(` Lấy thông tin phụ huynh ${parent.name}`);
     res.json({ success: true, data: parent });
   } catch (err) {
     console.error('❌ Lỗi khi lấy thông tin phụ huynh:', err.message);
@@ -44,7 +44,7 @@ router.get('/:id/children', async (req, res) => {
       console.log('❌ Không tìm thấy phụ huynh');
       return res.status(404).json({ success: false, message: 'Không tìm thấy phụ huynh' });
     }
-    console.log(`✅ Lấy ${parent.children.length} con của phụ huynh ${parent.name}`);
+    console.log(` Lấy ${parent.children.length} con của phụ huynh ${parent.name}`);
     res.json({ success: true, data: parent.children, count: parent.children.length });
   } catch (err) {
     console.error('❌ Lỗi khi lấy danh sách con:', err.message);
@@ -58,7 +58,7 @@ router.post('/', async (req, res) => {
   try {
     const parentData = req.body;
     const parent = await ParentService.createParent(parentData);
-    console.log(`✅ Thêm phụ huynh thành công: ${parent.name}`);
+    console.log(` Thêm phụ huynh thành công: ${parent.name}`);
     res.status(201).json({ success: true, message: 'Thêm phụ huynh thành công', data: parent });
   } catch (err) {
     console.error('❌ Lỗi khi thêm phụ huynh:', err.message);
@@ -74,7 +74,7 @@ router.put('/:id', async (req, res) => {
     const { id } = req.params;
     const parentData = req.body;
     const parent = await ParentService.updateParent(id, parentData);
-    console.log(`✅ Cập nhật phụ huynh thành công: ${parent.name}`);
+    console.log(` Cập nhật phụ huynh thành công: ${parent.name}`);
     res.json({ success: true, message: 'Cập nhật phụ huynh thành công', data: parent });
   } catch (err) {
     console.error('❌ Lỗi khi cập nhật phụ huynh:', err.message);
@@ -90,7 +90,7 @@ router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     await ParentService.deleteParent(id);
-    console.log(`✅ Xóa phụ huynh thành công`);
+    console.log(` Xóa phụ huynh thành công`);
     res.json({ success: true, message: 'Xóa phụ huynh thành công' });
   } catch (err) {
     console.error('❌ Lỗi khi xóa phụ huynh:', err.message);

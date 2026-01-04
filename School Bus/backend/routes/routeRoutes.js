@@ -9,7 +9,7 @@ router.get("/", async (req, res) => {
   console.log('🔹 GET /api/routes - Lấy danh sách tuyến đường');
   try {
     const routes = await RouteService.getAllRoutes();
-    console.log(`✅ Lấy thành công ${routes.length} tuyến đường`);
+    console.log(` Lấy thành công ${routes.length} tuyến đường`);
     res.status(200).json({
       success: true,
       data: routes,
@@ -33,7 +33,7 @@ router.get("/:id", async (req, res) => {
       return res.status(404).json({ success: false, message: "Không tìm thấy tuyến đường" });
     }
 
-    console.log(`✅ Lấy thông tin tuyến ${route.route_name}`);
+    console.log(` Lấy thông tin tuyến ${route.route_name}`);
     res.status(200).json({
       success: true,
       data: route,
@@ -57,7 +57,7 @@ router.get('/:id/stops', async (req, res) => {
       return res.status(404).json({ success: false, message: "Không tìm thấy tuyến đường" });
     }
 
-    console.log(`✅ Lấy ${route.stops.length} điểm dừng của tuyến ${route.route_name}`);
+    console.log(` Lấy ${route.stops.length} điểm dừng của tuyến ${route.route_name}`);
     res.json({
       success: true,
       data: route.stops,
@@ -80,7 +80,7 @@ router.get('/:id/pickup-drop-info', async (req, res) => {
     const { id } = req.params;
     const info = await RouteService.getPickupDropInfo(id);
     
-    console.log(`✅ Lấy thông tin điểm đón/trả thành công`);
+    console.log(` Lấy thông tin điểm đón/trả thành công`);
     res.json({
       success: true,
       data: info,
@@ -102,7 +102,7 @@ router.post("/", async (req, res) => {
     const routeData = req.body;
     const newRoute = await RouteService.createRoute(routeData);
     
-    console.log(`✅ Tạo tuyến đường thành công: ${newRoute.route_name}`);
+    console.log(` Tạo tuyến đường thành công: ${newRoute.route_name}`);
     res.status(201).json({
       success: true,
       message: "Tạo tuyến đường thành công",
@@ -123,7 +123,7 @@ router.put("/:id", async (req, res) => {
     const routeData = req.body;
     const updatedRoute = await RouteService.updateRoute(id, routeData);
 
-    console.log(`✅ Cập nhật tuyến đường thành công: ${updatedRoute.route_name}`);
+    console.log(` Cập nhật tuyến đường thành công: ${updatedRoute.route_name}`);
     res.status(200).json({
       success: true,
       message: "Cập nhật tuyến đường thành công",
@@ -144,7 +144,7 @@ router.delete("/:id", async (req, res) => {
     const { id } = req.params;
     await RouteService.deleteRoute(id);
 
-    console.log(`✅ Xóa tuyến đường thành công`);
+    console.log(` Xóa tuyến đường thành công`);
     res.status(200).json({
       success: true,
       message: "Xóa tuyến đường thành công",

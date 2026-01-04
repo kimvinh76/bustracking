@@ -176,7 +176,7 @@ class IncidentModel {
     } = incidentData;
     
     console.log('🔷 MODEL: Tạo sự cố mới trong database');
-    console.log('📦 MODEL: Dữ liệu:', { driver_id, bus_id, incident_type, severity });
+    console.log(' MODEL: Dữ liệu:', { driver_id, bus_id, incident_type, severity });
     
     const [result] = await pool.execute(
       `INSERT INTO incidents 

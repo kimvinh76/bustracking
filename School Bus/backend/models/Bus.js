@@ -52,7 +52,7 @@ class BusModel {
    */
   static async create(busData) {
     console.log('🔷 MODEL: Tạo xe bus mới trong database');
-    console.log('📦 MODEL: Dữ liệu:', busData);
+    console.log(' MODEL: Dữ liệu:', busData);
     
     const { bus_number, license_plate, status = 'active' } = busData;
     
@@ -62,12 +62,12 @@ class BusModel {
       [bus_number, license_plate, status]
     );
 
-    console.log('✅ MODEL: Insert thành công! insertId:', result.insertId);
+    console.log(' MODEL: Insert thành công! insertId:', result.insertId);
     
     // Lấy xe bus vừa tạo
     console.log('🔷 MODEL: Lấy thông tin xe bus vừa tạo...');
     const newBus = await this.findById(result.insertId);
-    console.log('✅ MODEL: Xe bus vừa tạo:', newBus);
+    console.log(' MODEL: Xe bus vừa tạo:', newBus);
     
     return newBus;
   }

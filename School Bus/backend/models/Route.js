@@ -123,7 +123,7 @@ class RouteModel {
     const { route_name, distance, status = 'active' } = routeData;
     
     console.log('🔷 MODEL: Tạo tuyến đường mới trong database');
-    console.log('📦 MODEL: Dữ liệu:', { route_name, distance, status });
+    console.log(' MODEL: Dữ liệu:', { route_name, distance, status });
     
     const [result] = await pool.execute(
       'INSERT INTO routes (route_name, distance, status) VALUES (?, ?, ?)',

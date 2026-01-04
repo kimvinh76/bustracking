@@ -9,7 +9,7 @@ router.get('/', async (req, res) => {
   console.log('🔹 GET /api/drivers - Lấy danh sách tài xế');
   try {
     const drivers = await DriverService.getAllDrivers();
-    console.log(`✅ Lấy thành công ${drivers.length} tài xế`);
+    console.log(` Lấy thành công ${drivers.length} tài xế`);
     res.json({ success: true, data: drivers, count: drivers.length });
   } catch (err) {
     console.error('❌ Lỗi khi lấy danh sách tài xế:', err.message);
@@ -27,7 +27,7 @@ router.get('/by-user/:userId', async (req, res) => {
       console.log('❌ Không tìm thấy tài xế với user_id này');
       return res.status(404).json({ success: false, message: 'Không tìm thấy tài xế với user_id này' });
     }
-    console.log(`✅ Tìm thấy driver_id: ${driver.id}`);
+    console.log(` Tìm thấy driver_id: ${driver.id}`);
     res.json({ success: true, driver_id: driver.id });
   } catch (err) {
     console.error('❌ Lỗi khi lấy driver_id từ user_id:', err.message);
@@ -44,7 +44,7 @@ router.get('/:id', async (req, res) => {
       console.log('❌ Không tìm thấy tài xế');
       return res.status(404).json({ success: false, message: 'Không tìm thấy tài xế' });
     }
-    console.log(`✅ Lấy thông tin tài xế ${driver.name}`);
+    console.log(` Lấy thông tin tài xế ${driver.name}`);
     res.json({ success: true, data: driver });
   } catch (err) {
     console.error('❌ Lỗi khi lấy thông tin tài xế:', err.message);
@@ -58,7 +58,7 @@ router.post('/', async (req, res) => {
   try {
     const driverData = req.body;
     const driver = await DriverService.createDriver(driverData);
-    console.log(`✅ Thêm tài xế thành công: ${driver.name}`);
+    console.log(` Thêm tài xế thành công: ${driver.name}`);
     res.status(201).json({ success: true, message: 'Thêm tài xế thành công', data: driver });
   } catch (err) {
     console.error('❌ Lỗi khi thêm tài xế:', err.message);
@@ -74,7 +74,7 @@ router.put('/:id', async (req, res) => {
     const { id } = req.params;
     const driverData = req.body;
     const driver = await DriverService.updateDriver(id, driverData);
-    console.log(`✅ Cập nhật tài xế thành công: ${driver.name}`);
+    console.log(` Cập nhật tài xế thành công: ${driver.name}`);
     res.json({ success: true, message: 'Cập nhật tài xế thành công', data: driver });
   } catch (err) {
     console.error('❌ Lỗi khi cập nhật tài xế:', err.message);
@@ -90,7 +90,7 @@ router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     await DriverService.deleteDriver(id);
-    console.log(`✅ Xóa tài xế thành công`);
+    console.log(` Xóa tài xế thành công`);
     res.json({ success: true, message: 'Xóa tài xế thành công' });
   } catch (err) {
     console.error('❌ Lỗi khi xóa tài xế:', err.message);
@@ -105,7 +105,7 @@ router.get('/:id/details', async (req, res) => {
   try {
     const { id } = req.params;
     const details = await DriverService.getDriverDetails(id);
-    console.log(`✅ Lấy chi tiết tài xế với ${details.schedules.length} lịch trình`);
+    console.log(` Lấy chi tiết tài xế với ${details.schedules.length} lịch trình`);
     res.json({ success: true, data: details });
   } catch (err) {
     console.error('❌ Lỗi khi lấy thông tin chi tiết tài xế:', err.message);

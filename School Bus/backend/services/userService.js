@@ -8,7 +8,7 @@ class UserService {
    * Lấy tất cả người dùng
    */
   static async getAllUsers() {
-    console.log('🔸 SERVICE: Lấy tất cả người dùng');
+    console.log(' SERVICE: Lấy tất cả người dùng');
     const users = await UserModel.findAll();
     return users;
   }
@@ -17,7 +17,7 @@ class UserService {
    * Lấy người dùng theo ID
    */
   static async getUserById(id) {
-    console.log('🔸 SERVICE: Lấy người dùng theo ID:', id);
+    console.log(' SERVICE: Lấy người dùng theo ID:', id);
     
     const user = await UserModel.findById(id);
     if (!user) {
@@ -31,7 +31,7 @@ class UserService {
    * Lấy người dùng theo email
    */
   static async getUserByEmail(email) {
-    console.log('🔸 SERVICE: Lấy người dùng theo email:', email);
+    console.log(' SERVICE: Lấy người dùng theo email:', email);
     
     const user = await UserModel.findByEmail(email);
     if (!user) {
@@ -47,7 +47,7 @@ class UserService {
    * Lấy người dùng theo role
    */
   static async getUsersByRole(role) {
-    console.log('🔸 SERVICE: Lấy người dùng theo role:', role);
+    console.log(' SERVICE: Lấy người dùng theo role:', role);
     
     // Validate role
     const validRoles = ['admin', 'driver', 'parent'];
@@ -63,8 +63,8 @@ class UserService {
    * Tạo người dùng mới
    */
   static async createUser(userData) {
-    console.log('🔸 SERVICE: Bắt đầu tạo người dùng mới');
-    console.log('📦 SERVICE: Dữ liệu nhận được:', userData);
+    console.log(' SERVICE: Bắt đầu tạo người dùng mới');
+    console.log(' SERVICE: Dữ liệu nhận được:', userData);
     
     // 1. Validation
     const { username, email, password, role = 'parent' } = userData;
@@ -125,7 +125,7 @@ class UserService {
       role
     };
     
-    console.log('🔸 SERVICE: Dữ liệu sau khi format:', { ...formattedData, password: '***' });
+    console.log(' SERVICE: Dữ liệu sau khi format:', { ...formattedData, password: '***' });
 
     // 9. Tạo user
     const newUser = await UserModel.create(formattedData);
@@ -138,7 +138,7 @@ class UserService {
    * Cập nhật người dùng
    */
   static async updateUser(id, userData) {
-    console.log('🔸 SERVICE: Cập nhật người dùng ID:', id);
+    console.log(' SERVICE: Cập nhật người dùng ID:', id);
     
     // 1. Kiểm tra tồn tại
     await this.getUserById(id);
@@ -192,7 +192,7 @@ class UserService {
    * Cập nhật mật khẩu
    */
   static async updatePassword(id, oldPassword, newPassword) {
-    console.log('🔸 SERVICE: Cập nhật mật khẩu user ID:', id);
+    console.log(' SERVICE: Cập nhật mật khẩu user ID:', id);
     
     // 1. Kiểm tra user tồn tại
     const user = await UserModel.findById(id);
@@ -229,7 +229,7 @@ class UserService {
    * Xóa người dùng
    */
   static async deleteUser(id) {
-    console.log('🔸 SERVICE: Xóa người dùng ID:', id);
+    console.log(' SERVICE: Xóa người dùng ID:', id);
     
     // 1. Kiểm tra tồn tại
     await this.getUserById(id);

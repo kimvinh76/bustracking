@@ -1,0 +1,62 @@
+# --- File: School Bus/docker-compose.yml ---
+version: '3.8'
+
+services:
+  # 1. Backend (NodeJS)
+  server-backend:
+    build: ./backend      # Chỉ vào thư mục backend để tìm Dockerfile
+    container_name: school-bus-backend
+    ports:
+      - "5000:5000"       # Cổng 5000
+    environment:
+      - DB_HOST=db-mysql
+      - DB_USER=root
+      - DB_PASSWORD=123
+      - DB_NAME=school_bus_db
+      - BACKEND_PORT=5000
+      - NODE_ENV=production
+    depends_on:
+      db-mysql:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # 2. Frontend (React - code trong src)
+  client-frontend:
+    build: ./frontend         # Đổi từ . sang ./frontend
+    container_name: school-bus-frontend
+    ports:
+      - "5173:5173"       # Cổng 5173
+    environment:
+      - VITE_API_URL=http://localhost:5000/api
+    volumes:
+      - ./frontend/src:/app/src    # Hot reload: sửa code trong src thì web tự cập nhật
+      - /app/node_modules # Bảo vệ node_modules không bị ghi đè
+    depends_on:
+      - server-backend
+    restart: unless-stopped
+
+  # 3. Database
+  db-mysql:
+    image: mysql:8.0
+    container_name: school-bus-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: 123
+      MYSQL_DATABASE: school_bus_db
+      MYSQL_ROOT_HOST: '%'
+    ports:
+      - "3306:3306"
+    volumes:
+      # File SQL để khởi tạo database (có sẵn trong thư mục database/)
+      - ./database/school_bus_db.sql:/docker-entrypoint-initdb.d/init.sql
+      # Lưu dữ liệu MySQL persistent (không mất khi restart container)
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p123"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+# Định nghĩa volumes để lưu dữ liệu MySQL
+volumes:
+  mysql_data:

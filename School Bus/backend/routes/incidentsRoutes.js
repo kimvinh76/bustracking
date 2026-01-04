@@ -11,7 +11,7 @@ router.post('/create', async (req, res) => {
         const incidentData = req.body;
         const incident = await IncidentService.createIncident(incidentData);
         
-        console.log(`✅ Báo cáo sự cố đã được tạo thành công: ${incident.incident_type}`);
+        console.log(` Báo cáo sự cố đã được tạo thành công: ${incident.incident_type}`);
         res.status(201).json({
             success: true,
             message: 'Báo cáo sự cố đã được tạo thành công',
@@ -50,7 +50,7 @@ router.get('/', async (req, res) => {
         const endIndex = startIndex + parseInt(limit);
         const paginatedIncidents = incidents.slice(startIndex, endIndex);
 
-        console.log(`✅ Lấy ${paginatedIncidents.length}/${incidents.length} sự cố`);
+        console.log(` Lấy ${paginatedIncidents.length}/${incidents.length} sự cố`);
         res.json({
             success: true,
             incidents: paginatedIncidents,
@@ -86,7 +86,7 @@ router.get('/route/:routeId', async (req, res) => {
             .filter(incident => statusList.includes(incident.status))
             .slice(0, 10); // Limit 10
 
-        console.log(`✅ Lấy ${filteredIncidents.length} sự cố của tuyến`);
+        console.log(` Lấy ${filteredIncidents.length} sự cố của tuyến`);
         res.json({
             success: true,
             incidents: filteredIncidents
@@ -125,7 +125,7 @@ router.put('/:id/status', async (req, res) => {
         }
 
         await IncidentService.updateIncidentStatus(id, status, admin_notes);
-        console.log(`✅ Đã cập nhật trạng thái sự cố thành ${status}`);
+        console.log(` Đã cập nhật trạng thái sự cố thành ${status}`);
         
         res.json({
             success: true,

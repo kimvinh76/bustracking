@@ -11,7 +11,7 @@ class ScheduleService {
    * Lấy tất cả lịch trình
    */
   static async getAllSchedules() {
-    console.log('🔸 SERVICE: Lấy tất cả lịch trình');
+    console.log(' SERVICE: Lấy tất cả lịch trình');
     const schedules = await ScheduleModel.findAll();
     return schedules;
   }
@@ -20,7 +20,7 @@ class ScheduleService {
    * Lấy lịch trình theo ID
    */
   static async getScheduleById(id) {
-    console.log('🔸 SERVICE: Lấy lịch trình theo ID:', id);
+    console.log(' SERVICE: Lấy lịch trình theo ID:', id);
     
     const schedule = await ScheduleModel.findById(id);
     if (!schedule) {
@@ -34,7 +34,7 @@ class ScheduleService {
    * Lấy lịch trình theo route
    */
   static async getSchedulesByRoute(routeId) {
-    console.log('🔸 SERVICE: Lấy lịch trình theo route');
+    console.log(' SERVICE: Lấy lịch trình theo route');
     
     // Kiểm tra route tồn tại
     const routeExists = await RouteModel.exists(routeId);
@@ -50,7 +50,7 @@ class ScheduleService {
    * Lấy lịch trình theo driver
    */
   static async getSchedulesByDriver(driverId) {
-    console.log('🔸 SERVICE: Lấy lịch trình theo driver');
+    console.log(' SERVICE: Lấy lịch trình theo driver');
     
     // Kiểm tra driver tồn tại
     const driverExists = await DriverModel.exists(driverId);
@@ -66,7 +66,7 @@ class ScheduleService {
    * Lấy lịch trình theo bus
    */
   static async getSchedulesByBus(busId) {
-    console.log('🔸 SERVICE: Lấy lịch trình theo bus');
+    console.log(' SERVICE: Lấy lịch trình theo bus');
     
     // Kiểm tra bus tồn tại
     const busExists = await BusModel.exists(busId);
@@ -82,7 +82,7 @@ class ScheduleService {
    * Lấy lịch trình theo ngày
    */
   static async getSchedulesByDate(date) {
-    console.log('🔸 SERVICE: Lấy lịch trình theo ngày:', date);
+    console.log(' SERVICE: Lấy lịch trình theo ngày:', date);
     
     // Validate date format (YYYY-MM-DD)
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -97,8 +97,8 @@ class ScheduleService {
    * Tạo lịch trình mới
    */
   static async createSchedule(scheduleData) {
-    console.log('🔸 SERVICE: Bắt đầu tạo lịch trình mới');
-    console.log('📦 SERVICE: Dữ liệu nhận được:', scheduleData);
+    console.log(' SERVICE: Bắt đầu tạo lịch trình mới');
+    console.log(' SERVICE: Dữ liệu nhận được:', scheduleData);
     
     // 1. Validation
     const { 
@@ -175,7 +175,7 @@ class ScheduleService {
       status
     };
     
-    console.log('🔸 SERVICE: Dữ liệu sau khi format:', formattedData);
+    console.log(' SERVICE: Dữ liệu sau khi format:', formattedData);
 
     // 7. Tạo schedule
     const newSchedule = await ScheduleModel.create(formattedData);
@@ -188,7 +188,7 @@ class ScheduleService {
    * Cập nhật lịch trình
    */
   static async updateSchedule(id, scheduleData) {
-    console.log('🔸 SERVICE: Cập nhật lịch trình ID:', id);
+    console.log(' SERVICE: Cập nhật lịch trình ID:', id);
     
     // 1. Kiểm tra tồn tại
     await this.getScheduleById(id);
@@ -254,7 +254,7 @@ class ScheduleService {
    * Xóa lịch trình
    */
   static async deleteSchedule(id) {
-    console.log('🔸 SERVICE: Xóa lịch trình ID:', id);
+    console.log(' SERVICE: Xóa lịch trình ID:', id);
     
     // 1. Kiểm tra tồn tại
     await this.getScheduleById(id);

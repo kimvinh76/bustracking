@@ -9,7 +9,7 @@ class DriverService {
    * Lấy tất cả tài xế
    */
   static async getAllDrivers() {
-    console.log('🔸 SERVICE: Lấy tất cả tài xế');
+    console.log(' SERVICE: Lấy tất cả tài xế');
     const drivers = await DriverModel.findAll();
     return drivers;
   }
@@ -18,7 +18,7 @@ class DriverService {
    * Lấy tài xế theo ID
    */
   static async getDriverById(id) {
-    console.log('🔸 SERVICE: Lấy tài xế theo ID:', id);
+    console.log(' SERVICE: Lấy tài xế theo ID:', id);
     
     const driver = await DriverModel.findById(id);
     if (!driver) {
@@ -32,7 +32,7 @@ class DriverService {
    * Lấy tài xế theo user_id
    */
   static async getDriverByUserId(userId) {
-    console.log('🔸 SERVICE: Lấy tài xế theo user_id:', userId);
+    console.log(' SERVICE: Lấy tài xế theo user_id:', userId);
     
     const driver = await DriverModel.findByUserId(userId);
     if (!driver) {
@@ -46,7 +46,7 @@ class DriverService {
    * Lấy chi tiết tài xế kèm lịch trình
    */
   static async getDriverDetails(id) {
-    console.log('🔸 SERVICE: Lấy chi tiết tài xế kèm lịch trình');
+    console.log(' SERVICE: Lấy chi tiết tài xế kèm lịch trình');
     
     const driver = await this.getDriverById(id);
     const schedules = await DriverModel.getSchedules(id);
@@ -61,8 +61,8 @@ class DriverService {
    * Tạo tài xế mới
    */
   static async createDriver(driverData) {
-    console.log('🔸 SERVICE: Bắt đầu tạo tài xế mới');
-    console.log('📦 SERVICE: Dữ liệu nhận được:', driverData);
+    console.log(' SERVICE: Bắt đầu tạo tài xế mới');
+    console.log(' SERVICE: Dữ liệu nhận được:', driverData);
     
     // 1. Validation
     const { name, phone, license_number, address, status = 'active' } = driverData;
@@ -90,7 +90,7 @@ class DriverService {
     console.log(' SERVICE: Không trùng số bằng lái');
 
     // 4. Tạo user account
-    console.log('🔸 SERVICE: Tạo user account cho tài xế');
+    console.log(' SERVICE: Tạo user account cho tài xế');
     const username = `driver_${license_number}`;
     const email = `${username}@schoolbus.com`;
     const defaultPassword = "driver123"; // TODO: Hash password
@@ -125,7 +125,7 @@ class DriverService {
       user_id
     };
     
-    console.log('🔸 SERVICE: Dữ liệu sau khi format:', formattedData);
+    console.log(' SERVICE: Dữ liệu sau khi format:', formattedData);
 
     // 6. Tạo driver
     const newDriver = await DriverModel.create(formattedData);
@@ -138,7 +138,7 @@ class DriverService {
    * Cập nhật tài xế
    */
   static async updateDriver(id, driverData) {
-    console.log('🔸 SERVICE: Cập nhật tài xế ID:', id);
+    console.log(' SERVICE: Cập nhật tài xế ID:', id);
     
     // 1. Kiểm tra tồn tại
     await this.getDriverById(id);
@@ -181,7 +181,7 @@ class DriverService {
    * Xóa tài xế
    */
   static async deleteDriver(id) {
-    console.log('🔸 SERVICE: Xóa tài xế ID:', id);
+    console.log(' SERVICE: Xóa tài xế ID:', id);
     
     // 1. Kiểm tra tồn tại
     const driver = await this.getDriverById(id);
@@ -200,7 +200,7 @@ class DriverService {
 
     // 4. Xóa user account (nếu có)
     if (driver.user_id) {
-      console.log('🔸 SERVICE: Xóa user account, user_id:', driver.user_id);
+      console.log(' SERVICE: Xóa user account, user_id:', driver.user_id);
       await UserModel.delete(driver.user_id);
     }
 

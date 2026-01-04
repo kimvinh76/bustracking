@@ -96,7 +96,7 @@ class DriverModel {
     const { name, phone, license_number, address, status = 'active', user_id } = driverData;
     
     console.log('🔷 MODEL: Tạo tài xế mới trong database');
-    console.log('📦 MODEL: Dữ liệu:', { name, phone, license_number, status, user_id });
+    console.log(' MODEL: Dữ liệu:', { name, phone, license_number, status, user_id });
     
     const [result] = await pool.execute(
       'INSERT INTO drivers (name, phone, license_number, address, status, user_id) VALUES (?, ?, ?, ?, ?, ?)',

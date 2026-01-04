@@ -111,7 +111,7 @@ class UserModel {
     const { username, email, password, role = 'parent' } = userData;
     
     console.log('🔷 MODEL: Tạo người dùng mới trong database');
-    console.log('📦 MODEL: Dữ liệu:', { username, email, role });
+    console.log(' MODEL: Dữ liệu:', { username, email, role });
     
     const [result] = await pool.execute(
       'INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)',

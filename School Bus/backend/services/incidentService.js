@@ -11,7 +11,7 @@ class IncidentService {
    * Lấy tất cả sự cố
    */
   static async getAllIncidents() {
-    console.log('🔸 SERVICE: Lấy tất cả sự cố');
+    console.log(' SERVICE: Lấy tất cả sự cố');
     const incidents = await IncidentModel.findAll();
     return incidents;
   }
@@ -20,7 +20,7 @@ class IncidentService {
    * Lấy sự cố theo ID
    */
   static async getIncidentById(id) {
-    console.log('🔸 SERVICE: Lấy sự cố theo ID:', id);
+    console.log(' SERVICE: Lấy sự cố theo ID:', id);
     
     const incident = await IncidentModel.findById(id);
     if (!incident) {
@@ -34,7 +34,7 @@ class IncidentService {
    * Lấy sự cố theo driver
    */
   static async getIncidentsByDriver(driverId) {
-    console.log('🔸 SERVICE: Lấy sự cố theo driver');
+    console.log(' SERVICE: Lấy sự cố theo driver');
     
     // Kiểm tra driver tồn tại
     const driverExists = await DriverModel.exists(driverId);
@@ -50,7 +50,7 @@ class IncidentService {
    * Lấy sự cố theo bus
    */
   static async getIncidentsByBus(busId) {
-    console.log('🔸 SERVICE: Lấy sự cố theo bus');
+    console.log(' SERVICE: Lấy sự cố theo bus');
     
     // Kiểm tra bus tồn tại
     const busExists = await BusModel.exists(busId);
@@ -66,7 +66,7 @@ class IncidentService {
    * Lấy sự cố theo route
    */
   static async getIncidentsByRoute(routeId) {
-    console.log('🔸 SERVICE: Lấy sự cố theo route');
+    console.log(' SERVICE: Lấy sự cố theo route');
     
     // Kiểm tra route tồn tại
     const routeExists = await RouteModel.exists(routeId);
@@ -82,7 +82,7 @@ class IncidentService {
    * Lấy sự cố theo severity
    */
   static async getIncidentsBySeverity(severity) {
-    console.log('🔸 SERVICE: Lấy sự cố theo severity:', severity);
+    console.log(' SERVICE: Lấy sự cố theo severity:', severity);
     
     // Validate severity
     const validSeverities = ['low', 'medium', 'high', 'critical'];
@@ -98,7 +98,7 @@ class IncidentService {
    * Lấy sự cố theo status
    */
   static async getIncidentsByStatus(status) {
-    console.log('🔸 SERVICE: Lấy sự cố theo status:', status);
+    console.log(' SERVICE: Lấy sự cố theo status:', status);
     
     // Validate status
     const validStatuses = ['reported', 'in_progress', 'resolved', 'closed'];
@@ -114,8 +114,8 @@ class IncidentService {
    * Tạo sự cố mới
    */
   static async createIncident(incidentData) {
-    console.log('🔸 SERVICE: Bắt đầu tạo sự cố mới');
-    console.log('📦 SERVICE: Dữ liệu nhận được:', incidentData);
+    console.log(' SERVICE: Bắt đầu tạo sự cố mới');
+    console.log(' SERVICE: Dữ liệu nhận được:', incidentData);
     
     // 1. Validation
     const { 
@@ -187,7 +187,7 @@ class IncidentService {
       longitude: longitude || null
     };
     
-    console.log('🔸 SERVICE: Dữ liệu sau khi format:', formattedData);
+    console.log(' SERVICE: Dữ liệu sau khi format:', formattedData);
 
     // 8. Tạo incident
     const newIncident = await IncidentModel.create(formattedData);
@@ -207,7 +207,7 @@ class IncidentService {
    * Cập nhật sự cố
    */
   static async updateIncident(id, incidentData) {
-    console.log('🔸 SERVICE: Cập nhật sự cố ID:', id);
+    console.log(' SERVICE: Cập nhật sự cố ID:', id);
     
     // 1. Kiểm tra tồn tại
     await this.getIncidentById(id);
@@ -254,7 +254,7 @@ class IncidentService {
    * Cập nhật trạng thái sự cố
    */
   static async updateIncidentStatus(id, status, resolutionNotes = null) {
-    console.log('🔸 SERVICE: Cập nhật trạng thái sự cố ID:', id);
+    console.log(' SERVICE: Cập nhật trạng thái sự cố ID:', id);
     
     // 1. Kiểm tra tồn tại
     await this.getIncidentById(id);
@@ -276,7 +276,7 @@ class IncidentService {
    * Xóa sự cố
    */
   static async deleteIncident(id) {
-    console.log('🔸 SERVICE: Xóa sự cố ID:', id);
+    console.log(' SERVICE: Xóa sự cố ID:', id);
     
     // 1. Kiểm tra tồn tại
     await this.getIncidentById(id);

@@ -9,7 +9,7 @@ router.get("/", async (req, res) => {
     console.log('🔹 GET /api/users - Lấy danh sách user');
     try {
         const users = await UserService.getAllUsers();
-        console.log(`✅ Lấy thành công ${users.length} user`);
+        console.log(` Lấy thành công ${users.length} user`);
         res.json(users);
     } catch (err) {
         console.error('❌ Lỗi khi lấy danh sách user:', err.message);
@@ -26,7 +26,7 @@ router.get("/:id", async (req, res) => {
             console.log('❌ Không tìm thấy user');
             return res.status(404).json({ message: 'Không tìm thấy user' });
         }
-        console.log(`✅ Lấy thông tin user ${user.username}`);
+        console.log(` Lấy thông tin user ${user.username}`);
         res.json(user);
     } catch (err) {
         console.error('❌ Lỗi khi lấy user:', err.message);
@@ -40,7 +40,7 @@ router.post("/", async (req, res) => {
     try {
         const userData = req.body;
         const newUser = await UserService.createUser(userData);
-        console.log(`✅ Tạo user thành công: ${newUser.username}`);
+        console.log(` Tạo user thành công: ${newUser.username}`);
         res.json(newUser);
     } catch (err) {
         console.error('❌ Lỗi khi tạo user:', err.message);
@@ -56,7 +56,7 @@ router.put("/:id", async (req, res) => {
         const { id } = req.params;
         const userData = req.body;
         const updatedUser = await UserService.updateUser(id, userData);
-        console.log(`✅ Cập nhật user thành công: ${updatedUser.username}`);
+        console.log(` Cập nhật user thành công: ${updatedUser.username}`);
         res.json(updatedUser);
     } catch (err) {
         console.error('❌ Lỗi khi cập nhật user:', err.message);
@@ -71,7 +71,7 @@ router.delete("/:id", async (req, res) => {
     console.log(`🔹 DELETE /api/users/${req.params.id} - Xóa user`);
     try {
         await UserService.deleteUser(req.params.id);
-        console.log(`✅ Xóa user thành công`);
+        console.log(` Xóa user thành công`);
         res.json({ message: "Xóa thành công" });
     } catch (err) {
         console.error('❌ Lỗi khi xóa user:', err.message);

@@ -9,7 +9,7 @@ class ParentService {
    * Lấy tất cả phụ huynh
    */
   static async getAllParents() {
-    console.log('🔸 SERVICE: Lấy tất cả phụ huynh');
+    console.log(' SERVICE: Lấy tất cả phụ huynh');
     const parents = await ParentModel.findAll();
     return parents;
   }
@@ -18,7 +18,7 @@ class ParentService {
    * Lấy phụ huynh theo ID
    */
   static async getParentById(id) {
-    console.log('🔸 SERVICE: Lấy phụ huynh theo ID:', id);
+    console.log(' SERVICE: Lấy phụ huynh theo ID:', id);
     
     const parent = await ParentModel.findById(id);
     if (!parent) {
@@ -32,7 +32,7 @@ class ParentService {
    * Lấy phụ huynh theo user_id
    */
   static async getParentByUserId(userId) {
-    console.log('🔸 SERVICE: Lấy phụ huynh theo user_id:', userId);
+    console.log(' SERVICE: Lấy phụ huynh theo user_id:', userId);
     
     const parent = await ParentModel.findByUserId(userId);
     if (!parent) {
@@ -46,7 +46,7 @@ class ParentService {
    * Lấy phụ huynh kèm danh sách con
    */
   static async getParentWithChildren(id) {
-    console.log('🔸 SERVICE: Lấy phụ huynh kèm danh sách con');
+    console.log(' SERVICE: Lấy phụ huynh kèm danh sách con');
     
     const parent = await ParentModel.findWithChildren(id);
     if (!parent) {
@@ -60,7 +60,7 @@ class ParentService {
    * Lấy thông báo của phụ huynh
    */
   static async getParentNotifications(id) {
-    console.log('🔸 SERVICE: Lấy thông báo của phụ huynh');
+    console.log(' SERVICE: Lấy thông báo của phụ huynh');
     
     // Kiểm tra phụ huynh tồn tại
     await this.getParentById(id);
@@ -73,8 +73,8 @@ class ParentService {
    * Tạo phụ huynh mới
    */
   static async createParent(parentData) {
-    console.log('🔸 SERVICE: Bắt đầu tạo phụ huynh mới');
-    console.log('📦 SERVICE: Dữ liệu nhận được:', parentData);
+    console.log(' SERVICE: Bắt đầu tạo phụ huynh mới');
+    console.log(' SERVICE: Dữ liệu nhận được:', parentData);
     
     // 1. Validation
     const { name, phone, address, relationship = 'Cha/Mẹ' } = parentData;
@@ -104,7 +104,7 @@ class ParentService {
     // 4. Tạo user account (nếu cần)
     let user_id = null;
     if (parentData.create_account) {
-      console.log('🔸 SERVICE: Tạo user account cho phụ huynh');
+      console.log(' SERVICE: Tạo user account cho phụ huynh');
       const username = `parent_${phone}`;
       const email = parentData.email || `${username}@schoolbus.com`;
       const defaultPassword = "parent123"; // TODO: Hash password
@@ -138,7 +138,7 @@ class ParentService {
       user_id
     };
     
-    console.log('🔸 SERVICE: Dữ liệu sau khi format:', formattedData);
+    console.log(' SERVICE: Dữ liệu sau khi format:', formattedData);
 
     // 6. Tạo parent
     const newParent = await ParentModel.create(formattedData);
@@ -151,7 +151,7 @@ class ParentService {
    * Cập nhật phụ huynh
    */
   static async updateParent(id, parentData) {
-    console.log('🔸 SERVICE: Cập nhật phụ huynh ID:', id);
+    console.log(' SERVICE: Cập nhật phụ huynh ID:', id);
     
     // 1. Kiểm tra tồn tại
     await this.getParentById(id);
@@ -193,7 +193,7 @@ class ParentService {
    * Xóa phụ huynh
    */
   static async deleteParent(id) {
-    console.log('🔸 SERVICE: Xóa phụ huynh ID:', id);
+    console.log(' SERVICE: Xóa phụ huynh ID:', id);
     
     // 1. Kiểm tra tồn tại
     const parent = await this.getParentById(id);
@@ -212,7 +212,7 @@ class ParentService {
 
     // 4. Xóa user account (nếu có)
     if (parent.user_id) {
-      console.log('🔸 SERVICE: Xóa user account, user_id:', parent.user_id);
+      console.log(' SERVICE: Xóa user account, user_id:', parent.user_id);
       await UserModel.delete(parent.user_id);
     }
 

@@ -8,7 +8,7 @@ class RouteService {
    * Lấy tất cả tuyến đường
    */
   static async getAllRoutes() {
-    console.log('🔸 SERVICE: Lấy tất cả tuyến đường');
+    console.log(' SERVICE: Lấy tất cả tuyến đường');
     const routes = await RouteModel.findAll();
     return routes;
   }
@@ -17,7 +17,7 @@ class RouteService {
    * Lấy tuyến đường theo ID
    */
   static async getRouteById(id) {
-    console.log('🔸 SERVICE: Lấy tuyến đường theo ID:', id);
+    console.log(' SERVICE: Lấy tuyến đường theo ID:', id);
     
     const route = await RouteModel.findById(id);
     if (!route) {
@@ -31,7 +31,7 @@ class RouteService {
    * Lấy tuyến đường kèm điểm dừng
    */
   static async getRouteWithStops(id) {
-    console.log('🔸 SERVICE: Lấy tuyến đường kèm điểm dừng');
+    console.log(' SERVICE: Lấy tuyến đường kèm điểm dừng');
     
     const route = await RouteModel.findWithStops(id);
     if (!route) {
@@ -45,7 +45,7 @@ class RouteService {
    * Lấy thông tin điểm đón/trả
    */
   static async getPickupDropInfo(id) {
-    console.log('🔸 SERVICE: Lấy thông tin điểm đón/trả');
+    console.log(' SERVICE: Lấy thông tin điểm đón/trả');
     
     // Kiểm tra tuyến tồn tại
     await this.getRouteById(id);
@@ -58,8 +58,8 @@ class RouteService {
    * Tạo tuyến đường mới
    */
   static async createRoute(routeData) {
-    console.log('🔸 SERVICE: Bắt đầu tạo tuyến đường mới');
-    console.log('📦 SERVICE: Dữ liệu nhận được:', routeData);
+    console.log(' SERVICE: Bắt đầu tạo tuyến đường mới');
+    console.log(' SERVICE: Dữ liệu nhận được:', routeData);
     
     // 1. Validation
     const { route_name, start_location, end_location, distance, duration } = routeData;
@@ -99,7 +99,7 @@ class RouteService {
       waypoints: routeData.waypoints || null
     };
     
-    console.log('🔸 SERVICE: Dữ liệu sau khi format:', formattedData);
+    console.log(' SERVICE: Dữ liệu sau khi format:', formattedData);
 
     // 5. Tạo route
     const newRoute = await RouteModel.create(formattedData);
@@ -112,7 +112,7 @@ class RouteService {
    * Cập nhật tuyến đường
    */
   static async updateRoute(id, routeData) {
-    console.log('🔸 SERVICE: Cập nhật tuyến đường ID:', id);
+    console.log(' SERVICE: Cập nhật tuyến đường ID:', id);
     
     // 1. Kiểm tra tồn tại
     await this.getRouteById(id);
@@ -160,7 +160,7 @@ class RouteService {
    * Xóa tuyến đường
    */
   static async deleteRoute(id) {
-    console.log('🔸 SERVICE: Xóa tuyến đường ID:', id);
+    console.log(' SERVICE: Xóa tuyến đường ID:', id);
     
     // 1. Kiểm tra tồn tại
     await this.getRouteById(id);
@@ -185,7 +185,7 @@ class RouteService {
    * Thêm điểm dừng vào tuyến
    */
   static async addStopToRoute(routeId, stopData) {
-    console.log('🔸 SERVICE: Thêm điểm dừng vào tuyến');
+    console.log(' SERVICE: Thêm điểm dừng vào tuyến');
     
     // 1. Kiểm tra tuyến tồn tại
     await this.getRouteById(routeId);
@@ -212,7 +212,7 @@ class RouteService {
    * Xóa điểm dừng khỏi tuyến
    */
   static async removeStopFromRoute(routeStopId) {
-    console.log('🔸 SERVICE: Xóa điểm dừng khỏi tuyến');
+    console.log(' SERVICE: Xóa điểm dừng khỏi tuyến');
     
     const deleted = await RouteModel.removeStop(routeStopId);
     if (!deleted) {

@@ -37,7 +37,7 @@ router.post('/login', async (req, res) => {
             { expiresIn: '1h' }
         );
 
-        console.log(`✅ Đăng nhập thành công: ${result.user.username} (${result.user.role})`);
+        console.log(` Đăng nhập thành công: ${result.user.username} (${result.user.role})`);
         
         // 5. Trả về token và thông tin người dùng
         res.json({

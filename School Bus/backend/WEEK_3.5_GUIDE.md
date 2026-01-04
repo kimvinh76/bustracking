@@ -6,7 +6,7 @@
 
 ---
 
-## ✅ **BƯỚC 1: Setup Testing Environment**
+##  **BƯỚC 1: Setup Testing Environment**
 
 ### **1.1 Kiểm tra cài đặt**
 ```bash
@@ -14,7 +14,7 @@ cd "School Bus/backend"
 npm list jest supertest cors
 ```
 
-✅ **Kết quả mong đợi:**
+ **Kết quả mong đợi:**
 ```
 school-bus-backend@1.0.0
 ├── jest@30.2.0
@@ -27,7 +27,7 @@ school-bus-backend@1.0.0
 npm test
 ```
 
-✅ **Kết quả mong đợi:** Tests chạy thành công (có thể fail vì database)
+ **Kết quả mong đợi:** Tests chạy thành công (có thể fail vì database)
 
 ### **1.3 Fix database connection cho testing**
 
@@ -59,7 +59,7 @@ SOURCE d:/congnghephanmem/github/CNPM_Nhom04/school_bus_db.sql;
 
 ---
 
-## ✅ **BƯỚC 2: CORS Configuration**
+##  **BƯỚC 2: CORS Configuration**
 
 ### **2.1 Kiểm tra CORS hiện tại**
 
@@ -72,7 +72,7 @@ app.use(cors({
 }));
 ```
 
-✅ **ĐÃ ĐÚNG!** CORS cho phép frontend (port 5173) gọi backend (port 5000)
+ **ĐÃ ĐÚNG!** CORS cho phép frontend (port 5173) gọi backend (port 5000)
 
 ### **2.2 Test CORS**
 
@@ -93,11 +93,11 @@ fetch('http://localhost:5000/api/buses')
   .catch(err => console.error('CORS Error:', err));
 ```
 
-✅ **Kết quả mong đợi:** Không có lỗi CORS
+ **Kết quả mong đợi:** Không có lỗi CORS
 
 ---
 
-## ✅ **BƯỚC 3: Test với Postman**
+##  **BƯỚC 3: Test với Postman**
 
 ### **3.1 Import Postman Collection**
 
@@ -156,7 +156,7 @@ Tạo file `TESTING_RESULTS.md`:
 ```markdown
 # Testing Results - Week 3.5
 
-## ✅ Passed Tests
+##  Passed Tests
 - Buses API: 5/5 endpoints working
 - Drivers API: 4/4 endpoints working
 - Routes API: 5/5 endpoints working
@@ -364,7 +364,7 @@ Create new bus
 ## ❓ **TRẢ LỜI CÂU HỎI**
 
 ### **1. Lịch trình có nên để giờ kết thúc sẵn không?**
-✅ **CÓ** - Database bạn đã đúng:
+ **CÓ** - Database bạn đã đúng:
 - `scheduled_start_time`: 06:00:00
 - `scheduled_end_time`: 07:00:00
 
@@ -380,13 +380,13 @@ Create new bus
 - Bus không có vận tốc mặc định
 
 ### **3. Thông tin tuyến có cần chứa điểm dừng không?**
-✅ **CÓ** - Database bạn ĐÃ ĐÚNG:
+ **CÓ** - Database bạn ĐÃ ĐÚNG:
 ```
 routes (1) ←→ (N) route_stops ←→ (1) stops
 ```
 
 ### **4. Đang làm đúng hướng chưa?**
-✅ **ĐÚNG 95%!**
+ **ĐÚNG 95%!**
 
 **Đúng:**
 - 3-layer architecture (Routes→Services→Models)

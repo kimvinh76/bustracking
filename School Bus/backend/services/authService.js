@@ -8,8 +8,8 @@ class AuthService {
    * Đăng nhập
    */
   static async login(credentials) {
-    console.log('🔸 SERVICE: Xử lý đăng nhập');
-    console.log('📦 SERVICE: Credentials:', { identifier: credentials.identifier });
+    console.log(' SERVICE: Xử lý đăng nhập');
+    console.log(' SERVICE: Credentials:', { identifier: credentials.identifier });
     
     // 1. Validation
     const { identifier, password } = credentials; // identifier có thể là email hoặc username
@@ -70,8 +70,8 @@ class AuthService {
    * Đăng ký (Register)
    */
   static async register(userData) {
-    console.log('🔸 SERVICE: Xử lý đăng ký');
-    console.log('📦 SERVICE: Dữ liệu đăng ký:', { username: userData.username, email: userData.email });
+    console.log(' SERVICE: Xử lý đăng ký');
+    console.log(' SERVICE: Dữ liệu đăng ký:', { username: userData.username, email: userData.email });
     
     // 1. Validation
     const { username, email, password, role = 'parent' } = userData;
@@ -141,7 +141,7 @@ class AuthService {
    * Verify token (TODO: Implement JWT verification)
    */
   static async verifyToken(token) {
-    console.log('🔸 SERVICE: Verify token');
+    console.log(' SERVICE: Verify token');
     
     // TODO: Implement JWT verification
     // const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -166,7 +166,7 @@ class AuthService {
    * Đổi mật khẩu
    */
   static async changePassword(userId, oldPassword, newPassword) {
-    console.log('🔸 SERVICE: Đổi mật khẩu user ID:', userId);
+    console.log(' SERVICE: Đổi mật khẩu user ID:', userId);
     
     // 1. Tìm user
     const user = await UserModel.findById(userId);
@@ -206,7 +206,7 @@ class AuthService {
    * Reset mật khẩu (TODO: Implement email verification)
    */
   static async resetPassword(email) {
-    console.log('🔸 SERVICE: Reset mật khẩu cho email:', email);
+    console.log(' SERVICE: Reset mật khẩu cho email:', email);
     
     // 1. Tìm user
     const user = await UserModel.findByEmail(email);

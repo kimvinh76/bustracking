@@ -153,7 +153,7 @@ class ScheduleModel {
     } = scheduleData;
     
     console.log('🔷 MODEL: Tạo lịch trình mới trong database');
-    console.log('📦 MODEL: Dữ liệu:', { route_id, bus_id, driver_id, date, shift_type });
+    console.log(' MODEL: Dữ liệu:', { route_id, bus_id, driver_id, date, shift_type });
     
     const [result] = await pool.execute(
       `INSERT INTO schedules 

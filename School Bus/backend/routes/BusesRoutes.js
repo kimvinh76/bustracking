@@ -111,14 +111,14 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     console.log('🔹 ROUTES: Nhận request POST /api/buses');
-    console.log('📦 ROUTES: Body nhận được:', req.body);
+    console.log(' ROUTES: Body nhận được:', req.body);
     
     const busData = req.body;
     
     console.log('🔹 ROUTES: Đang gọi BusService.createBus()...');
     const newBus = await BusService.createBus(busData);
     
-    console.log('✅ ROUTES: Service trả về xe bus:', newBus);
+    console.log(' ROUTES: Service trả về xe bus:', newBus);
     console.log('🔹 ROUTES: Gửi response 201 cho client');
     
     res.status(201).json({

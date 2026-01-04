@@ -39,7 +39,7 @@ router.get('/driver/:driverId', async (req, res) => {
             route_id: row.route_id
         }));
         
-        console.log(`✅ Lấy ${data.length} lịch làm việc`);
+        console.log(` Lấy ${data.length} lịch làm việc`);
         res.json({
             success: true,
             data: data
@@ -97,7 +97,7 @@ router.get('/:driverId/:id', async (req, res) => {
             stop_count: 0
         };
 
-        console.log(`✅ Lấy chi tiết lịch ${schedule.id}`);
+        console.log(` Lấy chi tiết lịch ${schedule.id}`);
         res.json({
             success: true,
             data: detailData
@@ -188,7 +188,7 @@ router.get('/driver/:driverId/stops/:scheduleId', async (req, res) => {
             };
         });
 
-        console.log(`✅ Lấy ${processedStops.length} điểm dừng`);
+        console.log(` Lấy ${processedStops.length} điểm dừng`);
         res.json({
             success: true,
             data: {

@@ -137,7 +137,7 @@ class ParentModel {
     const { name, phone, address, relationship = 'Cha/Mẹ', user_id } = parentData;
     
     console.log('🔷 MODEL: Tạo phụ huynh mới trong database');
-    console.log('📦 MODEL: Dữ liệu:', { name, phone, relationship });
+    console.log(' MODEL: Dữ liệu:', { name, phone, relationship });
     
     const [result] = await pool.execute(
       'INSERT INTO parents (name, phone, address, relationship, user_id) VALUES (?, ?, ?, ?, ?)',
