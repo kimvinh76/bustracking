@@ -10,6 +10,7 @@ export default function BusRouteDriver({
   speedMetersPerSec = 18,
   onReachStop = () => {},
   onPositionUpdate = () => {},
+  onTripComplete = () => {},
   loop = false,
   isRunning = false,
 }) {
@@ -17,6 +18,7 @@ export default function BusRouteDriver({
   const markerRef = useRef(null);
   const animRef = useRef(null);
   const routingControlRef = useRef(null);
+  const frameCountRef = useRef(0); // Debug: count frames to throttle panTo
   const baselinePolylineRef = useRef(null);
   const routePolylineRef = useRef(null);
   const stateRef = useRef({
@@ -27,6 +29,7 @@ export default function BusRouteDriver({
     coords: [],
     pauseIndices: [],
     elapsedTime: 0,
+    completed: false,
   });
   const initializedRef = useRef(false);
 
@@ -56,11 +59,12 @@ export default function BusRouteDriver({
   }, [isRunning]);
 
   useEffect(() => {
-    // CHỈ khởi tạo khi isRunning = true và chưa được khởi tạo
-    if (!map || waypoints.length < 2 || initializedRef.current || !isRunning) return;
+    // Khởi tạo khi có map và waypoints, không phụ thuộc isRunning
+    // isRunning chỉ điều khiển pause/resume animation
+    if (!map || waypoints.length < 2 || initializedRef.current) return;
     
     initializedRef.current = true;
-    console.log('[BusRouteDriver] Initializing');
+    console.log('[BusRouteDriver] Initializing with', waypoints.length, 'waypoints');
 
     const latLngWaypoints = waypoints.map(([lat, lng]) => L.latLng(lat, lng));
 
@@ -153,10 +157,10 @@ export default function BusRouteDriver({
         const distance = from.distanceTo(to);
         segments.push({ from, to, distance, duration: (distance / speedMetersPerSec) * 1000 });
 
-        // Check nếu segment kết thúc gần waypoint (cho pause) - giảm tolerance để chính xác hơn
+        // Check nếu segment kết thúc gần waypoint (cho pause)
         for (let wpIdx = 1; wpIdx < waypoints.length - 1; wpIdx++) {
           const wp = L.latLng(waypoints[wpIdx][0], waypoints[wpIdx][1]);
-          if (to.distanceTo(wp) < 20) { // 20m tolerance để tránh nhận sai điểm dừng
+          if (to.distanceTo(wp) < 50) { // Debug: tăng tolerance lên 50m để chắc chắn bắt waypoint
             pauseIndices.push({ segmentIndex: i, waypointIndex: wpIdx });
             break;
           }
@@ -167,6 +171,13 @@ export default function BusRouteDriver({
       stateRef.current.coords = coords;
       stateRef.current.pauseIndices = pauseIndices;
       stateRef.current.startTime = Date.now();
+
+      // Debug log để kiểm tra dữ liệu segment và pauseIndices
+      console.log('[BusRouteDriver] segments:', segments.length, 'pauseIndices:', pauseIndices.length);
+      const zeroDuration = segments.filter(s => s.duration === 0).length;
+      if (zeroDuration > 0) {
+        console.warn('[BusRouteDriver] Found segments with zero duration:', zeroDuration, '→ kiểm tra dữ liệu lat/lng');
+      }
 
 
       // Start animation if running
@@ -202,6 +213,13 @@ export default function BusRouteDriver({
         if (currentSegmentIndex >= stateRef.current.segments.length) {
           // Animation complete
           console.log("[BusRouteDriver] Animation completed");
+          if (!stateRef.current.completed) {
+            stateRef.current.completed = true;
+            const lastCoord = stateRef.current.coords[stateRef.current.coords.length - 1];
+            const finalPosition = lastCoord ? { lat: lastCoord.lat, lng: lastCoord.lng } : null;
+            const finalStopIndex = waypoints.length > 0 ? waypoints.length - 1 : null;
+            onTripComplete({ finalStopIndex, finalPosition });
+          }
           if (loop) {
             stateRef.current.segmentIndex = 0;
             stateRef.current.startTime = Date.now();
@@ -224,6 +242,12 @@ export default function BusRouteDriver({
         if (markerRef.current) {
           markerRef.current.setLatLng([lat, lng]);
         }
+
+        // Debug: pan map định kỳ để dễ thấy marker (mỗi 15 frames)
+        frameCountRef.current += 1;
+        if (frameCountRef.current % 15 === 0 && map) {
+          map.panTo([lat, lng]);
+        }
         
         // Notify position update
         onPositionUpdate(currentPos);
@@ -234,7 +258,11 @@ export default function BusRouteDriver({
           // Reached a waypoint - pause and notify
           stateRef.current.paused = true;
           stateRef.current.elapsedTime = elapsed;
-          stateRef.current.segmentIndex = currentSegmentIndex;
+          // Tiến sang segment tiếp theo và loại bỏ tất cả pauseIndices của waypoint này để tránh lặp lại
+          stateRef.current.segmentIndex = pausePoint.segmentIndex + 1;
+          stateRef.current.pauseIndices = stateRef.current.pauseIndices.filter(
+            (p) => p.waypointIndex !== pausePoint.waypointIndex
+          );
           
           console.log("[BusRouteDriver] Reached waypoint", pausePoint.waypointIndex);
           

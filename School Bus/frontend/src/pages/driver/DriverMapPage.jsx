@@ -22,6 +22,7 @@ import { studentsService } from "../../services/studentsService.js";
 import { schedulesService } from "../../services/schedulesService.js";
 import routesService from "../../services/routesService.js";
 import busTrackingService from "../../services/busTrackingService.js";
+import trackingService from "../../services/trackingService.js";
 import { 
   FaPlay, FaUsers, FaCheckCircle, FaExclamationTriangle, 
   FaPhone
@@ -93,7 +94,7 @@ export default function DriverMapPage() {
   };
 
   const calculateEstimatedTime = () => {
-    if (!nextStop || status === "completed") return schedule?.endTime || '07:00';
+    if (!nextStop || status === "completed") return schedule?.endTime ;
     return nextStop.time;
   };
 
@@ -191,7 +192,7 @@ export default function DriverMapPage() {
         
         // Lấy driver ID từ session (driverId là drivers.id, không phải users.id)
         const user = JSON.parse(sessionStorage.getItem('user'));
-        const driverId = user?.driverId || 1;
+        const driverId = user?.driverId ;
 
         // 1. Lấy thông tin schedule
         const scheduleData = await schedulesService.getScheduleById(scheduleId, driverId);
@@ -211,7 +212,14 @@ export default function DriverMapPage() {
 
         // 5. Load students theo route và shift (morning/afternoon)
         const timeOfDay = scheduleData.shiftType === 'morning' ? 'morning' : 'afternoon';
-        const routeStudents = await studentsService.getStudentsByRoute(scheduleData.routeId, timeOfDay);
+        const routeStudentsRaw = await studentsService.getStudentsByRoute(scheduleData.routeId, timeOfDay);
+
+        // Chuẩn hóa field stop-id (backend trả snake_case)
+        const routeStudents = (routeStudentsRaw || []).map((s) => ({
+          ...s,
+          morningPickupStopId: s.morningPickupStopId ?? s.morning_pickup_stop_id ?? s.pickup_stop_id,
+          afternoonDropoffStopId: s.afternoonDropoffStopId ?? s.afternoon_dropoff_stop_id ?? s.dropoff_stop_id,
+        }));
         
         // 6. Gán students vào đúng stops dựa trên pickup_stop_id hoặc dropoff_stop_id
         const stopsWithStudents = stopsWithTime.map((stop) => {
@@ -377,6 +385,10 @@ export default function DriverMapPage() {
   };
 
   const toggleStudentStatus = (stopId, studentId) => {
+    if (!canManageStop(stopId)) {
+      pushNotice("warning", "Chỉ thao tác khi xe đã đến đúng điểm dừng");
+      return;
+    }
     setStops((prev) =>
       prev.map((stop) => {
         if (stop.id !== stopId) return stop;
@@ -395,6 +407,10 @@ export default function DriverMapPage() {
   };
 
   const markStudentAbsent = (stopId, studentId) => {
+    if (!canManageStop(stopId)) {
+      pushNotice("warning", "Chỉ thao tác khi xe đã đến đúng điểm dừng");
+      return;
+    }
     setStops((prevStops) =>
       prevStops.map((stop) => {
         if (stop.id === stopId) {
@@ -445,6 +461,13 @@ export default function DriverMapPage() {
         total + stop.students.filter((s) => s.status === "absent").length,
       0
     );
+  };
+
+  // Chỉ cho phép thao tác học sinh khi xe đã dừng tại điểm (pausedWpIdx)
+  const canManageStop = (stopId) => {
+    if (pausedWpIdx === null) return false;
+    const current = stops[pausedWpIdx];
+    return current && current.id === stopId;
   };
 
   const remainingStudents = () => {
@@ -533,6 +556,48 @@ export default function DriverMapPage() {
                   busTrackingService.updateDriverStatus({
                     currentPosition: position
                   });
+
+                  // Ghi log GPS vào DB (background, không chặn UI)
+                  try {
+                    trackingService.logLocation({
+                      busId: schedule?.busId,
+                      driverId: schedule?.driverId,
+                      scheduleId: scheduleId ? Number(scheduleId) : null,
+                      latitude: position.lat,
+                      longitude: position.lng,
+                      speed: null,
+                      heading: null,
+                      accuracy: null
+                    });
+                  } catch (err) {
+                    console.warn('⚠️ Failed to log location:', err?.message || err);
+                  }
+                }}
+                onTripComplete={({ finalStopIndex, finalPosition }) => {
+                  const fallbackIndex = stops.length > 0 ? stops.length - 1 : 0;
+                  const finalIndex = typeof finalStopIndex === "number" ? finalStopIndex : fallbackIndex;
+                  const finalStop = stops[finalIndex];
+                  const lastPos = finalPosition || (finalStop ? { lat: finalStop.lat, lng: finalStop.lng } : null);
+
+                  setStopIdx(finalIndex);
+                  setPausedWpIdx(null);
+                  setResumeFn(null);
+                  setShowStudents(false);
+                  setShowArrival(false);
+                  setStatus("completed");
+                  updateActiveTripSession("cleared");
+                  if (lastPos) {
+                    setBusCurrentPosition(lastPos);
+                  }
+
+                  busTrackingService.updateDriverStatus({
+                    isRunning: false,
+                    driverStatus: "completed",
+                    currentStopIndex: finalIndex,
+                    currentPosition: lastPos || busCurrentPosition
+                  });
+
+                  pushNotice("success", " Đã hoàn thành tuyến đường (tự động)");
                 }}
                 onReachStop={(wpIdx, resumeFn) => {
                   setStopIdx(wpIdx);
@@ -601,6 +666,7 @@ export default function DriverMapPage() {
           {status !== "not_started" && (
             <button
               onClick={() => setShowStudents(true)}
+              disabled={pausedWpIdx === null}
               className="w-16 h-16 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-xl flex items-center justify-center transform hover:scale-105 transition-all relative"
               title="Danh sách học sinh"
             >
