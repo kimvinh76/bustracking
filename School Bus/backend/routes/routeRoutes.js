@@ -156,4 +156,23 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
+// PUT /api/routes/:id/recalculate-distance - Tính lại quãng đường từ route_stops
+router.put('/:id/recalculate-distance', async (req, res) => {
+  console.log(`🔹 PUT /api/routes/${req.params.id}/recalculate-distance - Recalculate route distance`);
+  try {
+    const { id } = req.params;
+    const updatedRoute = await RouteService.recalculateRouteDistance(id);
+
+    res.status(200).json({
+      success: true,
+      message: 'Đã tính lại quãng đường tuyến thành công',
+      data: updatedRoute,
+    });
+  } catch (error) {
+    console.error('❌ Lỗi khi tính lại quãng đường tuyến:', error.message);
+    const statusCode = error.message.includes('Không tìm thấy') ? 404 : 500;
+    res.status(statusCode).json({ success: false, message: error.message });
+  }
+});
+
 export default router;

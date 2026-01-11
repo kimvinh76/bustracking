@@ -218,6 +218,75 @@ class RouteModel {
     const [rows] = await pool.query('SELECT id FROM routes WHERE id = ?', [id]);
     return rows.length > 0;
   }
+
+  /**
+   * Tính lại tổng quãng đường của tuyến dựa trên các điểm dừng
+   * và cập nhật cột distance (km).
+   *
+   * Logic: lấy danh sách route_stops theo thứ tự, dùng Haversine
+   * để cộng khoảng cách giữa từng cặp điểm liên tiếp.
+   */
+  static async recalculateDistance(id) {
+    console.log('🔷 MODEL: Tính lại quãng đường cho tuyến ID:', id);
+
+    const [stops] = await pool.execute(
+      `SELECT 
+         s.latitude, 
+         s.longitude,
+         rs.stop_order
+       FROM route_stops rs
+       INNER JOIN stops s ON rs.stop_id = s.id
+       WHERE rs.route_id = ?
+       ORDER BY rs.stop_order ASC`,
+      [id]
+    );
+
+    if (!stops || stops.length < 2) {
+      console.log(' MODEL: Ít hơn 2 điểm dừng, set distance = NULL');
+      await pool.execute('UPDATE routes SET distance = NULL WHERE id = ?', [id]);
+      return this.findById(id);
+    }
+
+    const toRad = (deg) => (deg * Math.PI) / 180;
+    const R = 6371; // km
+
+    let totalKm = 0;
+    for (let i = 1; i < stops.length; i++) {
+      const prev = stops[i - 1];
+      const curr = stops[i];
+
+      const lat1 = parseFloat(prev.latitude);
+      const lon1 = parseFloat(prev.longitude);
+      const lat2 = parseFloat(curr.latitude);
+      const lon2 = parseFloat(curr.longitude);
+
+      if (
+        isNaN(lat1) || isNaN(lon1) ||
+        isNaN(lat2) || isNaN(lon2)
+      ) {
+        continue;
+      }
+
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+          Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const d = R * c;
+
+      totalKm += d;
+    }
+
+    const rounded = Number(totalKm.toFixed(2));
+    console.log(` MODEL: Tổng quãng đường ~ ${rounded} km`);
+
+    await pool.execute('UPDATE routes SET distance = ? WHERE id = ?', [rounded, id]);
+
+    const updated = await this.findById(id);
+    return updated;
+  }
 }
 
 export default RouteModel;

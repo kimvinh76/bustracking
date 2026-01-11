@@ -7,8 +7,7 @@ import "leaflet-routing-machine/dist/leaflet-routing-machine.css";
 
 // Component vẽ tuyến đường + di chuyển bus cho tài xế
 // Lưu ý: Trang Driver dùng BusRouteDriver; các biến thể khác như
-// BusRoutePause/BusRouteControlled/BusRouteParentPause có thể dành cho parent/admin.
-// Nếu không còn dùng, cân nhắc loại bỏ để tránh trùng lặp.
+// AdminMapPage dùng BusRouteAdmin, ParentMapPage dùng BusRouteParent
 import BusRouteDriver from "../../components/map/BusRouteDriver.jsx";
 import DriverHeader from "../../components/driver/DriverHeader.jsx";
 import AlertsContainer from "../../components/driver/AlertsContainer.jsx";
@@ -93,14 +92,17 @@ export default function DriverMapPage() {
     return distance < 0.1 ? "< 0.1 km" : `${distance.toFixed(1)} km`;
   };
 
-  const calculateEstimatedTime = () => {
-    if (!nextStop || status === "completed") return schedule?.endTime ;
-    return nextStop.time;
-  };
+// Tìm trạm cuối cùng để lấy giờ kết thúc thực tế (đã tính toán)
+const lastStop = stops.length > 0 ? stops[stops.length - 1] : null;
+
+// Nếu còn trạm tiếp theo -> lấy giờ trạm đó. 
+// Nếu hết trạm -> lấy giờ của trạm cuối cùng.
+const estimatedTime = nextStop 
+    ? nextStop.time 
+    : (lastStop ? lastStop.time : 'Waiting...');
 
   const remainingDistance = calculateRemainingDistance();
-  const estimatedTime = nextStop ? calculateEstimatedTime() : (schedule?.endTime || '07:00');
-
+  
   // Ghi lại trạng thái chuyến đang chạy vào sessionStorage để sidebar "Bắt đầu chuyến"
   // có thể đưa tài xế quay lại đúng chuyến chưa kết thúc.
   const updateActiveTripSession = (newStatus) => {
@@ -116,7 +118,8 @@ export default function DriverMapPage() {
       updatedAt: new Date().toISOString(),
     };
     sessionStorage.setItem("driverActiveTrip", JSON.stringify(payload));
-  };
+  }; 
+ 
 
   // Khởi tạo WebSocket connection (disable tạm thời nếu backend chưa có WebSocket server)
   useEffect(() => {
@@ -202,7 +205,7 @@ export default function DriverMapPage() {
 
         // 3. Transform stops
         const transformedStops = routesService.transformStopsForMap(routeStops);
-        
+      
         // 4. Tính thời gian dự kiến cho các điểm dừng
         const stopsWithTime = routesService.calculateStopTimes(
           transformedStops,
@@ -372,6 +375,21 @@ export default function DriverMapPage() {
     setTracking(false);
     updateActiveTripSession("cleared");
     
+    // Cập nhật trạng thái lịch làm việc + actual_end_time lên backend
+    try {
+      const endTimeForSchedule = estimatedTime; // giờ thực tế/tính toán tại điểm cuối
+      if (scheduleId) {
+        schedulesService.updateScheduleStatus(
+          scheduleId,
+          "completed",
+          null,
+          { actualEndTime: endTimeForSchedule }
+        );
+      }
+    } catch (err) {
+      console.error('⚠️ Không thể cập nhật actual_end_time cho lịch trình:', err);
+    }
+    
     // Gửi trạng thái kết thúc qua WebSocket
     busTrackingService.updateDriverStatus({
       isRunning: false,
@@ -490,6 +508,30 @@ export default function DriverMapPage() {
   // Tuyến đường tuyến tính (không khép kín)
   const routeWaypoints = stops.map((s) => [s.lat, s.lng]);
 
+  // Trường hợp đặc biệt: truy cập /driver/map khi chưa chọn lịch
+  // và không có chuyến nào đang chạy trong sessionStorage
+  // -> chỉ hiển thị dialog yêu cầu quay lại trang Lịch làm việc
+  if (showNoActiveTripDialog) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-gray-50">
+        <ConfirmDialog
+          isOpen={showNoActiveTripDialog}
+          title="Chưa chọn lịch làm việc"
+          message="Vui lòng vào trang Lịch làm việc và bấm 'Bắt đầu tuyến' cho ca bạn muốn trước khi bắt đầu chuyến."
+
+       
+          onConfirm={() => {
+            navigate("/driver/schedule");
+          }}
+          onClose={() => {
+            setShowNoActiveTripDialog(false);
+            navigate("/driver/schedule");
+          }}
+        />
+      </div>
+    );
+  }
+
   // Loading state
   if (loading || !schedule) {
     return (
@@ -596,6 +638,21 @@ export default function DriverMapPage() {
                     currentStopIndex: finalIndex,
                     currentPosition: lastPos || busCurrentPosition
                   });
+
+                  // Cập nhật trạng thái lịch làm việc + actual_end_time lên backend
+                  try {
+                    const endTimeForSchedule = estimatedTime;
+                    if (scheduleId) {
+                      schedulesService.updateScheduleStatus(
+                        scheduleId,
+                        "completed",
+                        null,
+                        { actualEndTime: endTimeForSchedule }
+                      );
+                    }
+                  } catch (err) {
+                    console.error('⚠️ Không thể cập nhật actual_end_time cho lịch trình (auto):', err);
+                  }
 
                   pushNotice("success", " Đã hoàn thành tuyến đường (tự động)");
                 }}

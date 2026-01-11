@@ -26,7 +26,7 @@ export default function DriverNavbar() {
       <nav className="flex-1 space-y-4">
         {[
           { path: "/driver/schedule", label: "Lịch làm việc", exact: true },
-          { path: "/driver/map", label: "Bắt đầu chuyến", exact: false },
+          { path: "/driver/map", label: "Theo dõi chuyến", exact: false },
         ].map(({ path, label, exact }) => (
           <NavLink
             key={path}

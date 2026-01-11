@@ -253,6 +253,25 @@ class ScheduleModel {
     const [rows] = await pool.execute('SELECT id FROM schedules WHERE id = ?', [id]);
     return rows.length > 0;
   }
+
+  /**
+   * Cập nhật trạng thái + actual_end_time (nếu có)
+   * Dùng khi tài xế kết thúc chuyến hoặc admin đổi trạng thái.
+   */
+  static async updateStatus(id, status, notes = null, actual_end_time = null) {
+    console.log('🔷 MODEL: Cập nhật trạng thái lịch trình ID:', id, 'status =', status);
+
+    await pool.execute(
+      `UPDATE schedules 
+       SET status = ?, notes = ?, 
+           actual_end_time = COALESCE(?, actual_end_time)
+       WHERE id = ?`,
+      [status, notes, actual_end_time, id]
+    );
+
+    const updated = await this.findById(id);
+    return updated;
+  }
 }
 
 export default ScheduleModel;

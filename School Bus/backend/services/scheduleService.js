@@ -238,6 +238,7 @@ class ScheduleService {
       shift_type,
       scheduled_start_time,
       scheduled_end_time,
+      // actual_start_time hiện không sử dụng
       actual_start_time: actual_start_time || null,
       actual_end_time: actual_end_time || null,
       status
@@ -248,6 +249,41 @@ class ScheduleService {
     
     console.log(' SERVICE: Cập nhật lịch trình thành công');
     return updatedSchedule;
+  }
+
+  /**
+   * Cập nhật trạng thái lịch trình + actual_end_time (khi hoàn thành)
+   */
+  static async updateScheduleStatus(id, status, notes = null, actualEndTime = null) {
+    console.log(' SERVICE: Cập nhật trạng thái lịch trình ID:', id, 'status =', status);
+
+    if (!status) {
+      throw new Error('Thiếu trạng thái lịch trình');
+    }
+
+    const validStatuses = ['scheduled', 'in_progress', 'completed', 'cancelled'];
+    if (!validStatuses.includes(status)) {
+      throw new Error('Trạng thái lịch trình không hợp lệ');
+    }
+
+    // Đảm bảo lịch tồn tại
+    await this.getScheduleById(id);
+
+    // Nếu hoàn thành nhưng FE không gửi actualEndTime thì dùng thời gian hiện tại
+    let finalActualEnd = null;
+    if (status === 'completed') {
+      if (actualEndTime) {
+        finalActualEnd = actualEndTime;
+      } else {
+        // MySQL sẽ parse chuỗi ISO (YYYY-MM-DD HH:MM:SS)
+        const now = new Date();
+        finalActualEnd = now.toISOString().slice(0, 19).replace('T', ' ');
+      }
+    }
+
+    const updated = await ScheduleModel.updateStatus(id, status, notes, finalActualEnd);
+    console.log(' SERVICE: Cập nhật trạng thái lịch trình thành công');
+    return updated;
   }
 
   /**

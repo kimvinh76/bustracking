@@ -208,5 +208,30 @@ router.get('/driver/:driverId/stops/:scheduleId', async (req, res) => {
     }
 });
 
+// PUT /api/schedules/:id/status - Cập nhật trạng thái (driver/admin)
+router.put('/:id/status', async (req, res) => {
+    console.log(`🔹 PUT /api/schedules/${req.params.id}/status - Cập nhật trạng thái lịch làm việc`);
+    try {
+        const { id } = req.params;
+        const { status, notes = null, actualEndTime = null } = req.body || {};
+
+        const updated = await ScheduleService.updateScheduleStatus(id, status, notes, actualEndTime);
+
+        res.json({
+            success: true,
+            message: 'Cập nhật trạng thái lịch làm việc thành công',
+            data: updated
+        });
+    } catch (error) {
+        console.error('❌ Lỗi khi cập nhật trạng thái lịch làm việc:', error.message);
+        const statusCode = error.message.includes('Không tìm thấy') ? 404 :
+                           error.message.includes('không hợp lệ') || error.message.includes('Thiếu trạng thái') ? 400 : 500;
+        res.status(statusCode).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
 
 export default router;

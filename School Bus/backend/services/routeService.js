@@ -40,7 +40,21 @@ class RouteService {
     
     return route;
   }
+  
+  /**
+   * Tính lại distance cho tuyến dựa trên route_stops
+   * Dùng cho báo cáo/thống kê, không cho nhập thủ công.
+   */
+  static async recalculateRouteDistance(routeId) {
+    console.log(' SERVICE: Recalculate distance for route ID:', routeId);
 
+    // Đảm bảo tuyến tồn tại
+    await this.getRouteById(routeId);
+
+    const updatedRoute = await RouteModel.recalculateDistance(routeId);
+    return updatedRoute;
+  }
+  
   /**
    * Lấy thông tin điểm đón/trả
    */

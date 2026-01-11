@@ -101,13 +101,15 @@ export const schedulesService = {
         }
     },
 
-    // Cập nhật trạng thái lịch làm việc
-    updateScheduleStatus: async (id, status, notes = null) => {
+    // Cập nhật trạng thái lịch làm việc (và actualEndTime nếu có)
+    updateScheduleStatus: async (id, status, notes = null, extra = {}) => {
         try {
-            const response = await apiClient.put(`${ENDPOINT}/${id}/status`, {
+            const payload = {
                 status,
-                notes
-            });
+                notes,
+                ...extra
+            };
+            const response = await apiClient.put(`${ENDPOINT}/${id}/status`, payload);
             return response;
         } catch (error) {
             console.error('Error updating schedule status:', error);
