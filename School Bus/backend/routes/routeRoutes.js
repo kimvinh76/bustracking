@@ -113,7 +113,8 @@ router.post("/", async (req, res) => {
     const statusCode = error.message.includes('Thiếu thông tin') || error.message.includes('đã tồn tại') ? 400 : 500;
     res.status(statusCode).json({ success: false, message: error.message });
   }
-});
+}); 
+
 
 // PUT /api/routes/:id - Cập nhật tuyến
 router.put("/:id", async (req, res) => {

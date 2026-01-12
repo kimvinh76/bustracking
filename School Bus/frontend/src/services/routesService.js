@@ -75,6 +75,17 @@ export const routesService = {
         }
     },
 
+    // Tính lại quãng đường tuyến dựa trên route_stops và lưu vào DB
+    recalculateRouteDistance: async (routeId) => {
+        try {
+            const response = await apiClient.put(`${ENDPOINT}/${routeId}/recalculate-distance`);
+            return response;
+        } catch (error) {
+            console.error(' Error recalculating route distance:', error);
+            throw error;
+        }
+    },
+
     // Transform stops từ DB sang format cho map
     transformStopsForMap: (stops) => {
         if (!Array.isArray(stops)) return [];

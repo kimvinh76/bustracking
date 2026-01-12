@@ -269,15 +269,21 @@ class ScheduleService {
     // Đảm bảo lịch tồn tại
     await this.getScheduleById(id);
 
-    // Nếu hoàn thành nhưng FE không gửi actualEndTime thì dùng thời gian hiện tại
+    // Nếu hoàn thành nhưng FE không gửi actualEndTime thì dùng thời gian hiện tại (theo giờ local của server)
     let finalActualEnd = null;
     if (status === 'completed') {
       if (actualEndTime) {
         finalActualEnd = actualEndTime;
       } else {
-        // MySQL sẽ parse chuỗi ISO (YYYY-MM-DD HH:MM:SS)
+        // MySQL sẽ parse chuỗi theo định dạng YYYY-MM-DD HH:MM:SS (giờ local)
         const now = new Date();
-        finalActualEnd = now.toISOString().slice(0, 19).replace('T', ' ');
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        finalActualEnd = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
       }
     }
 

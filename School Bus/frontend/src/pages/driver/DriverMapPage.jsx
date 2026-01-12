@@ -375,19 +375,22 @@ const estimatedTime = nextStop
     setTracking(false);
     updateActiveTripSession("cleared");
     
-    // Cập nhật trạng thái lịch làm việc + actual_end_time lên backend
-    try {
-      const endTimeForSchedule = estimatedTime; // giờ thực tế/tính toán tại điểm cuối
-      if (scheduleId) {
-        schedulesService.updateScheduleStatus(
-          scheduleId,
-          "completed",
-          null,
-          { actualEndTime: endTimeForSchedule }
-        );
-      }
-    } catch (err) {
-      console.error('⚠️ Không thể cập nhật actual_end_time cho lịch trình:', err);
+    // Cập nhật trạng thái lịch làm việc lên backend (actual_end_time = thời điểm hiện tại trên server)
+    if (scheduleId) {
+      schedulesService
+        .updateScheduleStatus(scheduleId, "completed")
+        .catch((err) => {
+          console.error("⚠️ Không thể cập nhật trạng thái lịch trình:", err);
+        });
+    }
+
+    // Tính lại quãng đường tuyến và lưu vào DB (dựa trên route_stops)
+    if (schedule?.routeId) {
+      routesService
+        .recalculateRouteDistance(schedule.routeId)
+        .catch((err) => {
+          console.error("⚠️ Không thể tính lại quãng đường tuyến:", err);
+        });
     }
     
     // Gửi trạng thái kết thúc qua WebSocket
@@ -639,19 +642,28 @@ const estimatedTime = nextStop
                     currentPosition: lastPos || busCurrentPosition
                   });
 
-                  // Cập nhật trạng thái lịch làm việc + actual_end_time lên backend
-                  try {
-                    const endTimeForSchedule = estimatedTime;
-                    if (scheduleId) {
-                      schedulesService.updateScheduleStatus(
-                        scheduleId,
-                        "completed",
-                        null,
-                        { actualEndTime: endTimeForSchedule }
-                      );
-                    }
-                  } catch (err) {
-                    console.error('⚠️ Không thể cập nhật actual_end_time cho lịch trình (auto):', err);
+                  // Cập nhật trạng thái lịch làm việc lên backend (actual_end_time = thời điểm hiện tại trên server)
+                  if (scheduleId) {
+                    schedulesService
+                      .updateScheduleStatus(scheduleId, "completed")
+                      .catch((err) => {
+                        console.error(
+                          "⚠️ Không thể cập nhật trạng thái lịch trình (auto):",
+                          err
+                        );
+                      });
+                  }
+
+                  // Tính lại quãng đường tuyến và lưu vào DB (dựa trên route_stops)
+                  if (schedule?.routeId) {
+                    routesService
+                      .recalculateRouteDistance(schedule.routeId)
+                      .catch((err) => {
+                        console.error(
+                          "⚠️ Không thể tính lại quãng đường tuyến:",
+                          err
+                        );
+                      });
                   }
 
                   pushNotice("success", " Đã hoàn thành tuyến đường (tự động)");

@@ -35,6 +35,7 @@ app.use(cors({
     ]
 }));
 
+
 // API Routes
 app.use('/api/buses', busRoutes);
 app.use('/api/routes', routeRoutes);
