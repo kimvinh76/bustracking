@@ -124,6 +124,9 @@ const ScheduleForm = ({ schedule, mode, onSubmit, onCancel }) => {
           bus_id: formData.bus_id ? Number(formData.bus_id) : null,
           route_id: formData.route_id ? Number(formData.route_id) : null,
           student_count: Number(formData.student_count) || 0,
+          // Map start_time/end_time to scheduled_start_time/scheduled_end_time
+          scheduled_start_time: formData.start_time,
+          scheduled_end_time: formData.end_time,
         };
         await onSubmit(payload);
       } finally {

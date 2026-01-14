@@ -9,7 +9,7 @@ class UserModel {
    * @returns {Promise<Array>} Danh sách người dùng
    */
   static async findAll() {
-    console.log('🔷 MODEL: Lấy tất cả người dùng từ database');
+    console.log(' MODEL: Lấy tất cả người dùng từ database');
     const [rows] = await pool.execute(
       'SELECT id, username, email, role, created_at FROM users ORDER BY id DESC'
     );
@@ -24,7 +24,7 @@ class UserModel {
    * @returns {Promise<Object|null>} Thông tin người dùng hoặc null
    */
   static async findById(id) {
-    console.log('🔷 MODEL: Tìm người dùng theo ID:', id);
+    console.log(' MODEL: Tìm người dùng theo ID:', id);
     const [rows] = await pool.execute(
       'SELECT id, username, email, role, created_at FROM users WHERE id = ?',
       [id]
@@ -41,7 +41,7 @@ class UserModel {
    * @returns {Promise<Object|null>} Thông tin người dùng hoặc null
    */
   static async findByEmail(email) {
-    console.log('🔷 MODEL: Tìm người dùng theo email:', email);
+    console.log(' MODEL: Tìm người dùng theo email:', email);
     const [rows] = await pool.execute(
       'SELECT * FROM users WHERE email = ?',
       [email]
@@ -58,7 +58,7 @@ class UserModel {
    * @returns {Promise<Object|null>} Thông tin người dùng hoặc null
    */
   static async findByUsername(username) {
-    console.log('🔷 MODEL: Tìm người dùng theo username:', username);
+    console.log(' MODEL: Tìm người dùng theo username:', username);
     const [rows] = await pool.execute(
       'SELECT * FROM users WHERE username = ?',
       [username]
@@ -75,7 +75,7 @@ class UserModel {
    * @returns {Promise<Object|null>} Thông tin người dùng hoặc null
    */
   static async findByEmailOrUsername(identifier) {
-    console.log('🔷 MODEL: Tìm người dùng theo email/username:', identifier);
+    console.log(' MODEL: Tìm người dùng theo email/username:', identifier);
     const [rows] = await pool.execute(
       'SELECT * FROM users WHERE email = ? OR username = ?',
       [identifier, identifier]
@@ -92,7 +92,7 @@ class UserModel {
    * @returns {Promise<Array>} Danh sách người dùng
    */
   static async findByRole(role) {
-    console.log('🔷 MODEL: Lấy người dùng theo role:', role);
+    console.log(' MODEL: Lấy người dùng theo role:', role);
     const [rows] = await pool.execute(
       'SELECT id, username, email, role, created_at FROM users WHERE role = ? ORDER BY id DESC',
       [role]
@@ -110,7 +110,7 @@ class UserModel {
   static async create(userData) {
     const { username, email, password, role = 'parent' } = userData;
     
-    console.log('🔷 MODEL: Tạo người dùng mới trong database');
+    console.log(' MODEL: Tạo người dùng mới trong database');
     console.log(' MODEL: Dữ liệu:', { username, email, role });
     
     const [result] = await pool.execute(
@@ -134,7 +134,7 @@ class UserModel {
   static async update(id, userData) {
     const { username, email, role } = userData;
     
-    console.log('🔷 MODEL: Cập nhật người dùng ID:', id);
+    console.log(' MODEL: Cập nhật người dùng ID:', id);
     
     await pool.execute(
       'UPDATE users SET username = ?, email = ?, role = ? WHERE id = ?',
@@ -155,7 +155,7 @@ class UserModel {
    * @returns {Promise<boolean>} True nếu cập nhật thành công
    */
   static async updatePassword(id, newPassword) {
-    console.log('🔷 MODEL: Cập nhật mật khẩu người dùng ID:', id);
+    console.log(' MODEL: Cập nhật mật khẩu người dùng ID:', id);
     
     const [result] = await pool.execute(
       'UPDATE users SET password = ? WHERE id = ?',
@@ -173,7 +173,7 @@ class UserModel {
    * @returns {Promise<boolean>} True nếu xóa thành công
    */
   static async delete(id) {
-    console.log('🔷 MODEL: Xóa người dùng ID:', id);
+    console.log(' MODEL: Xóa người dùng ID:', id);
     const [result] = await pool.execute('DELETE FROM users WHERE id = ?', [id]);
     
     const deleted = result.affectedRows > 0;
@@ -198,7 +198,7 @@ class UserModel {
    * @returns {Promise<boolean>} True nếu đã tồn tại
    */
   static async emailExists(email, excludeId = null) {
-    console.log('🔷 MODEL: Kiểm tra email đã tồn tại:', email);
+    console.log(' MODEL: Kiểm tra email đã tồn tại:', email);
     
     let query = 'SELECT id FROM users WHERE email = ?';
     const params = [email];
@@ -211,7 +211,7 @@ class UserModel {
     const [rows] = await pool.execute(query, params);
     const exists = rows.length > 0;
     
-    console.log(exists ? '⚠️ MODEL: Email đã tồn tại' : ' MODEL: Email hợp lệ');
+    console.log(exists ? ' MODEL: Email đã tồn tại' : ' MODEL: Email hợp lệ');
     return exists;
   }
 
@@ -222,7 +222,7 @@ class UserModel {
    * @returns {Promise<boolean>} True nếu đã tồn tại
    */
   static async usernameExists(username, excludeId = null) {
-    console.log('🔷 MODEL: Kiểm tra username đã tồn tại:', username);
+    console.log(' MODEL: Kiểm tra username đã tồn tại:', username);
     
     let query = 'SELECT id FROM users WHERE username = ?';
     const params = [username];
@@ -235,7 +235,7 @@ class UserModel {
     const [rows] = await pool.execute(query, params);
     const exists = rows.length > 0;
     
-    console.log(exists ? '⚠️ MODEL: Username đã tồn tại' : ' MODEL: Username hợp lệ');
+    console.log(exists ? ' MODEL: Username đã tồn tại' : ' MODEL: Username hợp lệ');
     return exists;
   }
 }

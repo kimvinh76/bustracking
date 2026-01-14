@@ -2,12 +2,13 @@
 import express from 'express';
 import ScheduleService from '../services/scheduleService.js';
 import RouteService from '../services/routeService.js';
+import StudentService from '../services/studentService.js';
 
 const router = express.Router();
 
 // GET /api/schedules/driver/:driverId - Lấy danh sách lịch làm việc của tài xế
 router.get('/driver/:driverId', async (req, res) => {
-    console.log(`🔹 GET /api/schedules/driver/${req.params.driverId} - Lấy lịch làm việc tài xế`);
+    console.log(` GET /api/schedules/driver/${req.params.driverId} - Lấy lịch làm việc tài xế`);
     try {
         const { driverId } = req.params;
         const { date } = req.query;
@@ -45,7 +46,7 @@ router.get('/driver/:driverId', async (req, res) => {
             data: data
         });
     } catch (error) {
-        console.error('❌ Lỗi khi lấy lịch làm việc:', error.message);
+        console.error(' Lỗi khi lấy lịch làm việc:', error.message);
         res.status(500).json({
             success: false,
             message: error.message
@@ -55,7 +56,7 @@ router.get('/driver/:driverId', async (req, res) => {
 
 // GET /api/schedules/:driverId/:id - Lấy chi tiết một lịch làm việc
 router.get('/:driverId/:id', async (req, res) => {
-    console.log(`🔹 GET /api/schedules/${req.params.driverId}/${req.params.id} - Lấy chi tiết lịch`);
+    console.log(` GET /api/schedules/${req.params.driverId}/${req.params.id} - Lấy chi tiết lịch`);
     try {
         const { driverId, id } = req.params;
         
@@ -63,7 +64,7 @@ router.get('/:driverId/:id', async (req, res) => {
         const schedule = await ScheduleService.getScheduleById(id);
         
         if (!schedule) {
-            console.log('❌ Không tìm thấy lịch làm việc');
+            console.log(' Không tìm thấy lịch làm việc');
             return res.status(404).json({
                 success: false,
                 message: 'Không tìm thấy lịch làm việc'
@@ -72,16 +73,26 @@ router.get('/:driverId/:id', async (req, res) => {
 
         // Kiểm tra driver_id có khớp không
         if (schedule.driver_id != driverId) {
-            console.log('❌ Lịch không thuộc về tài xế này');
+            console.log(' Lịch không thuộc về tài xế này');
             return res.status(404).json({
                 success: false,
                 message: 'Không tìm thấy lịch làm việc'
             });
         }
 
-        // NOTE: Logic lấy stops và students được giữ nguyên từ code cũ
-        // Vì ScheduleModel chưa có method chi tiết để lấy stops/students
-        // Có thể bổ sung sau nếu cần
+        // Lấy danh sách học sinh theo tuyến và ca
+        let students = [];
+        let studentCount = 0;
+        try {
+            const timeOfDay = schedule.shift_type === 'morning' ? 'morning' : 'afternoon';
+            students = await StudentService.getStudentsByRoute(schedule.route_id, timeOfDay);
+            studentCount = students.length;
+            console.log(` Lấy ${studentCount} học sinh cho tuyến ${schedule.route_id} (${timeOfDay})`);
+        } catch (error) {
+            console.error(' Không thể lấy danh sách học sinh:', error.message);
+            // Không throw error, chỉ log warning và để students = []
+        }
+
         const detailData = {
             ...schedule,
             start_time: schedule.scheduled_start_time,
@@ -92,8 +103,8 @@ router.get('/:driverId/:id', async (req, res) => {
             statusColor: schedule.status === 'scheduled' ? 'bg-gray-100 text-gray-700' : 
                         schedule.status === 'in_progress' ? 'bg-blue-100 text-blue-700' : 
                         schedule.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700',
-            students: [], // TODO: Implement student list from Model
-            studentCount: 0,
+            students: students,
+            studentCount: studentCount,
             stop_count: 0
         };
 
@@ -103,7 +114,7 @@ router.get('/:driverId/:id', async (req, res) => {
             data: detailData
         });
     } catch (error) {
-        console.error('❌ Lỗi khi lấy chi tiết lịch làm việc:', error.message);
+        console.error(' Lỗi khi lấy chi tiết lịch làm việc:', error.message);
         res.status(500).json({
             success: false,
             message: error.message
@@ -113,7 +124,7 @@ router.get('/:driverId/:id', async (req, res) => {
 
 // GET /api/schedules/driver/:driverId/stops/:scheduleId - Lấy danh sách điểm dừng cho driver
 router.get('/driver/:driverId/stops/:scheduleId', async (req, res) => {
-    console.log(`🔹 GET /api/schedules/driver/${req.params.driverId}/stops/${req.params.scheduleId}`);
+    console.log(` GET /api/schedules/driver/${req.params.driverId}/stops/${req.params.scheduleId}`);
     try {
         const { driverId, scheduleId } = req.params;
 
@@ -121,7 +132,7 @@ router.get('/driver/:driverId/stops/:scheduleId', async (req, res) => {
         const schedule = await ScheduleService.getScheduleById(scheduleId);
 
         if (!schedule || schedule.driver_id != driverId) {
-            console.log('❌ Không tìm thấy lịch làm việc');
+            console.log(' Không tìm thấy lịch làm việc');
             return res.status(404).json({
                 success: false,
                 message: 'Không tìm thấy lịch làm việc'
@@ -200,33 +211,8 @@ router.get('/driver/:driverId/stops/:scheduleId', async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('❌ Lỗi khi lấy danh sách điểm dừng:', error.message);
+        console.error(' Lỗi khi lấy danh sách điểm dừng:', error.message);
         res.status(500).json({
-            success: false,
-            message: error.message
-        });
-    }
-});
-
-// PUT /api/schedules/:id/status - Cập nhật trạng thái (driver/admin)
-router.put('/:id/status', async (req, res) => {
-    console.log(`🔹 PUT /api/schedules/${req.params.id}/status - Cập nhật trạng thái lịch làm việc`);
-    try {
-        const { id } = req.params;
-        const { status, notes = null, actualEndTime = null } = req.body || {};
-
-        const updated = await ScheduleService.updateScheduleStatus(id, status, notes, actualEndTime);
-
-        res.json({
-            success: true,
-            message: 'Cập nhật trạng thái lịch làm việc thành công',
-            data: updated
-        });
-    } catch (error) {
-        console.error('❌ Lỗi khi cập nhật trạng thái lịch làm việc:', error.message);
-        const statusCode = error.message.includes('Không tìm thấy') ? 404 :
-                           error.message.includes('không hợp lệ') || error.message.includes('Thiếu trạng thái') ? 400 : 500;
-        res.status(statusCode).json({
             success: false,
             message: error.message
         });

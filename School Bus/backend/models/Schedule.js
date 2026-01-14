@@ -9,9 +9,12 @@ class ScheduleModel {
    * @returns {Promise<Array>} Danh sách lịch trình
    */
   static async findAll() {
-    console.log('🔷 MODEL: Lấy tất cả lịch trình từ database');
+    console.log(' MODEL: Lấy tất cả lịch trình từ database');
     const [rows] = await pool.execute(`
       SELECT s.*, 
+             DATE_FORMAT(s.date, '%Y-%m-%d') as date,
+             TIME_FORMAT(s.scheduled_start_time, '%H:%i') as start_time,
+             TIME_FORMAT(s.scheduled_end_time, '%H:%i') as end_time,
              r.route_name, 
               b.bus_number, b.license_plate,
               d.name AS driver_name
@@ -32,9 +35,12 @@ class ScheduleModel {
    * @returns {Promise<Object|null>} Thông tin lịch trình hoặc null
    */
   static async findById(id) {
-    console.log('🔷 MODEL: Tìm lịch trình theo ID:', id);
+    console.log(' MODEL: Tìm lịch trình theo ID:', id);
     const [rows] = await pool.execute(`
       SELECT s.*, 
+              DATE_FORMAT(s.date, '%Y-%m-%d') as date,
+              TIME_FORMAT(s.scheduled_start_time, '%H:%i') as start_time,
+              TIME_FORMAT(s.scheduled_end_time, '%H:%i') as end_time,
               r.route_name,
              b.bus_number, b.license_plate, b.capacity,
              d.name AS driver_name, d.phone AS driver_phone
@@ -56,7 +62,7 @@ class ScheduleModel {
    * @returns {Promise<Array>} Danh sách lịch trình
    */
   static async findByRoute(routeId) {
-    console.log('🔷 MODEL: Lấy lịch trình theo route ID:', routeId);
+    console.log(' MODEL: Lấy lịch trình theo route ID:', routeId);
     const [rows] = await pool.execute(`
       SELECT s.*, 
              b.bus_number, b.license_plate,
@@ -78,7 +84,7 @@ class ScheduleModel {
    * @returns {Promise<Array>} Danh sách lịch trình
    */
   static async findByDriver(driverId) {
-    console.log('🔷 MODEL: Lấy lịch trình theo driver ID:', driverId);
+    console.log(' MODEL: Lấy lịch trình theo driver ID:', driverId);
     const [rows] = await pool.execute(`
       SELECT s.*, 
              r.route_name,
@@ -100,7 +106,7 @@ class ScheduleModel {
    * @returns {Promise<Array>} Danh sách lịch trình
    */
   static async findByBus(busId) {
-    console.log('🔷 MODEL: Lấy lịch trình theo bus ID:', busId);
+    console.log(' MODEL: Lấy lịch trình theo bus ID:', busId);
     const [rows] = await pool.execute(`
       SELECT s.*, 
              r.route_name,
@@ -122,7 +128,7 @@ class ScheduleModel {
    * @returns {Promise<Array>} Danh sách lịch trình
    */
   static async findByDate(date) {
-    console.log('🔷 MODEL: Lấy lịch trình theo ngày:', date);
+    console.log(' MODEL: Lấy lịch trình theo ngày:', date);
     const [rows] = await pool.execute(`
       SELECT s.*, 
              r.route_name,
@@ -152,14 +158,14 @@ class ScheduleModel {
       student_count = 0, notes = null, status = 'scheduled'
     } = scheduleData;
     
-    console.log('🔷 MODEL: Tạo lịch trình mới trong database');
+    console.log(' MODEL: Tạo lịch trình mới trong database');
     console.log(' MODEL: Dữ liệu:', { route_id, bus_id, driver_id, date, shift_type });
     
     const [result] = await pool.execute(
       `INSERT INTO schedules 
        (route_id, bus_id, driver_id, date, shift_type, scheduled_start_time, scheduled_end_time, student_count, notes, status) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      [route_id, bus_id, driver_id, date, shift_type, scheduled_start_time, scheduled_end_time, student_count, notes, status]
+      , [route_id, bus_id, driver_id, date, shift_type, scheduled_start_time, scheduled_end_time, student_count, notes, status]
     );
     
     console.log(` MODEL: Insert thành công! insertId: ${result.insertId}`);
@@ -178,21 +184,21 @@ class ScheduleModel {
   static async update(id, scheduleData) {
     const { 
       route_id, bus_id, driver_id, date, shift_type,
-      scheduled_start_time, scheduled_end_time, 
-      actual_start_time, actual_end_time, student_count = 0, notes = null, status
+      scheduled_start_time, scheduled_end_time,
+      student_count = 0, status = 'scheduled', actual_end_time = null, notes = null
     } = scheduleData;
     
-    console.log('🔷 MODEL: Cập nhật lịch trình ID:', id);
+    console.log(' MODEL: Cập nhật lịch trình ID:', id);
     
     await pool.execute(
-      `UPDATE schedules SET 
-       route_id = ?, bus_id = ?, driver_id = ?, date = ?, shift_type = ?,
-       scheduled_start_time = ?, scheduled_end_time = ?,
-       actual_start_time = ?, actual_end_time = ?, student_count = ?, notes = ?, status = ?
-       WHERE id = ?`,
-      [route_id, bus_id, driver_id, date, shift_type, 
-       scheduled_start_time, scheduled_end_time,
-       actual_start_time || null, actual_end_time || null, student_count, notes, status, id]
+        `UPDATE schedules SET 
+         route_id = ?, bus_id = ?, driver_id = ?, date = ?, shift_type = ?,
+         scheduled_start_time = ?, scheduled_end_time = ?,
+         student_count = ?, status = ?, actual_end_time = ?, notes = ?
+         WHERE id = ?`,
+        [route_id, bus_id, driver_id, date, shift_type,
+         scheduled_start_time, scheduled_end_time,
+         student_count, status, actual_end_time, notes, id]
     );
     
     console.log(' MODEL: Cập nhật thành công');
@@ -208,7 +214,7 @@ class ScheduleModel {
    * @returns {Promise<boolean>} True nếu xóa thành công
    */
   static async delete(id) {
-    console.log('🔷 MODEL: Xóa lịch trình ID:', id);
+    console.log(' MODEL: Xóa lịch trình ID:', id);
     const [result] = await pool.execute('DELETE FROM schedules WHERE id = ?', [id]);
     
     const deleted = result.affectedRows > 0;
@@ -224,7 +230,7 @@ class ScheduleModel {
   static async findDuplicate(scheduleData) {
     const { route_id, bus_id, driver_id, date, shift_type, excludeId } = scheduleData;
     
-    console.log('🔷 MODEL: Kiểm tra trùng lịch trình');
+    console.log(' MODEL: Kiểm tra trùng lịch trình');
     
     let query = `
       SELECT * FROM schedules 
@@ -240,7 +246,7 @@ class ScheduleModel {
     const [rows] = await pool.execute(query, params);
     
     const duplicate = rows[0] || null;
-    console.log(duplicate ? '⚠️ MODEL: Lịch trình đã tồn tại' : ' MODEL: Lịch trình hợp lệ');
+    console.log(duplicate ? ' MODEL: Lịch trình đã tồn tại' : ' MODEL: Lịch trình hợp lệ');
     return duplicate;
   }
 
@@ -259,7 +265,7 @@ class ScheduleModel {
    * Dùng khi tài xế kết thúc chuyến hoặc admin đổi trạng thái.
    */
   static async updateStatus(id, status, notes = null, actual_end_time = null) {
-    console.log('🔷 MODEL: Cập nhật trạng thái lịch trình ID:', id, 'status =', status);
+    console.log(' MODEL: Cập nhật trạng thái lịch trình ID:', id, 'status =', status);
 
     await pool.execute(
       `UPDATE schedules 

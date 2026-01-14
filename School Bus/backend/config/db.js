@@ -16,7 +16,10 @@ const pool = mysql.createPool({
     port: process.env.DB_PORT || 3306,               // Lấy từ tệp .env
     waitForConnections: true,                        // Chờ nếu hết kết nối
     connectionLimit: 10,                             // Số kết nối tối đa
-    queueLimit: 0                                    // Hàng đợi (0 = không giới hạn)
+    queueLimit: 0,                                   // Hàng đợi (0 = không giới hạn)
+    enableKeepAlive: true,                           // Giữ kết nối sống
+    keepAliveInitialDelay: 0,                        // Delay trước khi bắt đầu keep-alive
+    connectTimeout: 10000,                           // Timeout khi kết nối (10s)
 });
 
 // 3. (Tùy chọn) Hàm kiểm tra kết nối nhanh

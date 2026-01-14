@@ -17,7 +17,7 @@ const router = express.Router();
  * Helper function: Xử lý lỗi thống nhất
  */
 const handleError = (res, error, defaultStatus = 500) => {
-  console.error('❌ Error:', error.message);
+  console.error(' Error:', error.message);
   
   // Xác định status code dựa trên loại lỗi
   let statusCode = defaultStatus;
@@ -110,16 +110,16 @@ router.get('/:id', async (req, res) => {
 // ===================================
 router.post('/', async (req, res) => {
   try {
-    console.log('🔹 ROUTES: Nhận request POST /api/buses');
+    console.log(' ROUTES: Nhận request POST /api/buses');
     console.log(' ROUTES: Body nhận được:', req.body);
     
     const busData = req.body;
     
-    console.log('🔹 ROUTES: Đang gọi BusService.createBus()...');
+    console.log(' ROUTES: Đang gọi BusService.createBus()...');
     const newBus = await BusService.createBus(busData);
     
     console.log(' ROUTES: Service trả về xe bus:', newBus);
-    console.log('🔹 ROUTES: Gửi response 201 cho client');
+    console.log(' ROUTES: Gửi response 201 cho client');
     
     res.status(201).json({
       success: true,
@@ -127,7 +127,7 @@ router.post('/', async (req, res) => {
       data: newBus
     });
   } catch (error) {
-    console.error('❌ ROUTES: Lỗi xảy ra:', error.message);
+    console.error(' ROUTES: Lỗi xảy ra:', error.message);
     handleError(res, error);
   }
 });

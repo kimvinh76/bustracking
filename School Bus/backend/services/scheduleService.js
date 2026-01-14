@@ -189,6 +189,7 @@ class ScheduleService {
    */
   static async updateSchedule(id, scheduleData) {
     console.log(' SERVICE: Cập nhật lịch trình ID:', id);
+    console.log(' SERVICE: Dữ liệu nhận được:', JSON.stringify(scheduleData, null, 2));
     
     // 1. Kiểm tra tồn tại
     await this.getScheduleById(id);
@@ -196,12 +197,19 @@ class ScheduleService {
     // 2. Validation
     const { 
       route_id, bus_id, driver_id, date, shift_type,
-      scheduled_start_time, scheduled_end_time, 
-      actual_start_time, actual_end_time, status
+      scheduled_start_time, scheduled_end_time,
+      student_count = 0, notes = null,
+      actual_end_time = null, status = 'scheduled'
     } = scheduleData;
     
+    console.log(' SERVICE: Validation fields:', { route_id, bus_id, driver_id, date, shift_type });
+    
     if (!route_id || !bus_id || !driver_id || !date || !shift_type) {
-      throw new Error('Thiếu thông tin bắt buộc');
+      throw new Error('Thiếu thông tin bắt buộc: route_id, bus_id, driver_id, date, shift_type');
+    }
+
+    if (!scheduled_start_time || !scheduled_end_time) {
+      throw new Error('Thiếu thông tin: scheduled_start_time, scheduled_end_time');
     }
 
     // 3. Kiểm tra route, bus, driver tồn tại
@@ -238,10 +246,10 @@ class ScheduleService {
       shift_type,
       scheduled_start_time,
       scheduled_end_time,
-      // actual_start_time hiện không sử dụng
-      actual_start_time: actual_start_time || null,
-      actual_end_time: actual_end_time || null,
-      status
+      student_count,
+      status,
+      actual_end_time,
+      notes
     };
 
     // 6. Cập nhật

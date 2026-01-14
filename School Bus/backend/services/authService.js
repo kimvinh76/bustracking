@@ -212,7 +212,7 @@ class AuthService {
     const user = await UserModel.findByEmail(email);
     if (!user) {
       // Không nên báo email không tồn tại (security)
-      console.log('⚠️ SERVICE: Email không tồn tại, nhưng không báo lỗi');
+      console.log(' SERVICE: Email không tồn tại, nhưng không báo lỗi');
       return { message: 'Nếu email tồn tại, chúng tôi đã gửi link reset mật khẩu' };
     }
 

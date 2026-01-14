@@ -40,21 +40,7 @@ class RouteService {
     
     return route;
   }
-  
-  /**
-   * Tính lại distance cho tuyến dựa trên route_stops
-   * Dùng cho báo cáo/thống kê, không cho nhập thủ công.
-   */
-  static async recalculateRouteDistance(routeId) {
-    console.log(' SERVICE: Recalculate distance for route ID:', routeId);
 
-    // Đảm bảo tuyến tồn tại
-    await this.getRouteById(routeId);
-
-    const updatedRoute = await RouteModel.recalculateDistance(routeId);
-    return updatedRoute;
-  }
-  
   /**
    * Lấy thông tin điểm đón/trả
    */
@@ -76,11 +62,11 @@ class RouteService {
     console.log(' SERVICE: Dữ liệu nhận được:', routeData);
     
     // 1. Validation
-    const { route_name, start_location, end_location, distance, duration } = routeData;
+    const { route_name, distance, status = 'active' } = routeData;
     
-    if (!route_name || !start_location || !end_location) {
+    if (!route_name || !route_name.trim()) {
       console.log(' SERVICE: Thiếu thông tin bắt buộc');
-      throw new Error('Thiếu thông tin bắt buộc: tên tuyến, điểm đầu, điểm cuối');
+      throw new Error('Thiếu thông tin bắt buộc: tên tuyến đường');
     }
 
     console.log(' SERVICE: Validation passed');
@@ -98,19 +84,12 @@ class RouteService {
     if (distance && distance < 0) {
       throw new Error('Khoảng cách phải là số dương');
     }
-    if (duration && duration < 0) {
-      throw new Error('Thời gian phải là số dương');
-    }
 
     // 4. Format dữ liệu
     const formattedData = {
       route_name: route_name.trim(),
-      start_location: start_location.trim(),
-      end_location: end_location.trim(),
       distance: distance || null,
-      duration: duration || null,
-      polyline: routeData.polyline || null,
-      waypoints: routeData.waypoints || null
+      status: status || 'active'
     };
     
     console.log(' SERVICE: Dữ liệu sau khi format:', formattedData);
@@ -132,10 +111,10 @@ class RouteService {
     await this.getRouteById(id);
 
     // 2. Validation
-    const { route_name, start_location, end_location, distance, duration } = routeData;
+    const { route_name, distance, status = 'active' } = routeData;
     
-    if (!route_name || !start_location || !end_location) {
-      throw new Error('Thiếu thông tin bắt buộc');
+    if (!route_name || !route_name.trim()) {
+      throw new Error('Thiếu thông tin bắt buộc: tên tuyến đường');
     }
 
     // 3. Kiểm tra trùng tên (loại trừ chính nó)
@@ -148,19 +127,12 @@ class RouteService {
     if (distance && distance < 0) {
       throw new Error('Khoảng cách phải là số dương');
     }
-    if (duration && duration < 0) {
-      throw new Error('Thời gian phải là số dương');
-    }
 
     // 5. Format dữ liệu
     const formattedData = {
       route_name: route_name.trim(),
-      start_location: start_location.trim(),
-      end_location: end_location.trim(),
       distance: distance || null,
-      duration: duration || null,
-      polyline: routeData.polyline || null,
-      waypoints: routeData.waypoints || null
+      status: status || 'active'
     };
 
     // 6. Cập nhật
@@ -205,7 +177,7 @@ class RouteService {
     await this.getRouteById(routeId);
 
     // 2. Validation
-    const { stop_id, stop_order, student_pickup_count = 0 } = stopData;
+    const { stop_id, stop_order } = stopData;
     
     if (!stop_id || stop_order === undefined) {
       throw new Error('Thiếu thông tin: stop_id, stop_order');
@@ -216,7 +188,7 @@ class RouteService {
     }
 
     // 3. Thêm điểm dừng
-    await RouteModel.addStop(routeId, stop_id, stop_order, student_pickup_count);
+    await RouteModel.addStop(routeId, stop_id, stop_order);
     
     console.log(' SERVICE: Thêm điểm dừng thành công');
     return { message: 'Thêm điểm dừng thành công' };
@@ -236,6 +208,60 @@ class RouteService {
     console.log(' SERVICE: Xóa điểm dừng thành công');
     return { message: 'Xóa điểm dừng thành công' };
   }
+
+  /**
+   * Tính lại quãng đường của tuyến dựa trên danh sách điểm dừng hiện tại
+   */
+  static async recalculateRouteDistance(id) {
+    console.log(' SERVICE: Recalculate route distance ID:', id);
+
+    const route = await RouteModel.findWithStops(id);
+    if (!route) {
+      throw new Error('Không tìm thấy tuyến đường');
+    }
+
+    const stops = route.stops || [];
+    if (stops.length < 2) {
+      throw new Error('Cần ít nhất 2 điểm dừng để tính quãng đường');
+    }
+
+    let totalKm = 0;
+    for (let i = 1; i < stops.length; i++) {
+      const prev = stops[i - 1];
+      const curr = stops[i];
+      totalKm += calculateDistanceKm(
+        parseFloat(prev.latitude),
+        parseFloat(prev.longitude),
+        parseFloat(curr.latitude),
+        parseFloat(curr.longitude)
+      );
+    }
+
+    const roundedDistance = Number(totalKm.toFixed(2));
+    const updatedRoute = await RouteModel.updateDistance(id, roundedDistance);
+    console.log(` SERVICE: Đã cập nhật khoảng cách tuyến = ${roundedDistance} km`);
+    return { ...updatedRoute, calculated_distance: roundedDistance };
+  }
 }
 
 export default RouteService;
+
+const EARTH_RADIUS_KM = 6371;
+
+function calculateDistanceKm(lat1, lon1, lat2, lon2) {
+  if ([lat1, lon1, lat2, lon2].some(v => Number.isNaN(v) || v === undefined || v === null)) {
+    return 0;
+  }
+
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return EARTH_RADIUS_KM * c;
+}

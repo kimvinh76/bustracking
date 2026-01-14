@@ -13,11 +13,11 @@ import driversRoutes from './routes/driversRoutes.js';
 import parentsRoutes from './routes/parentsRoutes.js';
 import classesRoutes from './routes/classesRoutes.js';
 import schedulesRoutes from './routes/schedulesRoutes.js';
+import adminschedulesRoutes from './routes/adminschedulesRoutes.js';
 import userRoutes  from './routes/userRoutes.js';
-import authRoutes from './routes/authRoutes.js'; // Thêm dòng này
+import authRoutes from './routes/authRoutes.js';
 import incidentsRoutes from './routes/incidentsRoutes.js';
 import trackingRoutes from './routes/trackingRoutes.js';
-import adminschedulesRoutes from './routes/adminschedulesRoutes.js';
 import busTrackingSocket from './websocket/busTrackingSocket.js';
 
 const app = express();
@@ -46,7 +46,7 @@ app.use('/api/classes', classesRoutes);
 app.use('/api/schedules', schedulesRoutes);
 app.use('/api/admin-schedules', adminschedulesRoutes);
 app.use("/api/users", userRoutes);
-app.use("/api/auth", authRoutes); // Thêm dòng này
+app.use("/api/auth", authRoutes);
 app.use("/api/incidents", incidentsRoutes);
 app.use('/api/tracking', trackingRoutes);
 // check

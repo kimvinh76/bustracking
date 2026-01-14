@@ -6,7 +6,7 @@ const router = express.Router();
 
 // GET /api/routes - danh sách tuyến đường
 router.get("/", async (req, res) => {
-  console.log('🔹 GET /api/routes - Lấy danh sách tuyến đường');
+  console.log(' GET /api/routes - Lấy danh sách tuyến đường');
   try {
     const routes = await RouteService.getAllRoutes();
     console.log(` Lấy thành công ${routes.length} tuyến đường`);
@@ -16,20 +16,20 @@ router.get("/", async (req, res) => {
       message: "Lấy danh sách tuyến đường thành công",
     });
   } catch (error) {
-    console.error('❌ Lỗi khi lấy danh sách tuyến đường:', error.message);
+    console.error(' Lỗi khi lấy danh sách tuyến đường:', error.message);
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
 // GET /api/routes/:id - lấy thông tin một tuyến
 router.get("/:id", async (req, res) => {
-  console.log(`🔹 GET /api/routes/${req.params.id} - Lấy thông tin tuyến đường`);
+  console.log(` GET /api/routes/${req.params.id} - Lấy thông tin tuyến đường`);
   try {
     const { id } = req.params;
     const route = await RouteService.getRouteById(id);
     
     if (!route) {
-      console.log('❌ Không tìm thấy tuyến đường');
+      console.log(' Không tìm thấy tuyến đường');
       return res.status(404).json({ success: false, message: "Không tìm thấy tuyến đường" });
     }
 
@@ -40,20 +40,20 @@ router.get("/:id", async (req, res) => {
       message: "Lấy thông tin tuyến đường thành công",
     });
   } catch (error) {
-    console.error('❌ Lỗi khi lấy 1 tuyến đường:', error.message);
+    console.error(' Lỗi khi lấy 1 tuyến đường:', error.message);
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
 // GET /api/routes/:id/stops - Lấy điểm dừng của tuyến
 router.get('/:id/stops', async (req, res) => {
-  console.log(`🔹 GET /api/routes/${req.params.id}/stops - Lấy điểm dừng của tuyến`);
+  console.log(` GET /api/routes/${req.params.id}/stops - Lấy điểm dừng của tuyến`);
   try {
     const { id } = req.params;
     const route = await RouteService.getRouteWithStops(id);
     
     if (!route) {
-      console.log('❌ Không tìm thấy tuyến đường');
+      console.log(' Không tìm thấy tuyến đường');
       return res.status(404).json({ success: false, message: "Không tìm thấy tuyến đường" });
     }
 
@@ -65,7 +65,7 @@ router.get('/:id/stops', async (req, res) => {
       message: `Lấy ${route.stops.length} điểm dừng của tuyến thành công`
     });
   } catch (error) {
-    console.error('❌ Error fetching route stops:', error.message);
+    console.error(' Error fetching route stops:', error.message);
     res.status(500).json({
       success: false, 
       message: error.message
@@ -75,7 +75,7 @@ router.get('/:id/stops', async (req, res) => {
 
 // GET /api/routes/:id/pickup-drop-info - Lấy thông tin điểm đón/trả mặc định
 router.get('/:id/pickup-drop-info', async (req, res) => {
-  console.log(`🔹 GET /api/routes/${req.params.id}/pickup-drop-info - Lấy thông tin điểm đón/trả`);
+  console.log(` GET /api/routes/${req.params.id}/pickup-drop-info - Lấy thông tin điểm đón/trả`);
   try {
     const { id } = req.params;
     const info = await RouteService.getPickupDropInfo(id);
@@ -87,7 +87,7 @@ router.get('/:id/pickup-drop-info', async (req, res) => {
       message: 'Lấy thông tin điểm đón/trả thành công'
     });
   } catch (error) {
-    console.error('❌ Error fetching route pickup-drop info:', error.message);
+    console.error(' Error fetching route pickup-drop info:', error.message);
     res.status(500).json({
       success: false, 
       message: error.message
@@ -97,7 +97,7 @@ router.get('/:id/pickup-drop-info', async (req, res) => {
 
 // POST /api/routes - Thêm tuyến mới
 router.post("/", async (req, res) => {
-  console.log('🔹 POST /api/routes - Thêm tuyến đường mới');
+  console.log(' POST /api/routes - Thêm tuyến đường mới');
   try {
     const routeData = req.body;
     const newRoute = await RouteService.createRoute(routeData);
@@ -109,7 +109,7 @@ router.post("/", async (req, res) => {
       data: newRoute,
     });
   } catch (error) {
-    console.error('❌ Lỗi khi tạo tuyến đường:', error.message);
+    console.error(' Lỗi khi tạo tuyến đường:', error.message);
     const statusCode = error.message.includes('Thiếu thông tin') || error.message.includes('đã tồn tại') ? 400 : 500;
     res.status(statusCode).json({ success: false, message: error.message });
   }
@@ -118,7 +118,7 @@ router.post("/", async (req, res) => {
 
 // PUT /api/routes/:id - Cập nhật tuyến
 router.put("/:id", async (req, res) => {
-  console.log(`🔹 PUT /api/routes/${req.params.id} - Cập nhật tuyến đường`);
+  console.log(` PUT /api/routes/${req.params.id} - Cập nhật tuyến đường`);
   try {
     const { id } = req.params;
     const routeData = req.body;
@@ -131,7 +131,7 @@ router.put("/:id", async (req, res) => {
       data: updatedRoute,
     });
   } catch (error) {
-    console.error('❌ Lỗi khi cập nhật tuyến đường:', error.message);
+    console.error(' Lỗi khi cập nhật tuyến đường:', error.message);
     const statusCode = error.message.includes('Không tìm thấy') ? 404 :
                        error.message.includes('Thiếu thông tin') || error.message.includes('đã tồn tại') ? 400 : 500;
     res.status(statusCode).json({ success: false, message: error.message });
@@ -140,7 +140,7 @@ router.put("/:id", async (req, res) => {
 
 // DELETE /api/routes/:id - Xóa tuyến
 router.delete("/:id", async (req, res) => {
-  console.log(`🔹 DELETE /api/routes/${req.params.id} - Xóa tuyến đường`);
+  console.log(` DELETE /api/routes/${req.params.id} - Xóa tuyến đường`);
   try {
     const { id } = req.params;
     await RouteService.deleteRoute(id);
@@ -151,7 +151,7 @@ router.delete("/:id", async (req, res) => {
       message: "Xóa tuyến đường thành công",
     });
   } catch (error) {
-    console.error('❌ Lỗi khi xóa tuyến đường:', error.message);
+    console.error(' Lỗi khi xóa tuyến đường:', error.message);
     const statusCode = error.message.includes('Không tìm thấy') ? 404 : 500;
     res.status(statusCode).json({ success: false, message: error.message });
   }
@@ -159,7 +159,7 @@ router.delete("/:id", async (req, res) => {
 
 // PUT /api/routes/:id/recalculate-distance - Tính lại quãng đường từ route_stops
 router.put('/:id/recalculate-distance', async (req, res) => {
-  console.log(`🔹 PUT /api/routes/${req.params.id}/recalculate-distance - Recalculate route distance`);
+  console.log(` PUT /api/routes/${req.params.id}/recalculate-distance - Recalculate route distance`);
   try {
     const { id } = req.params;
     const updatedRoute = await RouteService.recalculateRouteDistance(id);
@@ -170,7 +170,7 @@ router.put('/:id/recalculate-distance', async (req, res) => {
       data: updatedRoute,
     });
   } catch (error) {
-    console.error('❌ Lỗi khi tính lại quãng đường tuyến:', error.message);
+    console.error(' Lỗi khi tính lại quãng đường tuyến:', error.message);
     const statusCode = error.message.includes('Không tìm thấy') ? 404 : 500;
     res.status(statusCode).json({ success: false, message: error.message });
   }

@@ -9,7 +9,6 @@ class IncidentModel {
    * @returns {Promise<Array>} Danh sách sự cố
    */
   static async findAll() {
-    console.log('🔷 MODEL: Lấy tất cả sự cố từ database');
     const [rows] = await pool.execute(`
       SELECT i.*, 
              d.name AS driver_name,
@@ -22,7 +21,6 @@ class IncidentModel {
       ORDER BY i.created_at DESC
     `);
     
-    console.log(` MODEL: Tìm thấy ${rows.length} sự cố`);
     return rows;
   }
 
@@ -32,7 +30,6 @@ class IncidentModel {
    * @returns {Promise<Object|null>} Thông tin sự cố hoặc null
    */
   static async findById(id) {
-    console.log('🔷 MODEL: Tìm sự cố theo ID:', id);
     const [rows] = await pool.execute(`
       SELECT i.*, 
              d.name AS driver_name, d.phone AS driver_phone,
@@ -46,7 +43,6 @@ class IncidentModel {
     `, [id]);
     
     const incident = rows[0] || null;
-    console.log(incident ? ' MODEL: Tìm thấy sự cố' : ' MODEL: Không tìm thấy sự cố');
     return incident;
   }
 
@@ -56,7 +52,6 @@ class IncidentModel {
    * @returns {Promise<Array>} Danh sách sự cố
    */
   static async findByDriver(driverId) {
-    console.log('🔷 MODEL: Lấy sự cố theo driver ID:', driverId);
     const [rows] = await pool.execute(`
       SELECT i.*, 
              b.bus_number, b.license_plate,
@@ -68,7 +63,6 @@ class IncidentModel {
       ORDER BY i.created_at DESC
     `, [driverId]);
     
-    console.log(` MODEL: Tìm thấy ${rows.length} sự cố`);
     return rows;
   }
 
@@ -78,7 +72,7 @@ class IncidentModel {
    * @returns {Promise<Array>} Danh sách sự cố
    */
   static async findByBus(busId) {
-    console.log('🔷 MODEL: Lấy sự cố theo bus ID:', busId);
+    console.log(' MODEL: Lấy sự cố theo bus ID:', busId);
     const [rows] = await pool.execute(`
       SELECT i.*, 
              d.name AS driver_name,
@@ -100,7 +94,6 @@ class IncidentModel {
    * @returns {Promise<Array>} Danh sách sự cố
    */
   static async findByRoute(routeId) {
-    console.log('🔷 MODEL: Lấy sự cố theo route ID:', routeId);
     const [rows] = await pool.execute(`
       SELECT i.*, 
              d.name AS driver_name,
@@ -112,7 +105,6 @@ class IncidentModel {
       ORDER BY i.created_at DESC
     `, [routeId]);
     
-    console.log(` MODEL: Tìm thấy ${rows.length} sự cố`);
     return rows;
   }
 
@@ -122,7 +114,7 @@ class IncidentModel {
    * @returns {Promise<Array>} Danh sách sự cố
    */
   static async findBySeverity(severity) {
-    console.log('🔷 MODEL: Lấy sự cố theo severity:', severity);
+    console.log(' MODEL: Lấy sự cố theo severity:', severity);
     const [rows] = await pool.execute(`
       SELECT i.*, 
              d.name AS driver_name,
@@ -146,7 +138,7 @@ class IncidentModel {
    * @returns {Promise<Array>} Danh sách sự cố
    */
   static async findByStatus(status) {
-    console.log('🔷 MODEL: Lấy sự cố theo status:', status);
+    console.log(' MODEL: Lấy sự cố theo status:', status);
     const [rows] = await pool.execute(`
       SELECT i.*, 
              d.name AS driver_name,
@@ -175,7 +167,7 @@ class IncidentModel {
       severity = 'medium', status = 'reported', location, latitude, longitude
     } = incidentData;
     
-    console.log('🔷 MODEL: Tạo sự cố mới trong database');
+    console.log(' MODEL: Tạo sự cố mới trong database');
     console.log(' MODEL: Dữ liệu:', { driver_id, bus_id, incident_type, severity });
     
     const [result] = await pool.execute(
@@ -204,7 +196,7 @@ class IncidentModel {
       resolution_notes, resolved_at
     } = incidentData;
     
-    console.log('🔷 MODEL: Cập nhật sự cố ID:', id);
+    console.log(' MODEL: Cập nhật sự cố ID:', id);
     
     await pool.execute(
       `UPDATE incidents SET 
@@ -229,7 +221,7 @@ class IncidentModel {
    * @returns {Promise<Object>} Sự cố sau khi cập nhật
    */
   static async updateStatus(id, status, resolutionNotes = null) {
-    console.log('🔷 MODEL: Cập nhật trạng thái sự cố ID:', id, '→', status);
+    console.log(' MODEL: Cập nhật trạng thái sự cố ID:', id, '→', status);
     
     const resolvedAt = (status === 'resolved' || status === 'closed') ? new Date() : null;
     
@@ -251,7 +243,7 @@ class IncidentModel {
    * @returns {Promise<boolean>} True nếu xóa thành công
    */
   static async delete(id) {
-    console.log('🔷 MODEL: Xóa sự cố ID:', id);
+    console.log(' MODEL: Xóa sự cố ID:', id);
     const [result] = await pool.execute('DELETE FROM incidents WHERE id = ?', [id]);
     
     const deleted = result.affectedRows > 0;

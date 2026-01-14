@@ -33,7 +33,7 @@ class BusModel {
    * @returns {Promise<Object|null>}
    */
   static async findByLicensePlate(licensePlate) {
-    console.log('🔷 MODEL: Tìm xe bus với biển số:', licensePlate);
+    console.log(' MODEL: Tìm xe bus với biển số:', licensePlate);
     
     const [rows] = await pool.execute(
       'SELECT * FROM buses WHERE license_plate = ?',
@@ -51,12 +51,12 @@ class BusModel {
    * @returns {Promise<Object>} Xe bus vừa tạo
    */
   static async create(busData) {
-    console.log('🔷 MODEL: Tạo xe bus mới trong database');
+    console.log(' MODEL: Tạo xe bus mới trong database');
     console.log(' MODEL: Dữ liệu:', busData);
     
     const { bus_number, license_plate, status = 'active' } = busData;
     
-    console.log('🔷 MODEL: Execute SQL INSERT...');
+    console.log(' MODEL: Execute SQL INSERT...');
     const [result] = await pool.execute(
       'INSERT INTO buses (bus_number, license_plate, status) VALUES (?, ?, ?)',
       [bus_number, license_plate, status]
@@ -65,7 +65,7 @@ class BusModel {
     console.log(' MODEL: Insert thành công! insertId:', result.insertId);
     
     // Lấy xe bus vừa tạo
-    console.log('🔷 MODEL: Lấy thông tin xe bus vừa tạo...');
+    console.log(' MODEL: Lấy thông tin xe bus vừa tạo...');
     const newBus = await this.findById(result.insertId);
     console.log(' MODEL: Xe bus vừa tạo:', newBus);
     

@@ -47,7 +47,7 @@ class BusService {
 
     console.log(' SERVICE: Kiểm tra validation...');
     if (!bus_number || !license_plate) {
-      console.error('❌ SERVICE: Validation failed - Thiếu thông tin');
+      console.error(' SERVICE: Validation failed - Thiếu thông tin');
       throw new Error('Mã xe và biển số xe là bắt buộc');
     }
     console.log(' SERVICE: Validation passed');
@@ -56,7 +56,7 @@ class BusService {
     console.log(' SERVICE: Kiểm tra biển số trùng...');
     const existingBus = await BusModel.findByLicensePlate(license_plate);
     if (existingBus) {
-      console.error('❌ SERVICE: Biển số đã tồn tại:', license_plate);
+      console.error(' SERVICE: Biển số đã tồn tại:', license_plate);
       throw new Error(`Biển số xe ${license_plate} đã tồn tại`);
     }
     console.log(' SERVICE: Không trùng biển số');

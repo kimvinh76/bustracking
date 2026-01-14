@@ -37,17 +37,18 @@ export const schedulesService = {
             // Chuẩn hóa key từ snake_case -> camelCase cho frontend
             const normalized = {
                 id: raw.id,
+                date: raw.date,
                 driverId: raw.driver_id,
                 busId: raw.bus_id,
                 busNumber: raw.bus_number || raw.license_plate,
                 routeId: raw.route_id,
                 routeName: raw.route_name,
-                startTime: raw.start_time,
-                endTime: raw.end_time,
+                startTime: raw.start_time || raw.scheduled_start_time,
+                endTime: raw.end_time || raw.scheduled_end_time,
                 shiftType: raw.shift_type,
                 status: raw.status,
                 notes: raw.notes,
-                studentCount: raw.studentCount,
+                studentCount: raw.studentCount ?? raw.student_count ?? 0,
                 students: raw.students || []
             };
             return normalized;

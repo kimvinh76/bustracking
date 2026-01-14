@@ -11,7 +11,6 @@ class IncidentService {
    * Lấy tất cả sự cố
    */
   static async getAllIncidents() {
-    console.log(' SERVICE: Lấy tất cả sự cố');
     const incidents = await IncidentModel.findAll();
     return incidents;
   }
@@ -20,8 +19,6 @@ class IncidentService {
    * Lấy sự cố theo ID
    */
   static async getIncidentById(id) {
-    console.log(' SERVICE: Lấy sự cố theo ID:', id);
-    
     const incident = await IncidentModel.findById(id);
     if (!incident) {
       throw new Error('Không tìm thấy sự cố');
@@ -34,8 +31,6 @@ class IncidentService {
    * Lấy sự cố theo driver
    */
   static async getIncidentsByDriver(driverId) {
-    console.log(' SERVICE: Lấy sự cố theo driver');
-    
     // Kiểm tra driver tồn tại
     const driverExists = await DriverModel.exists(driverId);
     if (!driverExists) {
@@ -50,8 +45,6 @@ class IncidentService {
    * Lấy sự cố theo bus
    */
   static async getIncidentsByBus(busId) {
-    console.log(' SERVICE: Lấy sự cố theo bus');
-    
     // Kiểm tra bus tồn tại
     const busExists = await BusModel.exists(busId);
     if (!busExists) {
@@ -66,8 +59,6 @@ class IncidentService {
    * Lấy sự cố theo route
    */
   static async getIncidentsByRoute(routeId) {
-    console.log(' SERVICE: Lấy sự cố theo route');
-    
     // Kiểm tra route tồn tại
     const routeExists = await RouteModel.exists(routeId);
     if (!routeExists) {
@@ -82,8 +73,6 @@ class IncidentService {
    * Lấy sự cố theo severity
    */
   static async getIncidentsBySeverity(severity) {
-    console.log(' SERVICE: Lấy sự cố theo severity:', severity);
-    
     // Validate severity
     const validSeverities = ['low', 'medium', 'high', 'critical'];
     if (!validSeverities.includes(severity)) {
@@ -196,7 +185,7 @@ class IncidentService {
     
     // 9. TODO: Gửi thông báo đến admin/quản lý nếu severity cao
     if (severity === 'high' || severity === 'critical') {
-      console.log('⚠️ SERVICE: Sự cố nghiêm trọng, cần gửi thông báo');
+      console.log(' SERVICE: Sự cố nghiêm trọng, cần gửi thông báo');
       // await sendNotification(newIncident);
     }
     

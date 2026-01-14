@@ -9,7 +9,7 @@ class RouteModel {
    * @returns {Promise<Array>} Danh sách tuyến đường
    */
   static async findAll() {
-    console.log('🔷 MODEL: Lấy tất cả tuyến đường từ database');
+    console.log(' MODEL: Lấy tất cả tuyến đường từ database');
     const [rows] = await pool.query('SELECT id, route_name, distance, status, created_at FROM routes ORDER BY id ASC');
     console.log(` MODEL: Tìm thấy ${rows.length} tuyến đường`);
     return rows;
@@ -21,7 +21,7 @@ class RouteModel {
    * @returns {Promise<Object|null>} Thông tin tuyến đường hoặc null
    */
   static async findById(id) {
-    console.log('🔷 MODEL: Tìm tuyến đường theo ID:', id);
+    console.log(' MODEL: Tìm tuyến đường theo ID:', id);
     const [rows] = await pool.query('SELECT id, route_name, distance, status, created_at FROM routes WHERE id = ?', [id]);
     
     const route = rows[0] || null;
@@ -35,7 +35,7 @@ class RouteModel {
    * @returns {Promise<Object|null>} Thông tin tuyến đường hoặc null
    */
   static async findByName(routeName) {
-    console.log('🔷 MODEL: Tìm tuyến đường theo tên:', routeName);
+    console.log(' MODEL: Tìm tuyến đường theo tên:', routeName);
     const [rows] = await pool.query('SELECT id, route_name, distance, status, created_at FROM routes WHERE route_name = ?', [routeName]);
     return rows[0] || null;
   }
@@ -46,7 +46,7 @@ class RouteModel {
    * @returns {Promise<Object|null>} Thông tin tuyến đường kèm điểm dừng
    */
   static async findWithStops(id) {
-    console.log('🔷 MODEL: Lấy tuyến đường kèm điểm dừng, ID:', id);
+    console.log(' MODEL: Lấy tuyến đường kèm điểm dừng, ID:', id);
     
     // Lấy thông tin tuyến
     const route = await this.findById(id);
@@ -64,8 +64,7 @@ class RouteModel {
         s.address,
         s.latitude,
         s.longitude,
-        rs.stop_order,
-        rs.student_pickup_count
+        rs.stop_order
       FROM route_stops rs
       INNER JOIN stops s ON rs.stop_id = s.id  
       WHERE rs.route_id = ?
@@ -86,7 +85,7 @@ class RouteModel {
    * @returns {Promise<Object>} Thông tin điểm đón và điểm trả
    */
   static async getPickupDropInfo(id) {
-    console.log('🔷 MODEL: Lấy điểm đón/trả của tuyến ID:', id);
+    console.log(' MODEL: Lấy điểm đón/trả của tuyến ID:', id);
     
     // Điểm đầu (stop_order = 1)
     const [pickupStop] = await pool.execute(`
@@ -122,7 +121,7 @@ class RouteModel {
   static async create(routeData) {
     const { route_name, distance, status = 'active' } = routeData;
     
-    console.log('🔷 MODEL: Tạo tuyến đường mới trong database');
+    console.log(' MODEL: Tạo tuyến đường mới trong database');
     console.log(' MODEL: Dữ liệu:', { route_name, distance, status });
     
     const [result] = await pool.execute(
@@ -146,7 +145,7 @@ class RouteModel {
   static async update(id, routeData) {
     const { route_name, distance, status = 'active' } = routeData;
     
-    console.log('🔷 MODEL: Cập nhật tuyến đường ID:', id);
+    console.log(' MODEL: Cập nhật tuyến đường ID:', id);
     
     await pool.execute(
       'UPDATE routes SET route_name = ?, distance = ?, status = ? WHERE id = ?',
@@ -166,7 +165,7 @@ class RouteModel {
    * @returns {Promise<boolean>} True nếu xóa thành công
    */
   static async delete(id) {
-    console.log('🔷 MODEL: Xóa tuyến đường ID:', id);
+    console.log(' MODEL: Xóa tuyến đường ID:', id);
     const [result] = await pool.execute('DELETE FROM routes WHERE id = ?', [id]);
     
     const deleted = result.affectedRows > 0;
@@ -175,19 +174,27 @@ class RouteModel {
   }
 
   /**
+   * Cập nhật quãng đường cho tuyến
+   */
+  static async updateDistance(id, distance) {
+    console.log(' MODEL: Cập nhật quãng đường tuyến', id, distance);
+    await pool.execute('UPDATE routes SET distance = ? WHERE id = ?', [distance, id]);
+    return this.findById(id);
+  }
+
+  /**
    * Thêm điểm dừng vào tuyến
    * @param {number} routeId - ID của tuyến đường
    * @param {number} stopId - ID của điểm dừng
    * @param {number} stopOrder - Thứ tự điểm dừng
-   * @param {number} studentPickupCount - Số học sinh đón tại điểm này
    * @returns {Promise<Object>} Kết quả insert
    */
-  static async addStop(routeId, stopId, stopOrder, studentPickupCount = 0) {
-    console.log('🔷 MODEL: Thêm điểm dừng vào tuyến');
+  static async addStop(routeId, stopId, stopOrder) {
+    console.log(' MODEL: Thêm điểm dừng vào tuyến');
     
     const [result] = await pool.execute(
-      'INSERT INTO route_stops (route_id, stop_id, stop_order, student_pickup_count) VALUES (?, ?, ?, ?)',
-      [routeId, stopId, stopOrder, studentPickupCount]
+      'INSERT INTO route_stops (route_id, stop_id, stop_order) VALUES (?, ?, ?)',
+      [routeId, stopId, stopOrder]
     );
     
     console.log(' MODEL: Thêm điểm dừng thành công');
@@ -200,7 +207,7 @@ class RouteModel {
    * @returns {Promise<boolean>} True nếu xóa thành công
    */
   static async removeStop(routeStopId) {
-    console.log('🔷 MODEL: Xóa điểm dừng khỏi tuyến');
+    console.log(' MODEL: Xóa điểm dừng khỏi tuyến');
     
     const [result] = await pool.execute('DELETE FROM route_stops WHERE id = ?', [routeStopId]);
     
@@ -217,75 +224,6 @@ class RouteModel {
   static async exists(id) {
     const [rows] = await pool.query('SELECT id FROM routes WHERE id = ?', [id]);
     return rows.length > 0;
-  }
-
-  /**
-   * Tính lại tổng quãng đường của tuyến dựa trên các điểm dừng
-   * và cập nhật cột distance (km).
-   *
-   * Logic: lấy danh sách route_stops theo thứ tự, dùng Haversine
-   * để cộng khoảng cách giữa từng cặp điểm liên tiếp.
-   */
-  static async recalculateDistance(id) {
-    console.log('🔷 MODEL: Tính lại quãng đường cho tuyến ID:', id);
-
-    const [stops] = await pool.execute(
-      `SELECT 
-         s.latitude, 
-         s.longitude,
-         rs.stop_order
-       FROM route_stops rs
-       INNER JOIN stops s ON rs.stop_id = s.id
-       WHERE rs.route_id = ?
-       ORDER BY rs.stop_order ASC`,
-      [id]
-    );
-
-    if (!stops || stops.length < 2) {
-      console.log(' MODEL: Ít hơn 2 điểm dừng, set distance = NULL');
-      await pool.execute('UPDATE routes SET distance = NULL WHERE id = ?', [id]);
-      return this.findById(id);
-    }
-
-    const toRad = (deg) => (deg * Math.PI) / 180;
-    const R = 6371; // km
-
-    let totalKm = 0;
-    for (let i = 1; i < stops.length; i++) {
-      const prev = stops[i - 1];
-      const curr = stops[i];
-
-      const lat1 = parseFloat(prev.latitude);
-      const lon1 = parseFloat(prev.longitude);
-      const lat2 = parseFloat(curr.latitude);
-      const lon2 = parseFloat(curr.longitude);
-
-      if (
-        isNaN(lat1) || isNaN(lon1) ||
-        isNaN(lat2) || isNaN(lon2)
-      ) {
-        continue;
-      }
-
-      const dLat = toRad(lat2 - lat1);
-      const dLon = toRad(lon2 - lon1);
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-          Math.sin(dLon / 2) * Math.sin(dLon / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      const d = R * c;
-
-      totalKm += d;
-    }
-
-    const rounded = Number(totalKm.toFixed(2));
-    console.log(` MODEL: Tổng quãng đường ~ ${rounded} km`);
-
-    await pool.execute('UPDATE routes SET distance = ? WHERE id = ?', [rounded, id]);
-
-    const updated = await this.findById(id);
-    return updated;
   }
 }
 

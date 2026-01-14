@@ -9,7 +9,7 @@ class DriverModel {
    * @returns {Promise<Array>} Danh sách tài xế với thông tin user
    */
   static async findAll() {
-    console.log('🔷 MODEL: Lấy tất cả tài xế từ database');
+    console.log(' MODEL: Lấy tất cả tài xế từ database');
     const [rows] = await pool.execute(`
       SELECT d.*, u.email, u.username 
       FROM drivers d 
@@ -26,7 +26,7 @@ class DriverModel {
    * @returns {Promise<Object|null>} Thông tin tài xế hoặc null
    */
   static async findById(id) {
-    console.log('🔷 MODEL: Tìm tài xế theo ID:', id);
+    console.log(' MODEL: Tìm tài xế theo ID:', id);
     const [rows] = await pool.execute(`
       SELECT d.*, u.email, u.username 
       FROM drivers d 
@@ -45,7 +45,7 @@ class DriverModel {
    * @returns {Promise<Object|null>} Thông tin tài xế hoặc null
    */
   static async findByUserId(userId) {
-    console.log('🔷 MODEL: Tìm tài xế theo user_id:', userId);
+    console.log(' MODEL: Tìm tài xế theo user_id:', userId);
     const [rows] = await pool.execute(
       'SELECT * FROM drivers WHERE user_id = ? AND status = "active"',
       [userId]
@@ -62,7 +62,7 @@ class DriverModel {
    * @returns {Promise<Object|null>} Thông tin tài xế hoặc null
    */
   static async findByPhone(phone) {
-    console.log('🔷 MODEL: Tìm tài xế theo số điện thoại');
+    console.log(' MODEL: Tìm tài xế theo số điện thoại');
     const [rows] = await pool.execute(
       'SELECT * FROM drivers WHERE phone = ?',
       [phone]
@@ -76,14 +76,14 @@ class DriverModel {
    * @returns {Promise<Object|null>} Thông tin tài xế hoặc null
    */
   static async findByLicenseNumber(licenseNumber) {
-    console.log('🔷 MODEL: Kiểm tra trùng số bằng lái:', licenseNumber);
+    console.log(' MODEL: Kiểm tra trùng số bằng lái:', licenseNumber);
     const [rows] = await pool.execute(
       'SELECT * FROM drivers WHERE license_number = ?',
       [licenseNumber]
     );
     
     const driver = rows[0] || null;
-    console.log(driver ? '⚠️ MODEL: Số bằng lái đã tồn tại' : ' MODEL: Số bằng lái hợp lệ');
+    console.log(driver ? ' MODEL: Số bằng lái đã tồn tại' : ' MODEL: Số bằng lái hợp lệ');
     return driver;
   }
 
@@ -95,7 +95,7 @@ class DriverModel {
   static async create(driverData) {
     const { name, phone, license_number, address, status = 'active', user_id } = driverData;
     
-    console.log('🔷 MODEL: Tạo tài xế mới trong database');
+    console.log(' MODEL: Tạo tài xế mới trong database');
     console.log(' MODEL: Dữ liệu:', { name, phone, license_number, status, user_id });
     
     const [result] = await pool.execute(
@@ -119,7 +119,7 @@ class DriverModel {
   static async update(id, driverData) {
     const { name, phone, license_number, address, status, user_id } = driverData;
     
-    console.log('🔷 MODEL: Cập nhật tài xế ID:', id);
+    console.log(' MODEL: Cập nhật tài xế ID:', id);
     
     await pool.execute(
       'UPDATE drivers SET name = ?, phone = ?, license_number = ?, address = ?, status = ?, user_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
@@ -139,7 +139,7 @@ class DriverModel {
    * @returns {Promise<boolean>} True nếu xóa thành công
    */
   static async delete(id) {
-    console.log('🔷 MODEL: Xóa tài xế ID:', id);
+    console.log(' MODEL: Xóa tài xế ID:', id);
     const [result] = await pool.execute('DELETE FROM drivers WHERE id = ?', [id]);
     
     const deleted = result.affectedRows > 0;
@@ -153,7 +153,7 @@ class DriverModel {
    * @returns {Promise<Array>} Danh sách lịch trình
    */
   static async getSchedules(id) {
-    console.log('🔷 MODEL: Lấy lịch trình của tài xế ID:', id);
+    console.log(' MODEL: Lấy lịch trình của tài xế ID:', id);
     const [rows] = await pool.execute(`
       SELECT s.id, s.date, s.shift_type, 
              s.scheduled_start_time AS start_time, 

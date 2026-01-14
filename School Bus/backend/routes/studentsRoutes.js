@@ -14,7 +14,7 @@ const router = express.Router();
  * Helper function: Xử lý lỗi thống nhất
  */
 const handleError = (res, error, defaultStatus = 500) => {
-  console.error('❌ Error:', error.message);
+  console.error(' Error:', error.message);
   
   let statusCode = defaultStatus;
   

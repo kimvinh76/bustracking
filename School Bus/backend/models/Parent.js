@@ -9,7 +9,7 @@ class ParentModel {
    * @returns {Promise<Array>} Danh sách phụ huynh
    */
   static async findAll() {
-    console.log('🔷 MODEL: Lấy tất cả phụ huynh từ database');
+    console.log(' MODEL: Lấy tất cả phụ huynh từ database');
     const [rows] = await pool.execute(`
       SELECT p.id, p.name, 
              COALESCE(u.email, 'Chưa có') AS email, 
@@ -35,7 +35,7 @@ class ParentModel {
    * @returns {Promise<Object|null>} Thông tin phụ huynh hoặc null
    */
   static async findById(id) {
-    console.log('🔷 MODEL: Tìm phụ huynh theo ID:', id);
+    console.log(' MODEL: Tìm phụ huynh theo ID:', id);
     const [rows] = await pool.execute(`
       SELECT p.id, p.name, 
              COALESCE(u.email, 'Chưa có') AS email, 
@@ -58,7 +58,7 @@ class ParentModel {
    * @returns {Promise<Object|null>} Thông tin phụ huynh hoặc null
    */
   static async findByUserId(userId) {
-    console.log('🔷 MODEL: Tìm phụ huynh theo user_id:', userId);
+    console.log(' MODEL: Tìm phụ huynh theo user_id:', userId);
     const [rows] = await pool.execute(
       'SELECT * FROM parents WHERE user_id = ?',
       [userId]
@@ -75,7 +75,7 @@ class ParentModel {
    * @returns {Promise<Object|null>} Thông tin phụ huynh hoặc null
    */
   static async findByPhone(phone) {
-    console.log('🔷 MODEL: Tìm phụ huynh theo số điện thoại');
+    console.log(' MODEL: Tìm phụ huynh theo số điện thoại');
     const [rows] = await pool.execute(
       'SELECT * FROM parents WHERE phone = ?',
       [phone]
@@ -89,7 +89,7 @@ class ParentModel {
    * @returns {Promise<Object|null>} Thông tin phụ huynh kèm danh sách con
    */
   static async findWithChildren(id) {
-    console.log('🔷 MODEL: Lấy phụ huynh kèm danh sách con, ID:', id);
+    console.log(' MODEL: Lấy phụ huynh kèm danh sách con, ID:', id);
     
     // Lấy thông tin phụ huynh
     const parent = await this.findById(id);
@@ -136,7 +136,7 @@ class ParentModel {
   static async create(parentData) {
     const { name, phone, address, relationship = 'Cha/Mẹ', user_id } = parentData;
     
-    console.log('🔷 MODEL: Tạo phụ huynh mới trong database');
+    console.log(' MODEL: Tạo phụ huynh mới trong database');
     console.log(' MODEL: Dữ liệu:', { name, phone, relationship });
     
     const [result] = await pool.execute(
@@ -160,7 +160,7 @@ class ParentModel {
   static async update(id, parentData) {
     const { name, phone, address, relationship, user_id } = parentData;
     
-    console.log('🔷 MODEL: Cập nhật phụ huynh ID:', id);
+    console.log(' MODEL: Cập nhật phụ huynh ID:', id);
     
     await pool.execute(
       'UPDATE parents SET name = ?, phone = ?, address = ?, relationship = ?, user_id = ? WHERE id = ?',
@@ -180,7 +180,7 @@ class ParentModel {
    * @returns {Promise<boolean>} True nếu xóa thành công
    */
   static async delete(id) {
-    console.log('🔷 MODEL: Xóa phụ huynh ID:', id);
+    console.log(' MODEL: Xóa phụ huynh ID:', id);
     const [result] = await pool.execute('DELETE FROM parents WHERE id = ?', [id]);
     
     const deleted = result.affectedRows > 0;
@@ -204,7 +204,7 @@ class ParentModel {
    * @returns {Promise<Array>} Danh sách thông báo
    */
   static async getNotifications(parentId) {
-    console.log('🔷 MODEL: Lấy thông báo của phụ huynh ID:', parentId);
+    console.log(' MODEL: Lấy thông báo của phụ huynh ID:', parentId);
     
     const [rows] = await pool.execute(`
       SELECT n.*, s.name AS student_name

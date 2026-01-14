@@ -259,7 +259,14 @@ export default function DriverScheduleDetailPage() {
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-slate-600 font-medium min-w-[120px]">Ngày:</span>
-                <span className="font-semibold text-slate-900">{new Date(schedule.date).toLocaleDateString('vi-VN')}</span>
+                <span className="font-semibold text-slate-900">
+                  {schedule.date ? 
+                    (() => {
+                      const [year, month, day] = schedule.date.split('-');
+                      return `${day}/${month}/${year}`;
+                    })()
+                    : 'Chưa có thông tin'}
+                </span>
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-slate-600 font-medium min-w-[120px]">Ca:</span>
@@ -308,22 +315,7 @@ export default function DriverScheduleDetailPage() {
                   {schedule.license_plate}
                 </span>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-slate-600 font-medium min-w-[120px]">Tài xế:</span>
-                <span className="font-semibold text-slate-900">{schedule.driver_name}</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-slate-600 font-medium min-w-[120px]">Điểm bắt đầu:</span>
-                <span className="font-semibold text-green-600">
-                  {schedule.start_point || 'Không xác định'}
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-slate-600 font-medium min-w-[120px]">Điểm kết thúc:</span>
-                <span className="font-semibold text-red-600">
-                  {schedule.end_point || 'Không xác định'}
-                </span>
-              </div>
+       
               <div className="flex items-center gap-3">
                 <span className="text-slate-600 font-medium min-w-[120px]">Học sinh:</span>
                 <div className="flex items-center gap-2">
@@ -352,12 +344,7 @@ export default function DriverScheduleDetailPage() {
                   </button>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-slate-600 font-medium min-w-[120px]">Trạng thái:</span>
-                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-bold ${schedule.statusColor}`}>
-                  {schedule.statusText}
-                </span>
-              </div>
+          
             </div>
           </div>
         </div>

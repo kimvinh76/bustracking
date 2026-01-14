@@ -136,11 +136,11 @@ const estimatedTime = nextStop
           busTrackingService.connect('driver', driverId);
           hasConnected = true;
         } catch (connectError) {
-          console.warn('⚠️ WebSocket connection skipped:', connectError);
+          console.warn(' WebSocket connection skipped:', connectError);
         }
       }, 0);
     } catch (error) {
-      console.warn('⚠️ WebSocket not available; realtime tracking disabled:', error);
+      console.warn(' WebSocket not available; realtime tracking disabled:', error);
     }
 
     return () => {
@@ -380,7 +380,7 @@ const estimatedTime = nextStop
       schedulesService
         .updateScheduleStatus(scheduleId, "completed")
         .catch((err) => {
-          console.error("⚠️ Không thể cập nhật trạng thái lịch trình:", err);
+          console.error(" Không thể cập nhật trạng thái lịch trình:", err);
         });
     }
 
@@ -389,7 +389,7 @@ const estimatedTime = nextStop
       routesService
         .recalculateRouteDistance(schedule.routeId)
         .catch((err) => {
-          console.error("⚠️ Không thể tính lại quãng đường tuyến:", err);
+          console.error(" Không thể tính lại quãng đường tuyến:", err);
         });
     }
     
@@ -615,7 +615,7 @@ const estimatedTime = nextStop
                       accuracy: null
                     });
                   } catch (err) {
-                    console.warn('⚠️ Failed to log location:', err?.message || err);
+                    console.warn(' Failed to log location:', err?.message || err);
                   }
                 }}
                 onTripComplete={({ finalStopIndex, finalPosition }) => {
@@ -648,7 +648,7 @@ const estimatedTime = nextStop
                       .updateScheduleStatus(scheduleId, "completed")
                       .catch((err) => {
                         console.error(
-                          "⚠️ Không thể cập nhật trạng thái lịch trình (auto):",
+                          " Không thể cập nhật trạng thái lịch trình (auto):",
                           err
                         );
                       });
@@ -660,7 +660,7 @@ const estimatedTime = nextStop
                       .recalculateRouteDistance(schedule.routeId)
                       .catch((err) => {
                         console.error(
-                          "⚠️ Không thể tính lại quãng đường tuyến:",
+                          " Không thể tính lại quãng đường tuyến:",
                           err
                         );
                       });
@@ -684,7 +684,7 @@ const estimatedTime = nextStop
                   
                   pushNotice(
                     "warning",
-                    `⚠️ Đã đến điểm dừng: ${stops[wpIdx].name} - chờ xác nhận`
+                    ` Đã đến điểm dừng: ${stops[wpIdx].name} - chờ xác nhận`
                   );
                 }}
               />

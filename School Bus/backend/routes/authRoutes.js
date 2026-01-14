@@ -8,12 +8,12 @@ const router = express.Router();
 
 // Endpoint: POST /api/auth/login
 router.post('/login', async (req, res) => {
-    console.log('🔹 POST /api/auth/login - Đăng nhập');
+    console.log(' POST /api/auth/login - Đăng nhập');
     const { username, password } = req.body;
 
     // 1. Kiểm tra đầu vào
     if (!username || !password) {
-        console.log('❌ Thiếu username hoặc password');
+        console.log(' Thiếu username hoặc password');
         return res.status(400).json({ message: 'Vui lòng nhập tên đăng nhập và mật khẩu.' });
     }
 
@@ -53,7 +53,7 @@ router.post('/login', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Lỗi đăng nhập:', error.message);
+        console.error(' Lỗi đăng nhập:', error.message);
         const statusCode = error.message.includes('không tồn tại') || error.message.includes('không chính xác') ? 401 : 500;
         res.status(statusCode).json({ message: error.message });
     }
