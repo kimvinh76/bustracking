@@ -420,6 +420,19 @@ const estimatedTime = nextStop
             if (stu.status === "picked_up") return stu; // không revert
             const updated = { ...stu, status: "picked_up" };
             pushNotice("success", ` Đã đón ${updated.name}`);
+            
+            //  Gửi thông báo đón học sinh qua WebSocket đến parent
+            busTrackingService.updateDriverStatus({
+              studentPickupAlert: {
+                studentName: updated.name,
+                stopName: stop.name,
+                routeName: schedule?.routeName ,
+                driverName: schedule?.driverName ,
+                timestamp: new Date().toISOString()
+              }
+            });
+          
+            
             return updated;
           }),
         };

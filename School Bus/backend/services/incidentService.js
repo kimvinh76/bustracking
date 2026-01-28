@@ -5,6 +5,7 @@ import IncidentModel from '../models/Incident.js';
 import DriverModel from '../models/Driver.js';
 import BusModel from '../models/Bus.js';
 import RouteModel from '../models/Route.js';
+import ScheduleModel from '../models/Schedule.js';
 
 class IncidentService {
   /**
@@ -134,15 +135,38 @@ class IncidentService {
 
     console.log(' SERVICE: Driver và Bus đều tồn tại');
 
-    // 3. Kiểm tra route (nếu có)
-    if (route_id) {
-      const routeExists = await RouteModel.exists(route_id);
+    // 3. Tự động lấy route_id từ schedule đang active (nếu không có route_id)
+    let finalRouteId = route_id;
+    
+    if (!finalRouteId) {
+      console.log(' SERVICE: Không có route_id, tìm schedule đang active...');
+      
+      // Tìm schedule đang chạy của driver/bus trong ngày hôm nay
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      const activeSchedules = await ScheduleModel.findByDateAndStatus(today, 'in_progress');
+      
+      // Tìm schedule match với driver_id hoặc bus_id
+      const matchedSchedule = activeSchedules.find(
+        s => s.driver_id === driver_id || s.bus_id === bus_id
+      );
+      
+      if (matchedSchedule) {
+        finalRouteId = matchedSchedule.route_id;
+        console.log(` SERVICE: Tìm thấy schedule đang active (ID: ${matchedSchedule.id}), route_id: ${finalRouteId}`);
+      } else {
+        console.log(' SERVICE: Không tìm thấy schedule đang active, route_id sẽ là NULL');
+      }
+    }
+
+    // 4. Kiểm tra route tồn tại (nếu có)
+    if (finalRouteId) {
+      const routeExists = await RouteModel.exists(finalRouteId);
       if (!routeExists) {
         throw new Error('Không tìm thấy tuyến đường');
       }
     }
 
-    // 4. Validate severity
+    // 5. Validate severity
     const validSeverities = ['low', 'medium', 'high', 'critical'];
     if (!validSeverities.includes(severity)) {
       throw new Error('Severity không hợp lệ (low/medium/high/critical)');
@@ -166,7 +190,7 @@ class IncidentService {
     const formattedData = {
       driver_id,
       bus_id,
-      route_id: route_id || null,
+      route_id: finalRouteId || null,
       incident_type: incident_type.trim(),
       description: description.trim(),
       severity,

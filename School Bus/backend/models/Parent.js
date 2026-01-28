@@ -57,16 +57,39 @@ class ParentModel {
    * @param {number} userId - ID của user
    * @returns {Promise<Object|null>} Thông tin phụ huynh hoặc null
    */
-  static async findByUserId(userId) {
-    console.log(' MODEL: Tìm phụ huynh theo user_id:', userId);
-    const [rows] = await pool.execute(
-      'SELECT * FROM parents WHERE user_id = ?',
-      [userId]
-    );
+  // static async findByUserId(userId) {
+  
+  //   const [rows] = await pool.execute(
+  //     'SELECT * FROM parents WHERE user_id = ?',
+  //     [userId]
+  //   );
     
-    const parent = rows[0] || null;
-    console.log(parent ? ' MODEL: Tìm thấy phụ huynh' : ' MODEL: Không tìm thấy phụ huynh');
-    return parent;
+  //   const parent = rows[0] || null;
+  //   console.log(parent ? ' MODEL: Tìm thấy phụ huynh' : ' MODEL: Không tìm thấy phụ huynh');
+  //   return parent;
+  // }
+
+  /**
+   * Lấy student đầu tiên của parent theo user_id (dùng cho login)
+   * @param {number} userId - ID của user
+   * @returns {Promise<Object|null>} Thông tin student đầu tiên hoặc null
+   */
+  static async findStudentByUserId(userId) {
+    console.log('MODEL: Tìm student của parent với user_id:', userId);
+    const [rows] = await pool.execute(`
+      SELECT s.id AS student_id, s.name AS student_name, 
+             s.morning_route_id, s.afternoon_route_id,
+             p.id AS parent_id, p.name AS parent_name
+      FROM parents p
+      JOIN students s ON s.parent_id = p.id
+      WHERE p.user_id = ?
+      ORDER BY s.id ASC
+      LIMIT 1
+    `, [userId]);
+    
+    const result = rows[0] || null;
+    console.log(result ? `MODEL: Tìm thấy student ${result.student_name}` : 'MODEL: Không tìm thấy student');
+    return result;
   }
 
   /**

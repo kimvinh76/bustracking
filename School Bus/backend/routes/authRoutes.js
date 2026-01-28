@@ -3,6 +3,8 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import AuthService from '../services/authService.js';
 import DriverModel from '../models/Driver.js';
+import ParentModel from '../models/Parent.js';
+import pool from '../config/db.js';
 
 const router = express.Router();
 
@@ -30,6 +32,22 @@ router.post('/login', async (req, res) => {
             }
         }
 
+        // 3b. Nếu là parent, lấy student_id của con
+        let studentId = null;
+        let studentName = null;
+        let morningRouteId = null;
+        let afternoonRouteId = null;
+        if (result.user.role === 'parent') {
+            const studentInfo = await ParentModel.findStudentByUserId(result.user.id);
+            if (studentInfo) {
+                studentId = studentInfo.student_id;
+                studentName = studentInfo.student_name;
+                morningRouteId = studentInfo.morning_route_id;
+                afternoonRouteId = studentInfo.afternoon_route_id;
+                console.log(`Parent login: student_id=${studentId}, morning_route=${morningRouteId}, afternoon_route=${afternoonRouteId}`);
+            }
+        }
+
         // 4. Tạo JWT Token
         const token = jwt.sign(
             { id: result.user.id, username: result.user.username, role: result.user.role },
@@ -48,7 +66,12 @@ router.post('/login', async (req, res) => {
                 username: result.user.username,
                 email: result.user.email,
                 role: result.user.role,
-                driverId: driverId
+                driverId: driverId,
+                // Thêm thông tin cho parent
+                student_id: studentId,
+                student_name: studentName,
+                morning_route_id: morningRouteId,
+                afternoon_route_id: afternoonRouteId
             }
         });
 

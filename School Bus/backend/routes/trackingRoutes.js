@@ -9,11 +9,11 @@ const router = express.Router();
 // POST /api/tracking/locations  -> lưu điểm GPS mới
 router.post('/locations', async (req, res) => {
   try {
-    const { bus_id, driver_id, schedule_id = null, latitude, longitude, speed = null, heading = null, accuracy = null } = req.body;
+    const { bus_id, driver_id, schedule_id = null, latitude, longitude } = req.body;
     if (!bus_id || !driver_id || latitude === undefined || longitude === undefined) {
       return res.status(400).json({ success: false, message: 'Thiếu bus_id, driver_id, latitude, longitude' });
     }
-    const location = await BusLocation.create({ bus_id, driver_id, schedule_id, latitude, longitude, speed, heading, accuracy });
+    const location = await BusLocation.create({ bus_id, driver_id, schedule_id, latitude, longitude });
     res.status(201).json({ success: true, data: location });
   } catch (error) {
     console.error(' Tracking POST /locations error:', error.message);

@@ -2,7 +2,7 @@ import apiClient from './api.js';
 
 const trackingService = {
   // Lưu một mẫu vị trí GPS vào backend
-  logLocation: async ({ busId, driverId, scheduleId = null, latitude, longitude, speed = null, heading = null, accuracy = null }) => {
+  logLocation: async ({ busId, driverId, scheduleId = null, latitude, longitude }) => {
     if (!busId || !driverId || latitude === undefined || longitude === undefined) {
       console.warn('trackingService.logLocation: missing required fields');
       return null;
@@ -12,10 +12,7 @@ const trackingService = {
       driver_id: driverId,
       schedule_id: scheduleId,
       latitude,
-      longitude,
-      speed,
-      heading,
-      accuracy
+      longitude
     };
     return apiClient.post('/tracking/locations', payload);
   }

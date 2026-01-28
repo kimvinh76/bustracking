@@ -17,12 +17,12 @@ export default function IncidentReportModal({
   if (!isOpen) return null;
 
   const quickOptions = [
-    { text: "🚗 Xe hỏng", value: "Xe gặp sự cố kỹ thuật", type: "vehicle", severity: "high" },
-    { text: "🚦 Kẹt xe", value: "Giao thông kẹt xe nghiêm trọng", type: "traffic", severity: "medium" },
-    { text: "👤 HS không đến", value: "Học sinh không có mặt tại điểm đón", type: "student", severity: "low" },
-    { text: "⚠️ Khẩn cấp", value: "Tình huống khẩn cấp cần hỗ trợ ngay", type: "emergency", severity: "high" },
-    { text: "🌧️ Thời tiết xấu", value: "Thời tiết không thuận lợi ảnh hưởng lộ trình", type: "weather", severity: "medium" },
-    { text: "🚸 An toàn HS", value: "Vấn đề an toàn học sinh", type: "safety", severity: "high" },
+    { text: "Xe hỏng", value: "Xe gặp sự cố kỹ thuật", type: "vehicle", severity: "high" },
+    { text: " Kẹt xe", value: "Giao thông kẹt xe nghiêm trọng", type: "traffic", severity: "medium" },
+   
+    { text: "Khẩn cấp", value: "Tình huống khẩn cấp cần hỗ trợ ngay", type: "emergency", severity: "high" },
+    { text: " Thời tiết xấu", value: "Thời tiết không thuận lợi ảnh hưởng lộ trình", type: "weather", severity: "medium" },
+    { text: " An toàn HS", value: "Vấn đề an toàn học sinh", type: "safety", severity: "high" },
   ];
 
   const severityOptions = [

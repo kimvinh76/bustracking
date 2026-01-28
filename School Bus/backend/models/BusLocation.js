@@ -5,13 +5,13 @@ import pool from '../config/db.js';
 
 class BusLocation {
   static async create(data) {
-    const { bus_id, driver_id, schedule_id = null, latitude, longitude, speed = null, heading = null, accuracy = null } = data;
+    const { bus_id, driver_id, schedule_id = null, latitude, longitude } = data;
     const [result] = await pool.execute(
-      `INSERT INTO bus_locations (bus_id, driver_id, schedule_id, latitude, longitude, speed, heading, accuracy)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [bus_id, driver_id, schedule_id, latitude, longitude, speed, heading, accuracy]
+      `INSERT INTO bus_locations (bus_id, driver_id, schedule_id, latitude, longitude)
+       VALUES (?, ?, ?, ?, ?)`,
+      [bus_id, driver_id, schedule_id, latitude, longitude]
     );
-    return { id: result.insertId, ...data };
+    return { id: result.insertId, bus_id, driver_id, schedule_id, latitude, longitude };
   }
 
   static async findByBus(bus_id, limit = 200) {

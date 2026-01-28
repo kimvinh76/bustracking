@@ -147,6 +147,31 @@ class ScheduleModel {
   }
 
   /**
+   * Lấy lịch trình theo date và status
+   * @param {string} date - Ngày (YYYY-MM-DD)
+   * @param {string} status - Trạng thái (scheduled, in_progress, completed, cancelled)
+   * @returns {Promise<Array>} Danh sách lịch trình
+   */
+  static async findByDateAndStatus(date, status) {
+    console.log(' MODEL: Lấy lịch trình theo date và status:', { date, status });
+    const [rows] = await pool.execute(`
+      SELECT s.*, 
+             r.route_name,
+             b.bus_number, b.license_plate,
+             d.name AS driver_name
+      FROM schedules s
+      LEFT JOIN routes r ON s.route_id = r.id
+      LEFT JOIN buses b ON s.bus_id = b.id
+      LEFT JOIN drivers d ON s.driver_id = d.id
+      WHERE s.date = ? AND s.status = ?
+      ORDER BY s.scheduled_start_time ASC
+    `, [date, status]);
+    
+    console.log(` MODEL: Tìm thấy ${rows.length} lịch trình`);
+    return rows;
+  }
+
+  /**
    * Tạo lịch trình mới
    * @param {Object} scheduleData - Dữ liệu lịch trình
    * @returns {Promise<Object>} Lịch trình vừa tạo
