@@ -125,7 +125,7 @@ export default function MapPage() {
               className="bg-red-100 border border-red-300 text-red-800 p-4 rounded-lg shadow-lg max-w-sm animate-slide-in"
             >
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-lg">🚨</span>
+                <span className="text-lg"></span>
                 <h4 className="font-semibold">Cảnh báo sự cố!</h4>
               </div>
               <p className="text-sm mb-1">{alert.description}</p>

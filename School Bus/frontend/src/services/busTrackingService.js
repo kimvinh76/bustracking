@@ -26,18 +26,18 @@ class BusTrackingService {
     try {
       // Tránh kết nối trùng do React StrictMode gọi effect 2 lần
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-        console.log('🔌 WebSocket already connected, skip duplicate connect');
+        console.log('WebSocket already connected, skip duplicate connect');
         this.isConnected = true;
         return;
       }
       if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
-        console.log('🔄 WebSocket is connecting, skip duplicate connect');
+        console.log('WebSocket is connecting, skip duplicate connect');
         return;
       }
       this.ws = new WebSocket('ws://localhost:5000');
 
       this.ws.onopen = () => {
-        console.log(`🔌 WebSocket connected as ${role}`);
+        console.log(`WebSocket connected as ${role}`);
         this.isConnected = true;
         this.reconnectAttempts = 0;
 
@@ -71,7 +71,7 @@ class BusTrackingService {
       };
 
       this.ws.onclose = () => {
-        console.log(`🔌 WebSocket disconnected`);
+        console.log(`WebSocket disconnected`);
         this.isConnected = false;
         this.stopHeartbeat();
         this.emit('disconnected');
@@ -80,7 +80,7 @@ class BusTrackingService {
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
           setTimeout(() => {
             this.reconnectAttempts++;
-            console.log(`🔄 Reconnecting... attempt ${this.reconnectAttempts}`);
+            console.log(`Reconnecting... attempt ${this.reconnectAttempts}`);
             this.connect(this.role, userId);
           }, this.reconnectDelay);
         }

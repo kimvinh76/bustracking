@@ -16,13 +16,21 @@ export default function TripStatusCard({ driverStatus, currentStopIndex, stops, 
 
   const status = getStatusDisplay();
   
-  // Tính các trạm đã qua
-  const passedStops = stops.slice(0, currentStopIndex).map(s => s.name);
+  const isPaused = driverStatus === 'paused';
+  const isInProgress = driverStatus === 'in_progress';
+  
+  const passedStopsCount = isPaused ? currentStopIndex : currentStopIndex + 1;
+  const passedStops = stops.slice(0, passedStopsCount).map(s => s.name);
+  
+  const currentStopName = isPaused 
+    ? stops[currentStopIndex]?.name
+    : (isInProgress && stops[currentStopIndex + 1] 
+        ? `Đang tới ${stops[currentStopIndex + 1].name}` 
+        : 'Hoàn thành');
 
   return (
     <div className={`p-6 rounded-lg shadow-md border-l-4 ${status.color}`}>
       <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-8">
-        {/* Trạng thái & Trạm kế tiếp */}
         <div className="md:flex-1">
           <h2 className="text-xl font-bold mb-4">Trạng thái chuyến đi</h2>
           <div className="space-y-2 text-sm">
@@ -31,9 +39,8 @@ export default function TripStatusCard({ driverStatus, currentStopIndex, stops, 
           </div>
         </div>
 
-        {/* Các trạm đã đi qua */}
         <div className="md:flex-1">
-          <h3 className="font-semibold text-base mb-2">Các trạm đã đi qua:</h3>
+          <h3 className="font-semibold text-base mb-2">Các trạm đã qua:</h3>
           {passedStops.length > 0 ? (
             <ul className="list-disc list-inside mt-1 text-sm text-gray-700">
               {passedStops.map((stop, index) => (
@@ -45,14 +52,15 @@ export default function TripStatusCard({ driverStatus, currentStopIndex, stops, 
           )}
         </div>
 
-        {/* Trạm hiện tại */}
         <div className="md:flex-1 text-center">
-          <div className="text-sm text-gray-500 font-medium">Trạm hiện tại</div>
+          <div className="text-sm text-gray-500 font-medium">
+            {isPaused ? 'Trạm hiện tại' : 'Vị trí'}
+          </div>
           <div className="text-3xl font-bold text-blue-600">
-            {currentStopIndex + 1}/{stops.length}
+            {isPaused ? `${currentStopIndex + 1}/${stops.length}` : `${passedStopsCount}/${stops.length}`}
           </div>
           <div className="text-sm text-gray-600 mt-1">
-            {stops[currentStopIndex]?.name || 'N/A'}
+            {currentStopName}
           </div>
         </div>
       </div>

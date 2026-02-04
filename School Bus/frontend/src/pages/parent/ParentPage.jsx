@@ -9,7 +9,7 @@
  * - Hiển thị danh sách sự cố gần đây (từ API incidents)
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { AlertTriangle } from 'lucide-react';
 
 // Services - gọi API backend
@@ -47,6 +47,9 @@ export default function ParentPage() {
     isRunning: false
   });
   const [busPosition, setBusPosition] = useState(null);
+
+  const displayedNotificationsRef = useRef(new Set());
+  const activeScheduleIdRef = useRef(null);
 
   // === HELPER FUNCTIONS ===
   
@@ -86,47 +89,41 @@ export default function ParentPage() {
           return;
         }
 
-        const studentId = user.student_id;
-        const morningRouteId = user.morning_route_id;
-        const afternoonRouteId = user.afternoon_route_id;
+        const { student_id, student_name, morning_route_id, afternoon_route_id } = user;
         
-        // Tìm schedule đang chạy trong ngày
-        if (morningRouteId || afternoonRouteId) {
-          const today = new Date().toISOString().split('T')[0];
+        if (morning_route_id || afternoon_route_id) {
           const schedules = await schedulesService.getAllSchedules();
           
           const activeSchedule = schedules.find(s => 
-            (s.route_id === morningRouteId || s.route_id === afternoonRouteId) &&
-            s.date === today &&
-            ['scheduled', 'in_progress'].includes(s.status)
+            (s.route_id === morning_route_id || s.route_id === afternoon_route_id) &&
+            s.status === 'in_progress'
           );
           
           if (activeSchedule) {
             setRouteId(activeSchedule.route_id);
-            console.log('Tìm thấy schedule đang chạy:', activeSchedule.route_id, activeSchedule.shift_type);
+            activeScheduleIdRef.current = activeSchedule.id;
+            console.log('Found active schedule (in_progress):', activeSchedule.id, 'route:', activeSchedule.route_id);
           } else {
-            // Fallback: dùng thời gian để quyết định
             const currentHour = new Date().getHours();
-            setRouteId(currentHour < 14 ? morningRouteId : afternoonRouteId);
-            console.log('Không tìm thấy schedule, dùng fallback');
+            setRouteId(currentHour < 14 ? morning_route_id : afternoon_route_id);
+            console.log('No active schedule, using fallback route');
           }
         }
 
-        if (studentId) {
-          const studentData = await studentsService.getStudentById(studentId);
+        if (student_id) {
+          const studentData = await studentsService.getStudentById(student_id);
           setStudentInfo({
             name: studentData.name,
             class: studentData.class_name || studentData.class || 'N/A',
             phone: studentData.phone
           });
-        } else if (user.student_name) {
+        } else if (student_name) {
           setStudentInfo({
-            name: user.student_name,
+            name: student_name,
             class: 'N/A',
             phone: null
           });
         } else {
-          console.error('Không tìm thấy thông tin học sinh trong session.');
           setStudentInfo({ name: 'Không có dữ liệu', class: 'N/A', phone: null });
         }
 
@@ -170,30 +167,35 @@ export default function ParentPage() {
 
     const loadActiveSchedule = async () => {
       try {
-        const today = new Date().toISOString().split('T')[0];
-        const currentHour = new Date().getHours();
-        const shift = currentHour < 12 ? 'morning' : 'afternoon';
-
-        // Tìm schedule có route này và đang chạy
         const schedules = await schedulesService.getAllSchedules();
-        const activeSchedule = schedules.find(s => 
+        
+        let schedule = schedules.find(s => 
           s.route_id === routeId && 
-          s.date === today &&
-          s.shift_type === shift &&
-          ['scheduled', 'in_progress'].includes(s.status)
+          s.status === 'in_progress'
         );
 
-        if (activeSchedule) {
+        if (!schedule && activeScheduleIdRef.current) {
+          schedule = schedules.find(s => s.id === activeScheduleIdRef.current);
+        }
+
+        if (!schedule) {
+          const routeSchedules = schedules
+            .filter(s => s.route_id === routeId)
+            .sort((a, b) => new Date(b.date) - new Date(a.date));
+          schedule = routeSchedules[0];
+        }
+
+        if (schedule) {
           setBusInfo({
-            busNumber: activeSchedule.license_plate || activeSchedule.bus_number || 'N/A',
-            route: activeSchedule.route_name || `Tuyến ${routeId}`,
-            driverName: activeSchedule.driver_name || 'Tài xế',
-            driverPhone: activeSchedule.driver_phone || null,
-            scheduleId: activeSchedule.id
+            busNumber: schedule.license_plate || schedule.bus_number || 'N/A',
+            route: schedule.route_name || `Tuyến ${routeId}`,
+            driverName: schedule.driver_name || 'Tài xế',
+            driverPhone: schedule.driver_phone || null,
+            scheduleId: schedule.id
           });
         }
       } catch (error) {
-        console.error('Lỗi load schedule:', error);
+        console.error('Error loading schedule:', error);
       }
     };
 
@@ -240,9 +242,26 @@ export default function ParentPage() {
 
     // Handler nhận cập nhật từ driver
     const handleBusStatusUpdate = (status) => {
-      console.log('📡 Received bus status:', status);
+      console.log('Received bus status:', status);
 
-      // Cập nhật trạng thái xe buýt
+      if (status.tripId) {
+        const scheduleId = parseInt(status.tripId);
+        if (scheduleId !== activeScheduleIdRef.current) {
+          activeScheduleIdRef.current = scheduleId;
+          
+          const user = JSON.parse(sessionStorage.getItem('user'));
+          const myRoutes = [user?.morning_route_id, user?.afternoon_route_id].filter(Boolean);
+          
+          schedulesService.getAllSchedules().then(schedules => {
+            const schedule = schedules.find(s => s.id === scheduleId);
+            if (schedule && myRoutes.includes(schedule.route_id)) {
+              console.log('Detected active schedule from WebSocket:', scheduleId);
+              setRouteId(schedule.route_id);
+            }
+          });
+        }
+      }
+
       setBusStatus(prev => ({
         ...prev,
         ...status,
@@ -251,43 +270,52 @@ export default function ParentPage() {
         currentPosition: status.currentPosition || prev.currentPosition
       }));
 
-      // Cập nhật vị trí xe
       if (status.currentPosition) {
         setBusPosition(status.currentPosition);
       }
 
-      // Xử lý thông báo sự cố từ driver
       if (status.incidentAlert) {
-        addNotification({
-          id: createNotificationId('incident'),
-          type: 'incident',
-          message: status.incidentAlert.description,
-          route: status.incidentAlert.route || 'Tuyến xe buýt',
-          timestamp: new Date()
-        });
+        const incidentKey = `incident-${status.incidentAlert.description}-${status.incidentAlert.timestamp || Date.now()}`;
+        
+        if (!displayedNotificationsRef.current.has(incidentKey)) {
+          displayedNotificationsRef.current.add(incidentKey);
+          addNotification({
+            id: createNotificationId('incident'),
+            type: 'incident',
+            message: status.incidentAlert.description,
+            route: status.incidentAlert.route || 'Tuyến xe buýt',
+            timestamp: new Date()
+          });
+        }
       }
 
-      // Xử lý thông báo đón học sinh
       if (status.studentPickupAlert) {
-        addNotification({
-          id: createNotificationId('pickup'),
-          type: 'pickup',
-          message: `Học sinh ${status.studentPickupAlert.studentName} đã được đón tại ${status.studentPickupAlert.stopName}`,
-          route: status.studentPickupAlert.routeName,
-          driverName: status.studentPickupAlert.driverName,
-          timestamp: new Date()
-        });
+        const pickupStudentName = status.studentPickupAlert.studentName;
+        const pickupKey = `pickup-${pickupStudentName}-${status.studentPickupAlert.timestamp}`;
+        
+        const isMyChild = studentInfo && pickupStudentName === studentInfo.name;
+        
+        if (isMyChild && !displayedNotificationsRef.current.has(pickupKey)) {
+          displayedNotificationsRef.current.add(pickupKey);
+          addNotification({
+            id: createNotificationId('pickup'),
+            type: 'pickup',
+            message: `Học sinh ${pickupStudentName} đã được đón tại ${status.studentPickupAlert.stopName}`,
+            route: status.studentPickupAlert.routeName,
+            driverName: status.studentPickupAlert.driverName,
+            timestamp: new Date()
+          });
+        }
       }
     };
 
     busTrackingService.on('busStatusUpdate', handleBusStatusUpdate);
 
-    // Cleanup khi unmount
     return () => {
       busTrackingService.off('busStatusUpdate', handleBusStatusUpdate);
       busTrackingService.disconnect();
     };
-  }, [addNotification]);
+  }, [addNotification, studentInfo]);
 
   // === RENDER ===
 

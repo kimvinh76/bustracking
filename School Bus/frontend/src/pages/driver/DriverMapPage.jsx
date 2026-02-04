@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
@@ -333,15 +333,15 @@ const estimatedTime = nextStop
         currentStopIndex: stopIdx
       });
     } else {
-      // Tiếp tục chuyến đi - gửi signal để các map khác tiếp tục
-      const nextStopIndex = stopIdx + 1;
+      // Tiếp tục chuyến đi - resume animation, xe sẽ tự động tới stop tiếp theo
+      // Gửi currentStopIndex hiện tại (chưa +1) vì xe vẫn đang ở stop này, chưa di chuyển
       busTrackingService.updateDriverStatus({
         isRunning: true,
         driverStatus: "in_progress", 
-        currentStopIndex: nextStopIndex,
+        currentStopIndex: stopIdx, //  Không +1, vì xe chưa tới stop tiếp theo
         resumeFromPause: true
       });
-      console.log('🚌 Driver continuing trip, sending resume signal to admin/parent');
+      console.log(' Driver resuming trip from stop', stopIdx);
     }
 
     setPausedWpIdx(null);
@@ -364,7 +364,7 @@ const estimatedTime = nextStop
           route: 'Tuyến 1'
         }
       });
-      console.log('🚨 Driver broadcasted incident alert:', createdIncident);
+      console.log(' Driver broadcasted incident alert:', createdIncident);
     }
     setIncidentMsg("");
     setShowIncident(false);
@@ -522,7 +522,8 @@ const estimatedTime = nextStop
   };
 
   // Tuyến đường tuyến tính (không khép kín)
-  const routeWaypoints = stops.map((s) => [s.lat, s.lng]);
+  // Quan trọng: memoize để không tạo array mới mỗi render (DriverMapPage re-render theo từng frame)
+  const routeWaypoints = useMemo(() => stops.map((s) => [s.lat, s.lng]), [stops]);
 
   // Trường hợp đặc biệt: truy cập /driver/map khi chưa chọn lịch
   // và không có chuyến nào đang chạy trong sessionStorage

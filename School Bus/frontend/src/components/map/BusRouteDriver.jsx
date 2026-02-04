@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet-routing-machine";
@@ -30,11 +30,31 @@ export default function BusRouteDriver({
     pauseIndices: [],
     elapsedTime: 0,
     completed: false,
+    ready: false,
   });
-  const initializedRef = useRef(false);
+  const isRunningRef = useRef(isRunning);
+
+  const waypointsKey = useMemo(() => {
+    try {
+      return waypoints
+        .map((p) => {
+          const lat = Number(p?.[0]);
+          const lng = Number(p?.[1]);
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) return "invalid";
+          return `${lat.toFixed(6)},${lng.toFixed(6)}`;
+        })
+        .join("|");
+    } catch {
+      return "";
+    }
+  }, [waypoints]);
 
   // Reference to step function
   const stepRef = useRef(null);
+
+  useEffect(() => {
+    isRunningRef.current = isRunning;
+  }, [isRunning]);
 
   // Xử lý isRunning control - CHỈ pause/resume, KHÔNG tạo lại
   useEffect(() => {
@@ -46,7 +66,7 @@ export default function BusRouteDriver({
         cancelAnimationFrame(animRef.current);
         animRef.current = null;
       }
-    } else if (isRunning && initializedRef.current && stateRef.current.paused && stepRef.current) {
+    } else if (isRunning && stateRef.current.ready && stateRef.current.paused && stepRef.current) {
       // Resume animation
       stateRef.current.paused = false;
       const pauseDuration = stateRef.current.pausedAt ? (Date.now() - stateRef.current.pausedAt) : 0;
@@ -61,21 +81,19 @@ export default function BusRouteDriver({
   useEffect(() => {
     // Khởi tạo khi có map và waypoints, không phụ thuộc isRunning
     // isRunning chỉ điều khiển pause/resume animation
-    if (!map || waypoints.length < 2 || initializedRef.current) return;
-    
-    initializedRef.current = true;
+    if (!map || waypoints.length < 2) return;
+
+    stateRef.current.ready = false;
+    stateRef.current.completed = false;
+    stateRef.current.segmentIndex = 0;
+    stateRef.current.elapsedTime = 0;
+    stateRef.current.pauseIndices = [];
     console.log('[BusRouteDriver] Initializing with', waypoints.length, 'waypoints');
 
     const latLngWaypoints = waypoints.map(([lat, lng]) => L.latLng(lat, lng));
 
     // Create bus marker với icon lớn hơn, dễ nhìn
     markerRef.current = L.marker(latLngWaypoints[0], {
-      icon: L.divIcon({
-        html: "<div style='font-size:40px; filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));'>🚌</div>",
-        iconSize: [40, 40],
-        iconAnchor: [20, 20],
-        className: "bus-driver-icon",
-      }),
       zIndexOffset: 1000,
     }).addTo(map);
     
@@ -155,7 +173,9 @@ export default function BusRouteDriver({
         const from = coords[i];
         const to = coords[i + 1];
         const distance = from.distanceTo(to);
-        segments.push({ from, to, distance, duration: (distance / speedMetersPerSec) * 1000 });
+        const safeSpeed = Number.isFinite(speedMetersPerSec) && speedMetersPerSec > 0 ? speedMetersPerSec : 18;
+        const durationMs = distance > 0 ? (distance / safeSpeed) * 1000 : 1;
+        segments.push({ from, to, distance, duration: durationMs });
 
         // Check nếu segment kết thúc gần waypoint (cho pause)
         for (let wpIdx = 1; wpIdx < waypoints.length - 1; wpIdx++) {
@@ -171,6 +191,9 @@ export default function BusRouteDriver({
       stateRef.current.coords = coords;
       stateRef.current.pauseIndices = pauseIndices;
       stateRef.current.startTime = Date.now();
+      stateRef.current.paused = !isRunningRef.current;
+      stateRef.current.pausedAt = stateRef.current.paused ? Date.now() : null;
+      stateRef.current.ready = true;
 
       // Debug log để kiểm tra dữ liệu segment và pauseIndices
       console.log('[BusRouteDriver] segments:', segments.length, 'pauseIndices:', pauseIndices.length);
@@ -180,16 +203,14 @@ export default function BusRouteDriver({
       }
 
 
-      // Start animation if running
-      if (isRunning && !stateRef.current.paused) {
-        startAnimation();
-      }
+      // Always prepare step function; start only if running
+      startAnimation({ autoStart: isRunningRef.current });
     }
 
-    function startAnimation() {
+    function startAnimation({ autoStart }) {
       if (stateRef.current.segments.length === 0) return;
       
-      console.log("[BusRouteDriver] Starting animation");
+      console.log("[BusRouteDriver] Animation ready", { autoStart });
       
       const step = () => {
         if (stateRef.current.paused) return;
@@ -231,7 +252,8 @@ export default function BusRouteDriver({
         
         const segment = stateRef.current.segments[currentSegmentIndex];
         const segmentElapsed = elapsed - cumulativeTime;
-        const progress = Math.min(segmentElapsed / segment.duration, 1);
+        const duration = Number.isFinite(segment.duration) && segment.duration > 0 ? segment.duration : 1;
+        const progress = Math.min(segmentElapsed / duration, 1);
         
         // Interpolate position
         const lat = segment.from.lat + (segment.to.lat - segment.from.lat) * progress;
@@ -257,6 +279,7 @@ export default function BusRouteDriver({
         if (pausePoint && progress >= 0.95) {
           // Reached a waypoint - pause and notify
           stateRef.current.paused = true;
+          stateRef.current.pausedAt = Date.now();
           stateRef.current.elapsedTime = elapsed;
           // Tiến sang segment tiếp theo và loại bỏ tất cả pauseIndices của waypoint này để tránh lặp lại
           stateRef.current.segmentIndex = pausePoint.segmentIndex + 1;
@@ -268,6 +291,7 @@ export default function BusRouteDriver({
           
           const resumeFn = () => {
             stateRef.current.paused = false;
+            stateRef.current.pausedAt = null;
             stateRef.current.startTime = Date.now();
             animRef.current = requestAnimationFrame(step);
           };
@@ -281,7 +305,11 @@ export default function BusRouteDriver({
       };
       
       stepRef.current = step;
-      animRef.current = requestAnimationFrame(step);
+
+      if (autoStart && !stateRef.current.paused && !animRef.current) {
+        console.log("[BusRouteDriver] Starting animation");
+        animRef.current = requestAnimationFrame(step);
+      }
     }
 
     // Cleanup function
@@ -309,11 +337,14 @@ export default function BusRouteDriver({
           } catch (e) {}
           routingControlRef.current = null;
         }
+
+        stateRef.current.ready = false;
+        stepRef.current = null;
       } catch (cleanupErr) {
         console.warn("[BusRouteDriver] cleanup error (ignored):", cleanupErr);
       }
     };
-  }, [map, waypoints, isRunning]); // Include isRunning in deps for initialization
+  }, [map, waypointsKey, speedMetersPerSec, loop]);
 
   return null;
 }

@@ -41,7 +41,7 @@ Import file `Postman_Collection.json` vào Postman để test API.
 - PUT `/schedules/:id` - Cập nhật lịch trình
 - DELETE `/schedules/:id` - Xóa lịch trình
 
-### 🚨 Incidents
+###  Incidents
 - GET `/incidents` - Lấy danh sách sự cố
 - POST `/incidents` - Báo cáo sự cố mới
 - PUT `/incidents/:id` - Cập nhật sự cố
