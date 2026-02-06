@@ -4393,7 +4393,7 @@ function warnOnce(key, message) {
     console.warn(message);
   }
 }
-var logDeprecation = (flag, msg, link) => warnOnce(flag, "⚠️ React Router Future Flag Warning: " + msg + ". " + ("You can use the `" + flag + "` future flag to opt-in early. ") + ("For more information, see " + link + "."));
+var logDeprecation = (flag, msg, link) => warnOnce(flag, " React Router Future Flag Warning: " + msg + ". " + ("You can use the `" + flag + "` future flag to opt-in early. ") + ("For more information, see " + link + "."));
 function logV6DeprecationWarnings(renderFuture, routerFuture) {
   if ((renderFuture == null ? void 0 : renderFuture.v7_startTransition) === void 0) {
     logDeprecation("v7_startTransition", "React Router will begin wrapping state updates in `React.startTransition` in v7", "https://reactrouter.com/v6/upgrading/future#v7_starttransition");

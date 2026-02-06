@@ -19,7 +19,7 @@ Import file `Postman_Collection.json` vào Postman để test API.
 - PUT `/drivers/:id` - Cập nhật tài xế
 - DELETE `/drivers/:id` - Xóa tài xế
 
-### 🚌 Buses
+###  Buses
 - GET `/buses` - Lấy danh sách xe bus
 - GET `/buses/:id` - Lấy thông tin 1 xe bus
 - POST `/buses` - Tạo xe bus mới

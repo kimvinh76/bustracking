@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
@@ -58,6 +58,9 @@ export default function DriverMapPage() {
   const [loading, setLoading] = useState(true);
   const [showNoActiveTripDialog, setShowNoActiveTripDialog] = useState(false);
 
+  const lastPosDebugAtRef = useRef(0);
+  const DEBUG_TAG = '[DriverTracking]';
+
   // Data from API
   const [schedule, setSchedule] = useState(null);
   const [stops, setStops] = useState([]);
@@ -66,7 +69,8 @@ export default function DriverMapPage() {
   const currentStop = stops[stopIdx];
   const nextStop = stops[stopIdx + 1];
   
-  // Tính toán khoảng cách động và thời gian dự kiến
+  // Tính toán khoảng cách động và thời gian dự kiến 
+  // (Đã chuyển logic tính ETA sang BE, nhưng FE vẫn hiển thị khoảng cách đơn giản)
   const calculateRemainingDistance = () => {
     if (!nextStop || status === "completed") return "0 km";
     
@@ -76,10 +80,11 @@ export default function DriverMapPage() {
     const toLat = nextStop.lat;
     const toLng = nextStop.lng;
     
-    if (!fromLat || !fromLng || !toLat || !toLng) return "1.2 km"; // fallback
+    if (!fromLat || !fromLng || !toLat || !toLng) return "-- km";
     
     // Công thức Haversine để tính khoảng cách thực tế
-    const R = 6371; // Bán kính Trái Đất (km)
+    // Vẫn giữ lại để hiển thị UI cho tài xế thấy họ còn cách bao xa (về mặt địa lý)
+    const R = 6371; 
     const dLat = (toLat - fromLat) * Math.PI / 180;
     const dLng = (toLng - fromLng) * Math.PI / 180;
     const a = 
@@ -121,41 +126,31 @@ const estimatedTime = nextStop
   }; 
  
 
-  // Khởi tạo WebSocket connection (disable tạm thời nếu backend chưa có WebSocket server)
+  // Khởi tạo WebSocket connection
   useEffect(() => {
-    let connectTimer = null;
     let hasConnected = false;
 
     try {
-      connectTimer = setTimeout(() => {
-        try {
-          // Lấy đúng driverId (id trong bảng drivers) từ sessionStorage
-          const user = JSON.parse(sessionStorage.getItem('user'));
-          const driverId = (user?.driverId ?? user?.id ?? 1);
-          // Kết nối WebSocket với vai trò driver và driverId để server nhận diện
-          busTrackingService.connect('driver', driverId);
-          hasConnected = true;
-        } catch (connectError) {
-          console.warn(' WebSocket connection skipped:', connectError);
+        // Lấy đúng tripId (scheduleId) để join room
+        if (scheduleId) {
+            // Kết nối WebSocket với vai trò driver và tripId cụ thể
+            busTrackingService.connect('driver', scheduleId);
+            hasConnected = true;
         }
-      }, 0);
     } catch (error) {
-      console.warn(' WebSocket not available; realtime tracking disabled:', error);
+       console.warn(' WebSocket not available; realtime tracking disabled:', error);
     }
 
     return () => {
-      if (connectTimer) {
-        clearTimeout(connectTimer);
-      }
-      if (hasConnected) {
-        try {
-          busTrackingService.disconnect();
-        } catch (err) {
-          console.log('WebSocket disconnect error (ignored):', err);
-        }
-      }
+      /* 
+         Không cần ngắt kết nối ở đây nếu user chỉ chuyển qua lại giữa các tab trong app.
+         Tuy nhiên, nếu user rời hẳn trang map, có thể cân nhắc disconnect 
+         hoặc để service tự quản lý (singleton).
+         Ở đây ta giữ kết nối để không phải reconnect liên tục.
+      */
+     // if (hasConnected) busTrackingService.disconnect(); 
     };
-  }, []);
+  }, [scheduleId]);
 
   // Khi người dùng vào /driver/map (không có scheduleId):
   // - Nếu có chuyến đang chạy trong sessionStorage → tự điều hướng tới /driver/map/:scheduleId đó
@@ -200,18 +195,22 @@ const estimatedTime = nextStop
         // 1. Lấy thông tin schedule
         const scheduleData = await schedulesService.getScheduleById(scheduleId, driverId);
 
-        // 2. Lấy route stops từ route_id
-        const routeStops = await routesService.getRouteStops(scheduleData.routeId);
-
-        // 3. Transform stops
-        const transformedStops = routesService.transformStopsForMap(routeStops);
-      
-        // 4. Tính thời gian dự kiến cho các điểm dừng
-        const stopsWithTime = routesService.calculateStopTimes(
-          transformedStops,
-          scheduleData.startTime,
-          25 // Vận tốc trung bình 25 km/h
-        );
+        // 2 & 3 & 4. Lấy danh sách stops kèm thời gian đã tính toán từ Backend
+        // Thay vì gọi routesService.getRouteStops + calculateStopTimes
+        const stopsData = await schedulesService.getScheduleStops(driverId, scheduleId);
+        
+        // Map về format mà frontend đang dùng
+        const stopsWithTime = (stopsData.stops || []).map(stop => ({
+            id: stop.id,
+            name: stop.name,
+            address: stop.address,
+            lat: stop.latitude, // Backend trả về latitude
+            lng: stop.longitude, // Backend trả về longitude
+            order: stop.order,
+            time: stop.time,
+            isStartOrEnd: stop.type === 'Xuất phát' || stop.type === 'Kết thúc',
+            students: [] 
+        }));
 
         // 5. Load students theo route và shift (morning/afternoon)
         const timeOfDay = scheduleData.shiftType === 'morning' ? 'morning' : 'afternoon';
@@ -298,6 +297,14 @@ const estimatedTime = nextStop
     setStatus("in_progress");
     updateActiveTripSession("in_progress");
     pushNotice("success", "Đã bắt đầu chuyến đi!");
+
+    // Cập nhật trạng thái lịch làm việc lên backend để Parent có thể tìm đúng chuyến đang chạy
+    // (không chặn UI)
+    if (scheduleId) {
+      schedulesService
+        .updateScheduleStatus(scheduleId, "in_progress")
+        .catch((err) => console.warn("Không cập nhật được schedule status in_progress:", err));
+    }
     
     // Gửi status qua WebSocket
     const statusUpdate = {
@@ -306,7 +313,12 @@ const estimatedTime = nextStop
       currentStopIndex: stopIdx,
       tripId: scheduleId || 1
     };
-    console.log('🚌 Driver starting trip, sending status:', statusUpdate);
+    console.groupCollapsed(`${DEBUG_TAG} startTrip()`);
+    console.log('scheduleId:', scheduleId);
+    console.log('routeId(from schedule state):', schedule?.routeId);
+    console.log('currentStopIndex:', stopIdx);
+    console.log('statusUpdate:', statusUpdate);
+    console.groupEnd();
     busTrackingService.updateDriverStatus(statusUpdate);
   };
 
@@ -341,7 +353,6 @@ const estimatedTime = nextStop
         currentStopIndex: stopIdx, //  Không +1, vì xe chưa tới stop tiếp theo
         resumeFromPause: true
       });
-      console.log(' Driver resuming trip from stop', stopIdx);
     }
 
     setPausedWpIdx(null);
@@ -610,6 +621,19 @@ const estimatedTime = nextStop
                 isRunning={true} // Driver component - always running when in_progress
                 onPositionUpdate={(position) => {
                   setBusCurrentPosition(position);
+
+                  // Debug: throttle để không spam console
+                  const now = Date.now();
+                  if (now - lastPosDebugAtRef.current > 5000) {
+                    lastPosDebugAtRef.current = now;
+                    console.debug(`${DEBUG_TAG} position`, {
+                      scheduleId,
+                      routeId: schedule?.routeId,
+                      stopIdx,
+                      lat: position?.lat,
+                      lng: position?.lng
+                    });
+                  }
                   
                   // Gửi vị trí realtime qua WebSocket
                   busTrackingService.updateDriverStatus({

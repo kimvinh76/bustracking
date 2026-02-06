@@ -2,6 +2,7 @@
 // Business logic layer cho Route
 
 import RouteModel from '../models/Route.js';
+import axios from 'axios';
 
 class RouteService {
   /**
@@ -207,6 +208,27 @@ class RouteService {
 
     console.log(' SERVICE: Xóa điểm dừng thành công');
     return { message: 'Xóa điểm dừng thành công' };
+  }
+
+  /**
+   * Tính thời gian thực tế từ A đến B bằng OSRM
+   */
+  static async getEtaOSRM(fromLat, fromLng, toLat, toLng) {
+    try {
+      // Format tọa độ cho OSRM: longitude,latitude
+      const coordinates = `${fromLng},${fromLat};${toLng},${toLat}`;
+      const url = `http://router.project-osrm.org/route/v1/driving/${coordinates}?overview=false`;
+      
+      const response = await axios.get(url);
+      if (response.data.routes && response.data.routes.length > 0) {
+        // duration tính bằng giây (seconds)
+        return response.data.routes[0].duration;
+      }
+      return 0;
+    } catch (error) {
+      console.error('Lỗi gọi OSRM:', error.message);
+      return 0; // Fallback nếu lỗi
+    }
   }
 
   /**

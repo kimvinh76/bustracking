@@ -47,8 +47,8 @@ export default function MapPage() {
     busTrackingService.connect('admin', 1);
 
     const handleBusStatusUpdate = (status) => {
-      console.log('👑 Admin received bus status update:', status);
-      console.log('👑 Admin current busStatus before update:', busStatus);
+      console.log(' Admin received bus status update:', status);
+      console.log(' Admin current busStatus before update:', busStatus);
       
       // Xử lý incident alert
       if (status.incidentAlert) {
@@ -57,7 +57,7 @@ export default function MapPage() {
           id: Date.now() // Unique ID for admin
         };
         setIncidentAlerts(prev => [alert, ...prev.slice(0, 4)]);  // Keep last 5 alerts
-        console.log('👑 Admin received incident alert:', alert);
+        console.log(' Admin received incident alert:', alert);
         
         // Auto-remove after 10 seconds
         setTimeout(() => {
@@ -77,13 +77,13 @@ export default function MapPage() {
           setBusStatus(prev => ({...prev, resumeFromPause: false}));
         }, 100);
       }
-      console.log('👑 Admin busStatus after setState:', status);
+      console.log(' Admin busStatus after setState:', status);
     };
 
-    busTrackingService.on('busStatusUpdate', handleBusStatusUpdate);
+    busTrackingService.on('bus_status_update', handleBusStatusUpdate);
 
     return () => {
-      busTrackingService.off('busStatusUpdate', handleBusStatusUpdate);
+      busTrackingService.off('bus_status_update', handleBusStatusUpdate);
       busTrackingService.disconnect();
     };
   }, []);
@@ -105,7 +105,7 @@ export default function MapPage() {
             busStatus.driverStatus === 'completed' ? 'bg-blue-100 text-blue-800' :
             'bg-gray-100 text-gray-800'
           }`}>
-            {busStatus.driverStatus === 'in_progress' ? '🚌 Đang chạy' :
+            {busStatus.driverStatus === 'in_progress' ? ' Đang chạy' :
              busStatus.driverStatus === 'paused' ? '⏸️ Đang dừng' :
              busStatus.driverStatus === 'completed' ? ' Hoàn thành' :
              '⏹️ Chưa bắt đầu'}
@@ -177,7 +177,7 @@ export default function MapPage() {
             currentStopIndex={busStatus.currentStopIndex}
           />
           
-          {console.log('👑 Admin busStatus.driverStatus:', busStatus.driverStatus, 'isRunning calculated:', busStatus.driverStatus === "in_progress" && busStatus.isRunning)}
+          {console.log(' Admin busStatus.driverStatus:', busStatus.driverStatus, 'isRunning calculated:', busStatus.driverStatus === "in_progress" && busStatus.isRunning)}
           
           {/* Hiển thị marker tĩnh khi driver chưa bắt đầu */}
           {busStatus.driverStatus === "idle" && (

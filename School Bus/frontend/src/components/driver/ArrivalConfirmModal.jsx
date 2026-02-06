@@ -45,7 +45,7 @@ export default function ArrivalConfirmModal({
         </div>
         {!allStudentsPickedUp && (
           <div className="mt-3 text-xs text-red-600 text-center">
-            ⚠️ Cần đánh dấu đã đón toàn bộ học sinh trước khi tiếp tục.
+             Cần đánh dấu đã đón toàn bộ học sinh trước khi tiếp tục.
           </div>
         )}
       </div>

@@ -92,8 +92,31 @@ export default function BusRouteDriver({
 
     const latLngWaypoints = waypoints.map(([lat, lng]) => L.latLng(lat, lng));
 
-    // Create bus marker với icon lớn hơn, dễ nhìn
+    // Create bus marker với icon xe bus tùy chỉnh
+    const busIcon = L.divIcon({
+      html: `
+        <div style="
+          background-color: white; 
+          border: 2px solid #16a34a; 
+          border-radius: 50%; 
+          width: 40px; 
+          height: 40px; 
+          display: flex; 
+          align-items: center; 
+          justify-content: center;
+          box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+          font-size: 24px;
+        ">
+          🚌
+        </div>
+      `,
+      className: '', 
+      iconSize: [40, 40],
+      iconAnchor: [20, 20], // Căn giữa icon vào tọa độ
+    });
+
     markerRef.current = L.marker(latLngWaypoints[0], {
+      icon: busIcon,
       zIndexOffset: 1000,
     }).addTo(map);
     

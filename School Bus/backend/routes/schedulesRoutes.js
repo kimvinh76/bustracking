@@ -128,8 +128,20 @@ router.get('/driver/:driverId/stops/:scheduleId', async (req, res) => {
     try {
         const { driverId, scheduleId } = req.params;
 
-        // Lấy thông tin schedule
-        const schedule = await ScheduleService.getScheduleById(scheduleId);
+        // Lấy thông tin schedule để validate driver
+        let schedule;
+        try {
+            schedule = await ScheduleService.getScheduleById(scheduleId);
+        } catch (err) {
+            if (String(err?.message || '').includes('Không tìm thấy lịch trình')) {
+                console.log(' Không tìm thấy lịch làm việc');
+                return res.status(404).json({
+                    success: false,
+                    message: 'Không tìm thấy lịch làm việc'
+                });
+            }
+            throw err;
+        }
 
         if (!schedule || schedule.driver_id != driverId) {
             console.log(' Không tìm thấy lịch làm việc');
@@ -139,65 +151,46 @@ router.get('/driver/:driverId/stops/:scheduleId', async (req, res) => {
             });
         }
 
-        // Lấy route với stops
-        const route = await RouteService.getRouteWithStops(schedule.route_id);
-        const stops = route ? route.stops : [];
+        // Gọi service mới để lấy stops kèm thời gian tính toán
+        const scheduleWithTime = await ScheduleService.getScheduleWithStopsAndTime(scheduleId);
+        const stopsWithTime = scheduleWithTime.stops || [];
 
-        // Tính estimated time cho mỗi stop
-        const startTime = schedule.scheduled_start_time;
-        const endTime = schedule.scheduled_end_time;
-        const processedStops = stops.map((stop, index) => {
-            let estimatedTime;
-            
-            if (stops.length === 1) {
-                estimatedTime = startTime?.substring(0, 5);
-            } else if (index === 0) {
-                estimatedTime = startTime?.substring(0, 5);
-            } else if (index === stops.length - 1) {
-                estimatedTime = endTime?.substring(0, 5);
-            } else {
-                if (startTime && endTime) {
-                    const [sH, sM] = startTime.split(':').map(Number);
-                    const [eH, eM] = endTime.split(':').map(Number);
-                    const startMinutes = sH * 60 + sM;
-                    const endMinutes = eH * 60 + eM;
-                    const totalDiff = endMinutes - startMinutes;
-                    const stepSize = totalDiff / (stops.length - 1);
-                    const currentMinutes = startMinutes + Math.round(stepSize * index);
-                    const h = Math.floor(currentMinutes / 60) % 24;
-                    const m = currentMinutes % 60;
-                    estimatedTime = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-                } else {
-                    estimatedTime = startTime?.substring(0, 5) || '00:00';
-                }
-            }
-            
+        // Format lại cho đúng cấu trúc frontend mong đợi
+        const processedStops = stopsWithTime.map((stop, index) => {
             // Xác định loại điểm
-            let displayOrder = stop.stop_order;
+            let displayOrder = stop.order;
             let type = 'Điểm dừng';
             
-            if (stop.stop_order === 0) {
+            // Logic hiển thị tương tự cũ
+            if (stop.order === 0 || index === 0) {
                 displayOrder = 'Bắt đầu';
                 type = 'Xuất phát';
-            } else if (stop.stop_order === 99) {
+            } else if (index === stopsWithTime.length - 1) {
                 displayOrder = 'Kết thúc';
                 type = 'Kết thúc';
             }
 
             return {
                 id: stop.id,
-                order: stop.stop_order,
+                order: stop.order,
                 displayOrder: displayOrder,
                 name: stop.name,
                 address: stop.address,
                 type: type,
-                estimatedTime: estimatedTime,
-                latitude: stop.latitude,
-                longitude: stop.longitude,
+                latitude: stop.lat,   // Service trả về lat
+                longitude: stop.lng,  // Service trả về lng
+                time: stop.time,      // Đã có time từ service
+                distanceFromStart: stop.distanceFromStart,
                 status: 'scheduled',
                 note: ''
             };
         });
+
+        // Lấy route name (service trả về schedule đã merged schedule info, nhưng cần check lại)
+        // scheduleWithTime là object spread của schedule + stops
+        // Cần lấy route_name từ đâu đó. getScheduleById trả về row join với routes rồi?
+        // Check getScheduleById implementation: "SELECT s.*, r.route_name..." usually.
+        // Assume schedule object has route_name.
 
         console.log(` Lấy ${processedStops.length} điểm dừng`);
         res.json({
@@ -205,7 +198,7 @@ router.get('/driver/:driverId/stops/:scheduleId', async (req, res) => {
             data: {
                 scheduleId: schedule.id,
                 routeId: schedule.route_id,
-                routeName: route.route_name,
+                routeName: schedule.route_name || 'Tuyến xe',
                 totalStops: processedStops.length,
                 stops: processedStops
             }
@@ -213,6 +206,36 @@ router.get('/driver/:driverId/stops/:scheduleId', async (req, res) => {
     } catch (error) {
         console.error(' Lỗi khi lấy danh sách điểm dừng:', error.message);
         res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
+// PUT /api/schedules/:id/status - Cập nhật trạng thái lịch trình (Driver)
+router.put('/:id/status', async (req, res) => {
+    console.log(` PUT /api/schedules/${req.params.id}/status - Cập nhật trạng thái lịch trình`);
+    try {
+        const { id } = req.params;
+        const { status, notes = null, actualEndTime = null, actual_end_time = null } = req.body || {};
+
+        const updated = await ScheduleService.updateScheduleStatus(
+            id,
+            status,
+            notes,
+            actualEndTime || actual_end_time || null
+        );
+
+        res.json({
+            success: true,
+            message: 'Cập nhật trạng thái lịch trình thành công',
+            data: updated
+        });
+    } catch (error) {
+        console.error(' Lỗi khi cập nhật trạng thái lịch trình:', error.message);
+        const msg = String(error?.message || '');
+        const statusCode = msg.includes('Không tìm thấy') ? 404 : msg.includes('không hợp lệ') || msg.includes('Thiếu') ? 400 : 500;
+        res.status(statusCode).json({
             success: false,
             message: error.message
         });

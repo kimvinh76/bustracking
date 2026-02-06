@@ -118,10 +118,8 @@ export const schedulesService = {
         }
     },
 
- 
-
-    // Lấy danh sách điểm dừng thực tế cho một lịch trình
-    getScheduleStops: async (driverId, scheduleId) => {
+    // Lấy danh sách điểm dừng cho một lịch trình (driverId trước, scheduleId sau)
+    getScheduleStops: async (driverId = 1, scheduleId) => {
         try {
             const response = await apiClient.get(`${ENDPOINT}/driver/${driverId}/stops/${scheduleId}`);
             // Response đã được interceptor chuẩn hóa

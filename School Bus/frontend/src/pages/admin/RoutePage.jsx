@@ -40,7 +40,7 @@ export default function RoutePage() {
           }));
           setRoutes(mappedRoutes);
         } else {
-          console.warn("⚠️ No routes data in response");
+          console.warn(" No routes data in response");
           setRoutes([]);
         }
       } catch (error) {
@@ -207,7 +207,7 @@ export default function RoutePage() {
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-xl mb-6 shadow-sm">
           <div className="flex items-center gap-2">
-            <span className="text-xl">⚠️</span>
+            <span className="text-xl"></span>
             <span className="font-medium">{error}</span>
           </div>
         </div>

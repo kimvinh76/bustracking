@@ -1,12 +1,24 @@
 // services/scheduleService.js
 // Business logic layer cho Schedule
-
 import ScheduleModel from '../models/Schedule.js';
 import RouteModel from '../models/Route.js';
 import BusModel from '../models/Bus.js';
 import DriverModel from '../models/Driver.js';
+import RouteService from './routeService.js';
+
+// Helper: Add minutes to time string "HH:mm:ss"
+const addMinutesToTime = (timeStr, minutesToAdd) => {
+    if (!timeStr) return "00:00:00";
+    const [hours, minutes, seconds] = timeStr.split(':').map(Number);
+    const date = new Date();
+    date.setHours(hours, minutes, seconds || 0);
+    date.setMinutes(date.getMinutes() + minutesToAdd);
+    
+    return date.toTimeString().split(' ')[0]; // Returns HH:mm:ss
+};
 
 class ScheduleService {
+
   /**
    * Lấy tất cả lịch trình
    */
@@ -97,92 +109,102 @@ class ScheduleService {
    * Tạo lịch trình mới
    */
   static async createSchedule(scheduleData) {
-    console.log(' SERVICE: Bắt đầu tạo lịch trình mới');
-    console.log(' SERVICE: Dữ liệu nhận được:', scheduleData);
+    console.log(' SERVICE: Bắt đầu tạo lịch trình mới', scheduleData);
     
-    // 1. Validation
-    const { 
-      route_id, bus_id, driver_id, date, shift_type,
-      scheduled_start_time, scheduled_end_time, status = 'scheduled'
-    } = scheduleData;
-    
-    if (!route_id || !bus_id || !driver_id || !date || !shift_type) {
-      console.log(' SERVICE: Thiếu thông tin bắt buộc');
-      throw new Error('Thiếu thông tin bắt buộc: route_id, bus_id, driver_id, date, shift_type');
+    // Validate basic fields
+    if (!scheduleData.route_id || !scheduleData.driver_id || !scheduleData.bus_id || !scheduleData.date) {
+        throw new Error('Thiếu thông tin bắt buộc: route_id, driver_id, bus_id, date');
     }
 
-    if (!scheduled_start_time || !scheduled_end_time) {
-      throw new Error('Thiếu thông tin: scheduled_start_time, scheduled_end_time');
-    }
+    // Kiểm tra xem bus hoặc driver có bận không (tùy chọn)
+    // await DriverModel.checkAvailability(scheduleData.driver_id, scheduleData.date, ...);
 
-    console.log(' SERVICE: Validation passed');
-
-    // 2. Kiểm tra route, bus, driver tồn tại
-    const [routeExists, busExists, driverExists] = await Promise.all([
-      RouteModel.exists(route_id),
-      BusModel.exists(bus_id),
-      DriverModel.exists(driver_id)
-    ]);
-
-    if (!routeExists) {
-      throw new Error('Không tìm thấy tuyến đường');
-    }
-    if (!busExists) {
-      throw new Error('Không tìm thấy xe bus');
-    }
-    if (!driverExists) {
-      throw new Error('Không tìm thấy tài xế');
-    }
-
-    console.log(' SERVICE: Route, Bus, Driver đều tồn tại');
-
-    // 3. Validate date format
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      throw new Error('Định dạng ngày không hợp lệ (phải là YYYY-MM-DD)');
-    }
-
-    // 4. Validate shift_type
-    const validShifts = ['morning', 'afternoon', 'evening'];
-    if (!validShifts.includes(shift_type)) {
-      throw new Error('Shift type không hợp lệ (morning/afternoon/evening)');
-    }
-
-    // 5. Kiểm tra trùng lịch trình
-    const duplicate = await ScheduleModel.findDuplicate({
-      route_id,
-      bus_id,
-      driver_id,
-      date,
-      shift_type
-    });
-
-    if (duplicate) {
-      console.log(' SERVICE: Lịch trình đã tồn tại');
-      throw new Error('Lịch trình này đã tồn tại (trùng tuyến, xe, tài xế, ngày, ca)');
-    }
-
-    console.log(' SERVICE: Không trùng lịch trình');
-
-    // 6. Format dữ liệu
-    const formattedData = {
-      route_id,
-      bus_id,
-      driver_id,
-      date,
-      shift_type,
-      scheduled_start_time,
-      scheduled_end_time,
-      status
-    };
-    
-    console.log(' SERVICE: Dữ liệu sau khi format:', formattedData);
-
-    // 7. Tạo schedule
-    const newSchedule = await ScheduleModel.create(formattedData);
-    
-    console.log(' SERVICE: Tạo lịch trình thành công');
+    const newSchedule = await ScheduleModel.create(scheduleData);
     return newSchedule;
   }
+
+  /**
+   * Lấy chi tiết lịch trình kèm danh sách các điểm dừng đã được tính toán thời gian dự kiến
+   * @param {number} scheduleId 
+   */
+  static async getScheduleWithStopsAndTime(scheduleId) {
+    console.log(' SERVICE: Lấy lịch trình kèm điểm dừng và thời gian cho ID:', scheduleId);
+    
+    // 1. Lấy thông tin lịch trình
+    const schedule = await this.getScheduleById(scheduleId);
+    
+    // 2. Lấy thông tin route stops
+    const route = await RouteModel.findWithStops(schedule.route_id);
+    const stops = route.stops || [];
+
+    if (stops.length === 0) {
+        return { ...schedule, stops: [] };
+    }
+
+    // 3. Tính toán thời gian cho từng stop bằng OSRM
+    const startTime = schedule.scheduled_start_time;
+    let currentDistance = 0; // Tích lũy khoảng cách (nếu lấy được từ osrm) cho frontend hiển thị logic cũ? 
+                             // OSRM trả về duration(s) và distance(m) nếu config, nhưng hàm getEtaOSRM hiện tại chỉ returns duration.
+                             // Ta sẽ giữ logic distance 0 hoặc gọi thêm nếu cần, nhưng user chỉ yêu cầu dùng hàm ETA có sẵn.
+    
+    let accumulatedMinutes = 0;
+    const stopsWithTime = [];
+
+    // Duyệt tuần tự để tính thời gian cộng dồn (async/await trong loop)
+    for (let i = 0; i < stops.length; i++) {
+        const stop = stops[i];
+        let time = startTime;
+
+        if (i === 0) {
+           // Điểm đầu: distance = 0, time = start_time
+           stopsWithTime.push({
+             ...stop, 
+             time, 
+             distanceFromStart: 0,
+             // Chuẩn hóa field cho frontend
+             lat: parseFloat(stop.latitude),
+             lng: parseFloat(stop.longitude),
+             order: stop.stop_order
+           });
+        } else {
+            const prevStop = stops[i - 1];
+            
+            // Gọi OSRM từ RouteService để lấy thời gian di chuyển thực tế (giây)
+            // Lưu ý: Hàm này có thể throw hoặc return 0 nếu lỗi
+            const durationSeconds = await RouteService.getEtaOSRM(
+                parseFloat(prevStop.latitude), 
+                parseFloat(prevStop.longitude),
+                parseFloat(stop.latitude), 
+                parseFloat(stop.longitude)
+            );
+
+            // Thời gian dừng đón trả khách (ví dụ 2 phút)
+            const stopDurationMinutes = 2;
+            const travelMinutes = durationSeconds / 60;
+
+            accumulatedMinutes += travelMinutes + stopDurationMinutes;
+            const roundedMinutes = Math.ceil(accumulatedMinutes);
+            
+            time = addMinutesToTime(startTime, roundedMinutes);
+
+            stopsWithTime.push({
+                ...stop,
+                time,
+                distanceFromStart: 0, // Hiện tại getEtaOSRM chưa trả distance, để tạm 0 hoặc sửa getEtaOSRM sau
+                lat: parseFloat(stop.latitude),
+                lng: parseFloat(stop.longitude),
+                order: stop.stop_order
+            });
+        }
+    }
+
+    return {
+        ...schedule,
+        stops: stopsWithTime
+    };
+  }
+
+
 
   /**
    * Cập nhật lịch trình

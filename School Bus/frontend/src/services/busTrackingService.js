@@ -1,205 +1,112 @@
-// Dịch vụ WebSocket phía FE cho tracking bus realtime
-// TÓM TẮT SỬ DỤNG:
-// - Gọi connect(role, userId) từ trang Driver để đăng ký client với server
-//   role: 'driver' | 'admin' | 'parent'; userId nên là driverId (id trong bảng drivers)
-// - driver cập nhật trạng thái qua updateDriverStatus({ ... })
-// - Các trang khác lắng nghe sự kiện 'busStatusUpdate' để nhận vị trí/trạng thái
-// - Heartbeat tự động (ping) giữ kết nối ổn định
-// - KHÔNG dùng Socket.IO; đây là WebSocket native
+// Dịch vụ WebSocket phía FE, ĐÃ NÂNG CẤP LÊN SOCKET.IO
+
+
+import { io } from 'socket.io-client';
+
+const SOCKET_URL = 'http://localhost:5000'; // Địa chỉ backend server (Socket.IO dùng HTTP handshake trước)
+
 class BusTrackingService {
   constructor() {
-    this.ws = null;
-    this.clientId = null;
+    this.socket = null;
     this.role = null;
-    this.listeners = new Map();
-    this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = 5;
-    this.reconnectDelay = 2000;
-    this.isConnected = false;
-    this.heartbeatInterval = null;
+    this.tripId = null;
+    this._listenersRegistered = false;
   }
 
-  connect(role, userId = null) {
+  // Khởi tạo và kết nối tới server
+  connect(role, tripId) {
     this.role = role;
-    this.clientId = `${role}_${userId || Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    try {
-      // Tránh kết nối trùng do React StrictMode gọi effect 2 lần
-      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-        console.log('WebSocket already connected, skip duplicate connect');
-        this.isConnected = true;
-        return;
-      }
-      if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
-        console.log('WebSocket is connecting, skip duplicate connect');
-        return;
-      }
-      this.ws = new WebSocket('ws://localhost:5000');
+    this.tripId = tripId;
 
-      this.ws.onopen = () => {
-        console.log(`WebSocket connected as ${role}`);
-        this.isConnected = true;
-        this.reconnectAttempts = 0;
-
-        // Đăng ký client với server để server biết vai trò và driverId
-        this.send({
-          type: 'register_client',
-          clientId: this.clientId,
-          role: this.role,
-          userId: userId
-        });
-
-        // Yêu cầu trạng thái hiện tại ngay sau khi kết nối
-        this.send({
-          type: 'request_current_status'
-        });
-
-        // Bắt đầu heartbeat để giữ kết nối
-        this.startHeartbeat();
-
-        // Trigger connected event
-        this.emit('connected', { role, clientId: this.clientId });
-      };
-
-      this.ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          this.handleMessage(data);
-        } catch (error) {
-          console.error(' WebSocket message parse error:', error);
-        }
-      };
-
-      this.ws.onclose = () => {
-        console.log(`WebSocket disconnected`);
-        this.isConnected = false;
-        this.stopHeartbeat();
-        this.emit('disconnected');
-        
-        // Auto reconnect
-        if (this.reconnectAttempts < this.maxReconnectAttempts) {
-          setTimeout(() => {
-            this.reconnectAttempts++;
-            console.log(`Reconnecting... attempt ${this.reconnectAttempts}`);
-            this.connect(this.role, userId);
-          }, this.reconnectDelay);
-        }
-      };
-
-      this.ws.onerror = (error) => {
-        console.error(' WebSocket error:', error);
-        this.emit('error', error);
-      };
-
-    } catch (error) {
-      console.error(' WebSocket connection failed:', error);
-    }
-  }
-
-  send(data) {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(data));
-    } else {
-      console.warn('⚠️ WebSocket not connected, cannot send:', data);
-    }
-  }
-
-  handleMessage(data) {
-    switch (data.type) {
-      case 'bus_status_update':
-        this.emit('busStatusUpdate', data.data);
-        break;
-      
-      case 'incident_alert':
-        this.emit('incidentAlert', data.data);
-        break;
-
-      default:
-        console.log('📨 Received message:', data);
-    }
-  }
-
-  // Driver methods - chỉ driver mới được call
-  // Driver cập nhật trạng thái: vị trí, đang chạy/đã dừng, điểm dừng hiện tại...
-  updateDriverStatus(status) {
-    if (this.role !== 'driver') {
-      console.warn('⚠️ Only driver can update status');
+    // Nếu socket đã tồn tại và đang kết nối: chỉ cần join lại đúng room (tripId mới)
+    if (this.socket && this.socket.connected) {
+      if (this.tripId) this.socket.emit('join_trip', { tripId: this.tripId });
       return;
     }
 
-    this.send({
-      type: 'driver_status_update',
-      status: status
-    });
-  }
-
-  // Event system
-  on(event, callback) {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, []);
-    }
-    this.listeners.get(event).push(callback);
-  }
-
-  off(event, callback) {
-    if (this.listeners.has(event)) {
-      const callbacks = this.listeners.get(event);
-      const index = callbacks.indexOf(callback);
-      if (index > -1) {
-        callbacks.splice(index, 1);
-      }
-    }
-  }
-
-  emit(event, data) {
-    if (this.listeners.has(event)) {
-      this.listeners.get(event).forEach(callback => {
-        try {
-          callback(data);
-        } catch (error) {
-          console.error(` Event callback error for ${event}:`, error);
-        }
+    // Nếu socket đã tồn tại nhưng chưa connected (hoặc đang reconnect): cứ dùng lại
+    if (!this.socket) {
+      // Khởi tạo socket. `autoConnect: false` để ta kiểm soát thời điểm kết nối
+      this.socket = io(SOCKET_URL, {
+        autoConnect: false,
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 2000,
       });
+      this._listenersRegistered = false;
     }
+
+    if (this.socket && !this._listenersRegistered) {
+      // Lắng nghe các sự kiện mặc định của Socket.IO
+      this.socket.on('connect', () => {
+        console.log(`Socket.IO connected as ${this.role} with id ${this.socket.id}`);
+        
+        // SAU KHI KẾT NỐI, THAM GIA PHÒNG THEO DÕI CHUYẾN ĐI
+        if (this.tripId) this.socket.emit('join_trip', { tripId: this.tripId });
+      });
+
+      this.socket.on('disconnect', (reason) => {
+        console.log(`Socket.IO disconnected: ${reason}`);
+      });
+
+      this.socket.on('connect_error', (error) => {
+        console.error('Socket.IO connection error:', error);
+      });
+
+      this._listenersRegistered = true;
+    }
+
+    // Bắt đầu kết nối
+    this.socket.connect();
   }
 
+  // Ngắt kết nối
   disconnect() {
-    this.stopHeartbeat();
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
-    this.isConnected = false;
-    this.listeners.clear();
-  }
-
-  // Gửi ping mỗi 30s để tránh bị timeout bởi proxy/trình duyệt
-  startHeartbeat() {
-    this.stopHeartbeat();
-    this.heartbeatInterval = setInterval(() => {
-      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-        this.send({ type: 'ping' });
-      }
-    }, 30000); // Ping every 30 seconds
-  }
-
-  stopHeartbeat() {
-    if (this.heartbeatInterval) {
-      clearInterval(this.heartbeatInterval);
-      this.heartbeatInterval = null;
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
     }
   }
 
-  // Utility methods
+  // === CÁC PHƯƠNG THỨC GIAO TIẾP VỚI SERVER ===
+
+  // Driver cập nhật trạng thái
+  updateDriverStatus(status) {
+    if (this.role !== 'driver' || !this.socket || !this.tripId) {
+      console.warn(' Only driver can update status, or socket not connected/tripId not set.');
+      return;
+    }
+    // Gửi sự kiện lên server, kèm theo tripId để server biết gửi vào phòng nào
+    this.socket.emit('driver_status_update', { tripId: this.tripId, status });
+  }
+
+  // === HỆ THỐNG LẮNG NGHE SỰ KIỆN (EVENT LISTENER) ===
+  // Các component trong app sẽ dùng các hàm này
+
+  // Lắng nghe một sự kiện từ server
+  on(event, callback) {
+    if (this.socket) {
+      this.socket.on(event, callback);
+    }
+  }
+
+  // Hủy lắng nghe một sự kiện
+  off(event, callback) {
+    if (this.socket) {
+      this.socket.off(event, callback);
+    }
+  }
+
+  // Helper để lấy trạng thái kết nối
   getConnectionStatus() {
     return {
-      isConnected: this.isConnected,
-      clientId: this.clientId,
+      isConnected: this.socket ? this.socket.connected : false,
+      socketId: this.socket ? this.socket.id : null,
       role: this.role,
-      readyState: this.ws ? this.ws.readyState : -1
+      tripId: this.tripId
     };
   }
 }
 
-// Export singleton instance
+// Xuất một thực thể duy nhất (singleton) để toàn bộ app dùng chung
 export default new BusTrackingService();
