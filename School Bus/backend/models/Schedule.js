@@ -303,6 +303,59 @@ class ScheduleModel {
     const updated = await this.findById(id);
     return updated;
   }
+
+  /**
+   * Reset các lịch trình bị kẹt status=in_progress quá lâu về scheduled.
+   * Dùng để tránh Parent/FE pick nhầm chuyến "đang chạy" từ lần demo trước.
+   * @param {string} cutoffDateTime - MySQL datetime string (YYYY-MM-DD HH:MM:SS)
+   * @returns {Promise<number>} số dòng bị update
+   */
+  static async resetStaleInProgress(cutoffDateTime) {
+    if (!cutoffDateTime) return 0;
+
+    const [result] = await pool.execute(
+      `UPDATE schedules
+       SET status = 'scheduled'
+       WHERE status = 'in_progress' AND updated_at < ?`,
+      [cutoffDateTime]
+    );
+
+    return result?.affectedRows || 0;
+  }
+
+  /**
+   * Lấy schedule đang chạy theo danh sách route_id.
+   * Ưu tiên schedule mới cập nhật gần nhất (updated_at DESC).
+   * @param {number[]} routeIds
+   * @param {number} limit
+   */
+  static async findActiveByRoutes(routeIds = [], limit = 1) {
+    const ids = (routeIds || []).map((v) => Number(v)).filter((v) => Number.isFinite(v));
+    if (ids.length === 0) return [];
+
+    const placeholders = ids.map(() => '?').join(',');
+    const lim = Number.isFinite(Number(limit)) ? Math.max(1, Math.min(50, Number(limit))) : 1;
+
+    const [rows] = await pool.execute(
+      `SELECT s.*, 
+              DATE_FORMAT(s.date, '%Y-%m-%d') as date,
+              TIME_FORMAT(s.scheduled_start_time, '%H:%i') as start_time,
+              TIME_FORMAT(s.scheduled_end_time, '%H:%i') as end_time,
+              r.route_name, 
+              b.bus_number, b.license_plate,
+              d.name AS driver_name, d.phone AS driver_phone
+       FROM schedules s
+       LEFT JOIN routes r ON s.route_id = r.id
+       LEFT JOIN buses b ON s.bus_id = b.id
+       LEFT JOIN drivers d ON s.driver_id = d.id
+       WHERE s.status = 'in_progress' AND s.route_id IN (${placeholders})
+       ORDER BY s.updated_at DESC
+       LIMIT ${lim}`,
+      ids
+    );
+
+    return rows;
+  }
 }
 
 export default ScheduleModel;

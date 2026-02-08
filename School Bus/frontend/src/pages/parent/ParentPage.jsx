@@ -51,12 +51,8 @@ export default function ParentPage() {
   const [busPosition, setBusPosition] = useState(null);
 
   const displayedNotificationsRef = useRef(new Set());
-  const activeScheduleIdRef = useRef(null);
-  const lastWsLogAtRef = useRef(0);
-  // Cache schedules để WS sync không phải gọi /admin-schedules lặp lại
-  const schedulesByIdRef = useRef(new Map());
-
-  const DEBUG_TAG = '[ParentTracking]';
+  // Chống race-condition khi load route stops (request cũ về sau không được ghi đè)
+  const routeStopsReqIdRef = useRef(0);
 
   // === HELPER FUNCTIONS ===
 
@@ -66,90 +62,69 @@ export default function ParentPage() {
     return Number.isNaN(n) ? null : n;
   };
 
+  const  normalizeStatus = (status) => String(status || '').trim().toLowerCase();
+
   // Kiểm tra schedule có thuộc các tuyến được gán cho phụ huynh không
   const isAssignedRouteSchedule = (schedule) => {
     const rid = toNumber(schedule?.route_id);
     return rid != null && assignedRouteIds.includes(rid);
   };
 
-  // Đọc user routes từ session (dùng 1 lần ở bước init)
-  const getAssignedRoutesFromSession = () => {
-    const user = JSON.parse(sessionStorage.getItem('user'));
-    return [user?.morning_route_id, user?.afternoon_route_id]
-      .filter(Boolean)
-      .map((id) => Number(id))
-      .filter((id) => !Number.isNaN(id));
-  };
-
-  // Cập nhật UI theo schedule đã chọn (routeId, busInfo, activeTripId)
-  const applyScheduleToUI = (schedule) => {
+  // Cập nhật UI theo schedule đang chạy (Option B):
+  // - Chỉ set routeId/busInfo khi schedule.status === in_progress
+  // - Clear tuyến cũ ngay khi đổi tuyến
+  const applyActiveScheduleToUI = (schedule) => {
     const rid = toNumber(schedule?.route_id);
     const sid = toNumber(schedule?.id);
-    if (rid != null) setRouteId(rid);
-    if (sid != null) {
-      activeScheduleIdRef.current = sid;
-      setActiveTripId(sid);
-    }
+    if (rid == null || sid == null) return;
 
+    setRouteStops([]);
+    setRouteId(rid);
+    setActiveTripId(sid);
     setBusInfo({
       busNumber: schedule?.license_plate || schedule?.bus_number || 'N/A',
-      route: schedule?.route_name || (rid != null ? `Tuyến ${rid}` : 'Tuyến'),
+      route: schedule?.route_name || `Tuyến ${rid}`,
       driverName: schedule?.driver_name || 'Tài xế',
       driverPhone: schedule?.driver_phone || null,
       scheduleId: schedule?.id
     });
-
-    // Debug: chọn lịch từ API/WS
-    console.groupCollapsed(`${DEBUG_TAG} Using schedule`);
-    console.log('assignedRouteIds:', assignedRouteIds);
-    console.log('scheduleId:', schedule?.id, 'status:', schedule?.status);
-    console.log('routeId:', rid, 'route_name:', schedule?.route_name);
-    console.groupEnd();
   };
 
-  // Chọn schedule phù hợp nhất (ưu tiên đang chạy)
-  const pickBestSchedule = (schedules) => {
-    // 1) Ưu tiên lịch đang chạy (in_progress)
-    const inProgress = schedules
-      .filter((s) => isAssignedRouteSchedule(s) && s.status === 'in_progress')
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
-    if (inProgress[0]) return inProgress[0];
+  //  (strict realtime): nếu không có chuyến đang chạy thì không vẽ tuyến/businfo.
+  // Hàm này reset các state liên quan đến chuyến đi.
+  const clearActiveTripUI = () => {
+    setActiveTripId(null);
+    setRouteId(null);
+    setRouteStops([]);
+    setBusInfo(null);
+    setBusPosition(null);
+    setBusStatus({
+      driverStatus: 'idle',
+      currentStopIndex: 0,
+      currentPosition: null,
+      isRunning: false
+    });
+  };
 
-    // 2) Nếu đã có scheduleId active từ WS trước đó → ưu tiên khớp theo id
-    if (activeScheduleIdRef.current != null) {
-      const activeId = toNumber(activeScheduleIdRef.current);
-      const matched = schedules.find((s) => toNumber(s?.id) === activeId);
-      if (matched) return matched;
-    }
-
-    // 3) Nếu vẫn chưa có → chọn lịch phù hợp nhất trong hôm nay
-    const today = new Date().toISOString().slice(0, 10);
-    const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
-    const toMinutes = (hhmm) => {
-      if (!hhmm || typeof hhmm !== 'string') return null;
-      const [h, m] = hhmm.split(':').map(Number);
-      if (Number.isNaN(h) || Number.isNaN(m)) return null;
-      return h * 60 + m;
-    };
-
-    const todays = schedules
-      .filter((s) => isAssignedRouteSchedule(s) && s.date === today)
-      .map((s) => ({
-        s,
-        startMin: toMinutes(s.start_time),
-        endMin: toMinutes(s.end_time)
-      }));
-
-    const upcoming = todays
-      .filter(({ endMin }) => endMin == null || nowMinutes <= endMin)
+  // Chọn schedule cho tracking realtime:
+  // - CHỈ lấy schedule đang chạy (in_progress) thuộc tuyến được gán.
+  // - Nếu không có -> coi như không có chuyến đang chạy.
+  const pickInProgressSchedule = (schedules) => {
+    const inProgress = (schedules || [])
+      .filter(
+        (s) =>
+          isAssignedRouteSchedule(s) &&
+          normalizeStatus(s.status) === 'in_progress'
+      )
       .sort((a, b) => {
-        if (a.startMin == null && b.startMin == null) return 0;
-        if (a.startMin == null) return 1;
-        if (b.startMin == null) return -1;
-        return a.startMin - b.startMin;
+        const byDate = new Date(b.date) - new Date(a.date);
+        if (byDate !== 0) return byDate;
+        // cùng ngày: ưu tiên chuyến mới hơn theo start_time/scheduled_start_time nếu có
+        const aTime = a?.start_time || a?.scheduled_start_time || '';
+        const bTime = b?.start_time || b?.scheduled_start_time || '';
+        return String(bTime).localeCompare(String(aTime));
       });
-
-    return upcoming[0]?.s || null;
+    return inProgress[0] || null;
   };
   
   // Tạo notification ID unique
@@ -191,7 +166,11 @@ export default function ParentPage() {
         const { student_id, student_name, morning_route_id, afternoon_route_id } = user;
 
         // Lấy 2 tuyến được gán cho học sinh (phụ huynh chỉ theo dõi các tuyến này)
-        setAssignedRouteIds(getAssignedRoutesFromSession());
+        const routes = [morning_route_id, afternoon_route_id]
+          .filter(Boolean)
+          .map((id) => Number(id))
+          .filter((id) => !Number.isNaN(id));
+        setAssignedRouteIds(routes);
 
         if (student_id) {
           const studentData = await studentsService.getStudentById(student_id);
@@ -221,39 +200,28 @@ export default function ParentPage() {
     loadStudentInfo();
   }, []);
 
-  /**
-   * Chọn lịch trình phù hợp nhất cho phụ huynh (ưu tiên đang chạy)
-   * - Nhiệm vụ của effect này: xác định schedule đang chạy + routeId tương ứng
-   * - Map markers sẽ render theo routeId (thông qua loadRouteStops)
-   */
+  // Nếu chưa có chuyến đang chạy, poll nhẹ để phát hiện khi tài xế bắt đầu chuyến.
+  // (Tránh phụ huynh phải F5 trang)
   useEffect(() => {
     if (!assignedRouteIds || assignedRouteIds.length === 0) return;
+    if (activeTripId) return;
 
-    const loadActiveSchedule = async () => {
+    const checkInProgress = async () => {
       try {
-        // Chỉ cần gọi /admin-schedules 1 lần ở bước init.
-        // Sau đó cache theo id để WS sync có thể dùng lại.
-        const schedules = await schedulesService.getAllSchedules();
-        schedulesByIdRef.current = new Map(
-          (schedules || []).map((s) => [toNumber(s?.id), s])
-        );
-
-        const schedule = pickBestSchedule(schedules || []);
-
-        // Fallback cuối: nếu không có schedule nào thì vẫn load markers theo route đầu tiên
-        if (!schedule) {
-          setRouteId(assignedRouteIds[0]);
-          return;
+        const schedule = await schedulesService.getActiveSchedule(assignedRouteIds);
+        if (schedule && isAssignedRouteSchedule(schedule) && normalizeStatus(schedule.status) === 'in_progress') {
+          applyActiveScheduleToUI(schedule);
         }
-
-        applyScheduleToUI(schedule);
-      } catch (error) {
-        console.error('Error loading schedule:', error);
+      } catch {
+        // im lặng để không spam console nếu backend/db tạm thời lỗi
       }
     };
 
-    loadActiveSchedule();
-  }, [assignedRouteIds]);
+    // Check ngay khi vào trang (để không phải chờ 8s)
+    checkInProgress();
+    const interval = setInterval(checkInProgress, 8000);
+    return () => clearInterval(interval);
+  }, [assignedRouteIds, activeTripId]);
 
   /**
    * Load route stops khi có routeId
@@ -263,10 +231,14 @@ export default function ParentPage() {
     if (!routeId) return;
 
     const loadRouteStops = async () => {
+      const reqId = ++routeStopsReqIdRef.current;
       try {
         const stopsData = await routesService.getRouteStops(routeId);
         const transformedStops = routesService.transformStopsForMap(stopsData);
-        setRouteStops(transformedStops);
+        // Chỉ set nếu đây là request mới nhất
+        if (reqId === routeStopsReqIdRef.current) {
+          setRouteStops(transformedStops);
+        }
       } catch (error) {
         console.error('Lỗi load route stops:', error);
       }
@@ -321,50 +293,10 @@ export default function ParentPage() {
 
     // Handler nhận cập nhật từ driver
     const handleBusStatusUpdate = (status) => {
-      // Log gọn: chỉ log khi đổi tripId hoặc mỗi vài giây
-      if (status.tripId) {
-        const scheduleId = parseInt(status.tripId);
-        if (scheduleId !== activeScheduleIdRef.current) {
-          console.groupCollapsed(`${DEBUG_TAG} WS trip changed`);
-          console.log('prevTripId:', activeScheduleIdRef.current, 'newTripId:', scheduleId);
-          console.log('assignedRouteIds:', assignedRouteIds);
-          console.log('current routeId(state) before sync:', routeId);
-          console.log('driverStatus:', status.driverStatus, 'currentStopIndex:', status.currentStopIndex);
-          console.log('hasCurrentPosition:', Boolean(status.currentPosition));
-          console.groupEnd();
-
-          activeScheduleIdRef.current = scheduleId;
-          setActiveTripId(scheduleId);
-
-          // Đồng bộ routeId/busInfo theo scheduleId từ WS.
-          // Ưu tiên dùng cache (init), chỉ fetch lại khi cache không có.
-          const cached = schedulesByIdRef.current.get(Number(scheduleId));
-          if (cached && isAssignedRouteSchedule(cached)) {
-            applyScheduleToUI(cached);
-          } else {
-            schedulesService.getAllSchedules().then((schedules) => {
-              const nextMap = new Map((schedules || []).map((s) => [toNumber(s?.id), s]));
-              schedulesByIdRef.current = nextMap;
-
-              const schedule = nextMap.get(Number(scheduleId));
-              if (schedule && isAssignedRouteSchedule(schedule)) {
-                applyScheduleToUI(schedule);
-              }
-            });
-          }
-        }
-      }
-
-      // Throttle log vị trí
-      const now = Date.now();
-      if (now - lastWsLogAtRef.current > 4000) {
-        lastWsLogAtRef.current = now;
-        console.debug(`${DEBUG_TAG} WS tick`, {
-          tripId: status.tripId,
-          driverStatus: status.driverStatus,
-          currentStopIndex: status.currentStopIndex,
-          hasCurrentPosition: Boolean(status.currentPosition),
-        });
+      // Nếu trip đã kết thúc thì clear UI theo Option B
+      if (status?.driverStatus === 'completed') {
+        clearActiveTripUI();
+        return;
       }
 
       setBusStatus(prev => ({
@@ -420,7 +352,7 @@ export default function ParentPage() {
     return () => {
       busTrackingService.off('bus_status_update', handleBusStatusUpdate);
     };
-  }, [addNotification, studentInfo, activeTripId, assignedRouteIds, routeId]);
+  }, [addNotification, studentInfo, activeTripId]);
 
   // === RENDER ===
 
@@ -448,27 +380,39 @@ export default function ParentPage() {
           </div>
         )}
 
-        {/* Trạng thái chuyến đi */}
-        <TripStatusCard
-          driverStatus={busStatus.driverStatus}
-          currentStopIndex={busStatus.currentStopIndex}
-          stops={routeStops}
-          nextStop={nextStop}
-        />
+        {/* Option B: nếu chưa có chuyến đang chạy thì chỉ hiện thông báo */}
+        {!activeTripId ? (
+          <div className="bg-white p-6 rounded-lg shadow-md">
+            <h2 className="text-xl font-semibold text-gray-800 mb-2">Chưa có chuyến đang chạy</h2>
+            <p className="text-gray-600">
+              Khi tài xế bắt đầu chuyến (trạng thái <span className="font-medium">in_progress</span>), bản đồ và thông tin xe buýt sẽ tự hiển thị.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Trạng thái chuyến đi */}
+            <TripStatusCard
+              driverStatus={busStatus.driverStatus}
+              currentStopIndex={busStatus.currentStopIndex}
+              stops={routeStops}
+              nextStop={nextStop}
+            />
 
-        {/* Bản đồ tracking */}
-        <BusTrackingMap
-          stops={routeStops}
-          busStatus={busStatus}
-          busPosition={busPosition}
-          currentStopIndex={busStatus.currentStopIndex}
-        />
+            {/* Bản đồ tracking */}
+            <BusTrackingMap
+              stops={routeStops}
+              busStatus={busStatus}
+              busPosition={busPosition}
+              currentStopIndex={busStatus.currentStopIndex}
+            />
+          </>
+        )}
 
         {/* Thông tin học sinh */}
         <StudentInfoCard studentInfo={studentInfo} loading={loading} />
 
-        {/* Thông tin xe buýt */}
-        <BusInfoCard busInfo={busInfo} loading={loading} />
+        {/* Thông tin xe buýt: chỉ hiện khi có chuyến đang chạy */}
+        {activeTripId && <BusInfoCard busInfo={busInfo} loading={loading} />}
 
         {/* Toast Notifications */}
         {notifications.map(notification => (

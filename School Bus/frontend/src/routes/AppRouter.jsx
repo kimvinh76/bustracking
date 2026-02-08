@@ -28,6 +28,7 @@ import DriverMapPage from "../pages/driver/DriverMapPage";
 
 // --- Parent Pages ---
 import ParentPage from "../pages/parent/ParentPage";
+import ParentOverviewPage from "../pages/parent/ParentOverviewPage";
 
 export default function AppRouter() {
   return (
@@ -68,6 +69,7 @@ export default function AppRouter() {
         <Route element={<ProtectedRoute allowedRoles={['parent']} />}>
           <Route path="/parent" element={<ParentLayout />}>
             <Route index element={<ParentPage />} />
+            <Route path="overview" element={<ParentOverviewPage />} />
           </Route>
         </Route>
 

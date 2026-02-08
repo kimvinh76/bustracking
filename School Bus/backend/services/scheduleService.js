@@ -19,13 +19,55 @@ const addMinutesToTime = (timeStr, minutesToAdd) => {
 
 class ScheduleService {
 
+  static toMySqlDateTime(date) {
+    const d = date instanceof Date ? date : new Date(date);
+    if (Number.isNaN(d.getTime())) return null;
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const seconds = String(d.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  }
+
+  static async resetStaleInProgressIfNeeded() {
+    // Default: 24h. Có thể override bằng env SCHEDULE_IN_PROGRESS_STALE_HOURS
+    const staleHoursRaw = process.env.SCHEDULE_IN_PROGRESS_STALE_HOURS;
+    const staleHours = Number(staleHoursRaw ?? 24);
+    const hours = Number.isFinite(staleHours) && staleHours > 0 ? staleHours : 24;
+    const cutoff = new Date(Date.now() - hours * 60 * 60 * 1000);
+    const cutoffStr = this.toMySqlDateTime(cutoff);
+    const affected = await ScheduleModel.resetStaleInProgress(cutoffStr);
+    if (affected > 0) {
+      console.log(` SERVICE: Reset ${affected} schedule stale in_progress -> scheduled`);
+    }
+  }
+
   /**
    * Lấy tất cả lịch trình
    */
   static async getAllSchedules() {
     console.log(' SERVICE: Lấy tất cả lịch trình');
+
+    // Auto reset các schedule bị kẹt in_progress quá lâu (không dựa theo date)
+    try {
+      await this.resetStaleInProgressIfNeeded();
+    } catch (e) {
+      console.warn(' SERVICE: Không thể reset stale in_progress:', e?.message || e);
+    }
+
     const schedules = await ScheduleModel.findAll();
     return schedules;
+  }
+
+  /**
+   * Lấy schedule đang chạy (in_progress) theo các routeIds.
+   * Dùng cho Parent để khỏi phải tải toàn bộ /admin-schedules.
+   */
+  static async getActiveSchedulesByRoutes(routeIds = [], limit = 1) {
+    await this.resetStaleInProgressIfNeeded();
+    return ScheduleModel.findActiveByRoutes(routeIds, limit);
   }
 
   /**
@@ -297,7 +339,24 @@ class ScheduleService {
     }
 
     // Đảm bảo lịch tồn tại
-    await this.getScheduleById(id);
+    const schedule = await this.getScheduleById(id);
+
+    // (Optional) Chặn start chuyến cho lịch không phải hôm nay.
+    // Mặc định ALLOW_START_PAST_SCHEDULE=true (để demo có thể chạy lịch ngày cũ).
+    // Set env ALLOW_START_PAST_SCHEDULE=false để bật chặn.
+    if (status === 'in_progress') {
+      const allowPast = String(process.env.ALLOW_START_PAST_SCHEDULE ?? 'false').toLowerCase() !== 'false';
+      if (!allowPast) {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        const todayStr = `${yyyy}-${mm}-${dd}`;
+        if (String(schedule?.date || '') !== todayStr) {
+          throw new Error('Không thể bắt đầu chuyến cho lịch không thuộc ngày hiện tại');
+        }
+      }
+    }
 
     // Nếu hoàn thành nhưng FE không gửi actualEndTime thì dùng thời gian hiện tại (theo giờ local của server)
     let finalActualEnd = null;

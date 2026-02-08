@@ -8,6 +8,14 @@ const HomeIcon = ({ className }) => (
   </svg>
 );
 
+const ClipboardListIcon = ({ className }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5a2 2 0 114 0v0a2 2 0 002 2H7a2 2 0 002-2z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6M9 16h6" />
+  </svg>
+);
+
 const UserCircleIcon = ({ className }) => (
   <svg className={className} fill="currentColor" viewBox="0 0 24 24">
     <path fillRule="evenodd" d="M18.685 19.097A9.723 9.723 0 0021.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 003.065 7.097A9.716 9.716 0 0012 21.75a9.716 9.716 0 006.685-2.653zm-12.54-1.285A7.486 7.486 0 0112 15a7.486 7.486 0 015.855 2.812A8.224 8.224 0 0112 20.25a8.224 8.224 0 01-5.855-2.438zM15.75 9a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" clipRule="evenodd" />
@@ -22,7 +30,9 @@ const ArrowLeftOnRectangleIcon = ({ className }) => (
 
 const ParentNavbar = () => {
   const navigation = [
-    { name: 'Trang chính', href: '/parents', icon: HomeIcon, end: true },
+    // Router base của parent là '/parent'
+    { name: 'Theo dõi', href: '/parent', icon: HomeIcon, end: true },
+    { name: 'Tổng quan', href: '/parent/overview', icon: ClipboardListIcon, end: false },
   ];
 
   return (

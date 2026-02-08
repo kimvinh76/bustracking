@@ -6,6 +6,32 @@ import StudentService from '../services/studentService.js';
 
 const router = express.Router();
 
+// GET /api/schedules/active?routeIds=1,2&limit=1 - Lấy chuyến đang chạy theo các tuyến (Parent)
+router.get('/active', async (req, res) => {
+    console.log(' GET /api/schedules/active - Lấy chuyến đang chạy cho Parent');
+    try {
+        const { routeIds, limit } = req.query;
+        const ids = String(routeIds || '')
+            .split(',')
+            .map((v) => Number(String(v).trim()))
+            .filter((v) => Number.isFinite(v));
+
+        const rows = await ScheduleService.getActiveSchedulesByRoutes(ids, Number(limit) || 1);
+        const schedule = (rows && rows.length > 0) ? rows[0] : null;
+
+        res.json({
+            success: true,
+            data: schedule
+        });
+    } catch (error) {
+        console.error(' Lỗi khi lấy chuyến đang chạy:', error.message);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
 // GET /api/schedules/driver/:driverId - Lấy danh sách lịch làm việc của tài xế
 router.get('/driver/:driverId', async (req, res) => {
     console.log(` GET /api/schedules/driver/${req.params.driverId} - Lấy lịch làm việc tài xế`);

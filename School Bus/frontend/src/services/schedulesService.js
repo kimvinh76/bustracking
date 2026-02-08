@@ -15,6 +15,23 @@ export const schedulesService = {
         }
     },
 
+    // Lấy chuyến đang chạy theo các tuyến (Parent)
+    // GET /api/schedules/active?routeIds=1,2
+    getActiveSchedule: async (routeIds = []) => {
+        try {
+            const ids = (routeIds || [])
+                .map((v) => Number(v))
+                .filter((v) => Number.isFinite(v));
+            if (ids.length === 0) return null;
+
+            const response = await apiClient.get(`/schedules/active?routeIds=${ids.join(',')}`);
+            return response || null;
+        } catch (error) {
+            console.error('Error fetching active schedule:', error);
+            throw error;
+        }
+    },
+
     // Lấy lịch làm việc của driver
     getDriverSchedules: async (driverId, params = {}) => {
         try {
