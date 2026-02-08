@@ -53,6 +53,8 @@ export default function ParentPage() {
   const displayedNotificationsRef = useRef(new Set());
   // Chống race-condition khi load route stops (request cũ về sau không được ghi đè)
   const routeStopsReqIdRef = useRef(0);
+  // Delay clear khi completed để phụ huynh kịp nhìn lại (tránh tắt ngay lập tức)
+  const clearCompletedTimeoutRef = useRef(null);
 
   // === HELPER FUNCTIONS ===
 
@@ -70,7 +72,7 @@ export default function ParentPage() {
     return rid != null && assignedRouteIds.includes(rid);
   };
 
-  // Cập nhật UI theo schedule đang chạy (Option B):
+  // Cập nhật UI theo schedule đang chạy 
   // - Chỉ set routeId/busInfo khi schedule.status === in_progress
   // - Clear tuyến cũ ngay khi đổi tuyến
   const applyActiveScheduleToUI = (schedule) => {
@@ -106,26 +108,7 @@ export default function ParentPage() {
     });
   };
 
-  // Chọn schedule cho tracking realtime:
-  // - CHỈ lấy schedule đang chạy (in_progress) thuộc tuyến được gán.
-  // - Nếu không có -> coi như không có chuyến đang chạy.
-  const pickInProgressSchedule = (schedules) => {
-    const inProgress = (schedules || [])
-      .filter(
-        (s) =>
-          isAssignedRouteSchedule(s) &&
-          normalizeStatus(s.status) === 'in_progress'
-      )
-      .sort((a, b) => {
-        const byDate = new Date(b.date) - new Date(a.date);
-        if (byDate !== 0) return byDate;
-        // cùng ngày: ưu tiên chuyến mới hơn theo start_time/scheduled_start_time nếu có
-        const aTime = a?.start_time || a?.scheduled_start_time || '';
-        const bTime = b?.start_time || b?.scheduled_start_time || '';
-        return String(bTime).localeCompare(String(aTime));
-      });
-    return inProgress[0] || null;
-  };
+
   
   // Tạo notification ID unique
   const createNotificationId = (type) => {
@@ -247,11 +230,6 @@ export default function ParentPage() {
     loadRouteStops();
   }, [routeId]);
 
-  /**
-   * Load schedule đang chạy hôm nay
-   * API: GET /admin-schedules
-   */
-  // (Đã được gộp vào effect chọn schedule dựa trên assignedRouteIds)
 
   /**
    * Load incidents và auto-refresh mỗi 30 giây
@@ -293,9 +271,32 @@ export default function ParentPage() {
 
     // Handler nhận cập nhật từ driver
     const handleBusStatusUpdate = (status) => {
-      // Nếu trip đã kết thúc thì clear UI theo Option B
+      // Nếu có timer clear trước đó (do completed), mà lại nhận update mới thì hủy timer
+      if (clearCompletedTimeoutRef.current) {
+        clearTimeout(clearCompletedTimeoutRef.current);
+        clearCompletedTimeoutRef.current = null;
+      }
+
+      // Nếu trip đã kết thúc: giữ UI thêm một chút rồi mới clear
       if (status?.driverStatus === 'completed') {
-        clearActiveTripUI();
+        setBusStatus(prev => ({
+          ...prev,
+          ...status,
+          driverStatus: 'completed',
+          currentStopIndex: status.currentStopIndex ?? prev.currentStopIndex,
+          currentPosition: status.currentPosition || prev.currentPosition,
+          isRunning: false
+        }));
+
+        if (status.currentPosition) {
+          setBusPosition(status.currentPosition);
+        }
+
+        // Grace period (ms). Đủ để phụ huynh nhìn lại trước khi UI ẩn theo Option B.
+        clearCompletedTimeoutRef.current = setTimeout(() => {
+          clearActiveTripUI();
+          clearCompletedTimeoutRef.current = null;
+        }, 10000);
         return;
       }
 
@@ -351,6 +352,10 @@ export default function ParentPage() {
 
     return () => {
       busTrackingService.off('bus_status_update', handleBusStatusUpdate);
+      if (clearCompletedTimeoutRef.current) {
+        clearTimeout(clearCompletedTimeoutRef.current);
+        clearCompletedTimeoutRef.current = null;
+      }
     };
   }, [addNotification, studentInfo, activeTripId]);
 
@@ -380,7 +385,7 @@ export default function ParentPage() {
           </div>
         )}
 
-        {/* Option B: nếu chưa có chuyến đang chạy thì chỉ hiện thông báo */}
+        {/* nếu chưa có chuyến đang chạy thì chỉ hiện thông báo */}
         {!activeTripId ? (
           <div className="bg-white p-6 rounded-lg shadow-md">
             <h2 className="text-xl font-semibold text-gray-800 mb-2">Chưa có chuyến đang chạy</h2>

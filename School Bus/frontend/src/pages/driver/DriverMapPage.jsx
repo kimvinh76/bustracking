@@ -59,6 +59,7 @@ export default function DriverMapPage() {
   const [showNoActiveTripDialog, setShowNoActiveTripDialog] = useState(false);
 
   const lastPosDebugAtRef = useRef(0);
+  const isStartingTripRef = useRef(false);
   const DEBUG_TAG = '[DriverTracking]';
 
   // Data from API
@@ -182,7 +183,7 @@ const estimatedTime = nextStop
   // 2) GET /api/schedules/:driverId/:scheduleId → nhận routeId, thời gian, xe buýt...
   // 3) GET /api/routes/:routeId/stops → danh sách điểm dừng của tuyến
   // 4) transformStopsForMap + calculateStopTimes → chuẩn dữ liệu cho map + ETA
-  // 5) Phân bổ danh sách học sinh (giả lập tạm) vào từng điểm dừng
+ 
   useEffect(() => {
     const loadScheduleData = async () => {
       try {
@@ -228,13 +229,17 @@ const estimatedTime = nextStop
           if (stop.isStartOrEnd) {
             return { ...stop, students: [] };
           }
+
+          const stopIdNum = Number(stop.id);
           
           // Lọc học sinh thuộc điểm dừng này
           const studentsForStop = routeStudents.filter(student => {
+            const morningId = Number(student.morningPickupStopId);
+            const afternoonId = Number(student.afternoonDropoffStopId);
             if (timeOfDay === 'morning') {
-              return student.morningPickupStopId === stop.id;
+              return Number.isFinite(stopIdNum) && Number.isFinite(morningId) && morningId === stopIdNum;
             } else {
-              return student.afternoonDropoffStopId === stop.id;
+              return Number.isFinite(stopIdNum) && Number.isFinite(afternoonId) && afternoonId === stopIdNum;
             }
           });
           
@@ -293,33 +298,44 @@ const estimatedTime = nextStop
   }, []);
 
   // Handlers
-  const startTrip = () => {
-    setStatus("in_progress");
-    updateActiveTripSession("in_progress");
-    pushNotice("success", "Đã bắt đầu chuyến đi!");
-
-    // Cập nhật trạng thái lịch làm việc lên backend để Parent có thể tìm đúng chuyến đang chạy
-    // (không chặn UI)
-    if (scheduleId) {
-      schedulesService
-        .updateScheduleStatus(scheduleId, "in_progress")
-        .catch((err) => console.warn("Không cập nhật được schedule status in_progress:", err));
+  const startTrip = async () => {
+    if (!scheduleId) {
+      pushNotice('error', 'Không xác định được lịch để bắt đầu');
+      return;
     }
-    
-    // Gửi status qua WebSocket
-    const statusUpdate = {
-      isRunning: true,
-      driverStatus: "in_progress",
-      currentStopIndex: stopIdx,
-      tripId: scheduleId || 1
-    };
-    console.groupCollapsed(`${DEBUG_TAG} startTrip()`);
-    console.log('scheduleId:', scheduleId);
-    console.log('routeId(from schedule state):', schedule?.routeId);
-    console.log('currentStopIndex:', stopIdx);
-    console.log('statusUpdate:', statusUpdate);
-    console.groupEnd();
-    busTrackingService.updateDriverStatus(statusUpdate);
+    if (isStartingTripRef.current) return;
+
+    isStartingTripRef.current = true;
+    try {
+      // Đồng bộ với backend: chỉ bắt đầu UI sau khi BE update status OK
+      await schedulesService.updateScheduleStatus(scheduleId, 'in_progress');
+
+      setStatus('in_progress');
+      updateActiveTripSession('in_progress');
+      pushNotice('success', 'Đã bắt đầu chuyến đi!');
+
+      // Gửi status qua WebSocket
+      const statusUpdate = {
+        isRunning: true,
+        driverStatus: 'in_progress',
+        currentStopIndex: stopIdx,
+        tripId: scheduleId || 1
+      };
+      console.groupCollapsed(`${DEBUG_TAG} startTrip()`);
+      console.log('scheduleId:', scheduleId);
+      console.log('routeId(from schedule state):', schedule?.routeId);
+      console.log('currentStopIndex:', stopIdx);
+      console.log('statusUpdate:', statusUpdate);
+      console.groupEnd();
+      busTrackingService.updateDriverStatus(statusUpdate);
+    } catch (err) {
+      const msg = err?.message || 'Không thể bắt đầu chuyến đi';
+      console.warn('Không cập nhật được schedule status in_progress:', err);
+      pushNotice('error', msg);
+      // giữ nguyên not_started để không gây nhầm lẫn (Parent sẽ không tracking nếu BE từ chối)
+    } finally {
+      isStartingTripRef.current = false;
+    }
   };
 
   const confirmArrival = () => {
