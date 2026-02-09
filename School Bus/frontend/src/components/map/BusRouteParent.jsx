@@ -15,6 +15,20 @@ export default function BusRouteParent({
   const routePolylineRef = useRef(null);
   const initializedRef = useRef(false);
 
+  const normalizePosition = (pos) => {
+    if (!pos) return null;
+    // [lat, lng]
+    if (Array.isArray(pos) && pos.length >= 2) {
+      const lat = Number(pos[0]);
+      const lng = Number(pos[1]);
+      return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+    }
+    // { lat, lng } or { latitude, longitude }
+    const lat = Number(pos.lat ?? pos.latitude);
+    const lng = Number(pos.lng ?? pos.longitude);
+    return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+  };
+
   useEffect(() => {
     // Chỉ hiển thị khi driver đã bắt đầu
     if (!map || waypoints.length < 2 || !isVisible) {
@@ -39,9 +53,10 @@ export default function BusRouteParent({
     }).addTo(map);
 
     // Create bus marker (will be updated by WebSocket)
-    const initialPos = currentPosition ? 
-      [currentPosition.lat, currentPosition.lng] : 
-      latLngWaypoints[0];
+    const normalized = normalizePosition(currentPosition);
+    const initialPos = normalized
+      ? [normalized.lat, normalized.lng]
+      : latLngWaypoints[0];
     
     markerRef.current = L.marker(initialPos, {
       icon: L.divIcon({
@@ -60,9 +75,11 @@ export default function BusRouteParent({
 
   // Update marker position when receiving WebSocket updates
   useEffect(() => {
-    if (markerRef.current && currentPosition && isVisible) {
-      markerRef.current.setLatLng([currentPosition.lat, currentPosition.lng]);
-      console.log('[BusRouteParent] Updated position:', currentPosition);
+    if (markerRef.current && isVisible) {
+      const normalized = normalizePosition(currentPosition);
+      if (!normalized) return;
+      markerRef.current.setLatLng([normalized.lat, normalized.lng]);
+      console.log('[BusRouteParent] Updated position:', normalized);
     }
   }, [currentPosition, isVisible]);
 

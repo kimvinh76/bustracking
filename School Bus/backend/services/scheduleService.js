@@ -341,19 +341,25 @@ class ScheduleService {
     // Đảm bảo lịch tồn tại
     const schedule = await this.getScheduleById(id);
 
-    // (Optional) Chặn start chuyến cho lịch không phải hôm nay.
-    // Mặc định ALLOW_START_PAST_SCHEDULE=true (để demo có thể chạy lịch ngày cũ).
-    // Set env ALLOW_START_PAST_SCHEDULE=false để bật chặn.
+    // (Optional) Policy demo: cho phép chạy hôm nay + tương lai, chặn quá khứ.
+    // Set env ALLOW_START_PAST_SCHEDULE=true nếu muốn cho phép chạy cả lịch quá khứ.
     if (status === 'in_progress') {
       const allowPast = String(process.env.ALLOW_START_PAST_SCHEDULE ?? 'false').toLowerCase() !== 'false';
       if (!allowPast) {
         const today = new Date();
-        const yyyy = today.getFullYear();
-        const mm = String(today.getMonth() + 1).padStart(2, '0');
-        const dd = String(today.getDate()).padStart(2, '0');
-        const todayStr = `${yyyy}-${mm}-${dd}`;
-        if (String(schedule?.date || '') !== todayStr) {
-          throw new Error('Không thể bắt đầu chuyến cho lịch không thuộc ngày hiện tại');
+        today.setHours(0, 0, 0, 0);
+
+        const scheduleDateRaw = String(schedule?.date || '').trim();
+        // Expecting YYYY-MM-DD. Convert to local midnight for comparison.
+        const scheduleDate = new Date(`${scheduleDateRaw}T00:00:00`);
+        if (Number.isNaN(scheduleDate.getTime())) {
+          throw new Error('Ngày lịch trình không hợp lệ');
+        }
+        scheduleDate.setHours(0, 0, 0, 0);
+
+        // Block only past dates; allow today and future for demo.
+        if (scheduleDate < today) {
+          throw new Error('Không thể bắt đầu chuyến cho lịch của ngày trước ngày hiện tại');
         }
       }
     }

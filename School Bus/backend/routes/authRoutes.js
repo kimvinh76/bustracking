@@ -14,7 +14,12 @@ router.post('/login', async (req, res) => {
     const { username, password } = req.body;
 
     // 1. Kiểm tra đầu vào
-    if (!username || !password) {
+    if (typeof username !== 'string' || typeof password !== 'string') {
+        console.log(' Username/password không đúng định dạng');
+        return res.status(400).json({ message: 'Username và mật khẩu phải là chuỗi ký tự.' });
+    }
+
+    if (!username.trim() || !password.trim()) {
         console.log(' Thiếu username hoặc password');
         return res.status(400).json({ message: 'Vui lòng nhập tên đăng nhập và mật khẩu.' });
     }
@@ -77,8 +82,17 @@ router.post('/login', async (req, res) => {
 
     } catch (error) {
         console.error(' Lỗi đăng nhập:', error.message);
-        const statusCode = error.message.includes('không tồn tại') || error.message.includes('không chính xác') ? 401 : 500;
-        res.status(statusCode).json({ message: error.message });
+
+        const statusFromService = typeof error.statusCode === 'number' ? error.statusCode : null;
+        const fallbackStatus =
+            error.message?.includes('không đúng') ||
+            error.message?.includes('không chính xác') ||
+            error.message?.includes('không tồn tại')
+                ? 401
+                : 500;
+
+        const statusCode = statusFromService ?? fallbackStatus;
+        res.status(statusCode).json({ message: error.message || 'Lỗi server' });
     }
 });
 

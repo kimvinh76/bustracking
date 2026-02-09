@@ -28,6 +28,7 @@ export default function BusRouteDriver({
     segments: [],
     coords: [],
     pauseIndices: [],
+    pendingWaypointIndices: [],
     elapsedTime: 0,
     completed: false,
     ready: false,
@@ -92,7 +93,7 @@ export default function BusRouteDriver({
 
     const latLngWaypoints = waypoints.map(([lat, lng]) => L.latLng(lat, lng));
 
-    // Create bus marker với icon xe bus tùy chỉnh
+    // Create bus marker với icon xe bus dạng SVG (ổn định hơn emoji)
     const busIcon = L.divIcon({
       html: `
         <div style="
@@ -105,9 +106,17 @@ export default function BusRouteDriver({
           align-items: center; 
           justify-content: center;
           box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-          font-size: 24px;
         ">
-          🚌
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+            <rect x="6" y="3" width="12" height="10" rx="2" fill="#16a34a"/>
+            <rect x="7.5" y="5" width="3" height="3" rx="0.5" fill="#ffffff"/>
+            <rect x="11" y="5" width="3" height="3" rx="0.5" fill="#ffffff"/>
+            <rect x="14.5" y="5" width="3" height="3" rx="0.5" fill="#ffffff"/>
+            <path d="M6 11.5C6 10.6716 6.67157 10 7.5 10H16.5C17.3284 10 18 10.6716 18 11.5V16.5C18 17.3284 17.3284 18 16.5 18H7.5C6.67157 18 6 17.3284 6 16.5V11.5Z" fill="#15803d"/>
+            <circle cx="8.5" cy="18.5" r="1.5" fill="#111827"/>
+            <circle cx="15.5" cy="18.5" r="1.5" fill="#111827"/>
+            <rect x="7" y="12" width="10" height="2" rx="1" fill="#ffffff" opacity="0.9"/>
+          </svg>
         </div>
       `,
       className: '', 
@@ -191,6 +200,12 @@ export default function BusRouteDriver({
       // Calculate segments and pause indices
       const segments = [];
       const pauseIndices = [];
+      const pendingWaypointIndices = [];
+
+      // Pause only at intermediate stops (exclude start/end)
+      for (let wpIdx = 1; wpIdx < waypoints.length - 1; wpIdx++) {
+        pendingWaypointIndices.push(wpIdx);
+      }
       
       for (let i = 0; i < coords.length - 1; i++) {
         const from = coords[i];
@@ -200,10 +215,12 @@ export default function BusRouteDriver({
         const durationMs = distance > 0 ? (distance / safeSpeed) * 1000 : 1;
         segments.push({ from, to, distance, duration: durationMs });
 
-        // Check nếu segment kết thúc gần waypoint (cho pause)
+        // NOTE: pauseIndices (dựa theo endpoint của segment gần waypoint)
+        // không luôn chính xác vì polyline OSRM không nhất thiết đi qua đúng tọa độ waypoint.
+        // Ta vẫn giữ để debug, nhưng runtime sẽ pause theo khoảng cách vị trí hiện tại.
         for (let wpIdx = 1; wpIdx < waypoints.length - 1; wpIdx++) {
           const wp = L.latLng(waypoints[wpIdx][0], waypoints[wpIdx][1]);
-          if (to.distanceTo(wp) < 50) { // Debug: tăng tolerance lên 50m để chắc chắn bắt waypoint
+          if (to.distanceTo(wp) < 50) {
             pauseIndices.push({ segmentIndex: i, waypointIndex: wpIdx });
             break;
           }
@@ -213,6 +230,7 @@ export default function BusRouteDriver({
       stateRef.current.segments = segments;
       stateRef.current.coords = coords;
       stateRef.current.pauseIndices = pauseIndices;
+      stateRef.current.pendingWaypointIndices = pendingWaypointIndices;
       stateRef.current.startTime = Date.now();
       stateRef.current.paused = !isRunningRef.current;
       stateRef.current.pausedAt = stateRef.current.paused ? Date.now() : null;
@@ -296,31 +314,43 @@ export default function BusRouteDriver({
         
         // Notify position update
         onPositionUpdate(currentPos);
-        
-        // Check for waypoint reached
-        const pausePoint = stateRef.current.pauseIndices.find(p => p.segmentIndex === currentSegmentIndex);
-        if (pausePoint && progress >= 0.95) {
-          // Reached a waypoint - pause and notify
-          stateRef.current.paused = true;
-          stateRef.current.pausedAt = Date.now();
-          stateRef.current.elapsedTime = elapsed;
-          // Tiến sang segment tiếp theo và loại bỏ tất cả pauseIndices của waypoint này để tránh lặp lại
-          stateRef.current.segmentIndex = pausePoint.segmentIndex + 1;
-          stateRef.current.pauseIndices = stateRef.current.pauseIndices.filter(
-            (p) => p.waypointIndex !== pausePoint.waypointIndex
-          );
-          
-          console.log("[BusRouteDriver] Reached waypoint", pausePoint.waypointIndex);
-          
-          const resumeFn = () => {
-            stateRef.current.paused = false;
-            stateRef.current.pausedAt = null;
-            stateRef.current.startTime = Date.now();
-            animRef.current = requestAnimationFrame(step);
-          };
-          
-          onReachStop(pausePoint.waypointIndex, resumeFn);
-          return;
+
+        // Check for waypoint reached (robust): pause when CURRENT position is close to the NEXT waypoint.
+        // This avoids relying on OSRM polyline vertices coinciding with waypoint coordinates.
+        const pending = stateRef.current.pendingWaypointIndices;
+        if (Array.isArray(pending) && pending.length > 0) {
+          const nextWpIdx = pending[0];
+          const nextWp = waypoints?.[nextWpIdx];
+          const wpLat = Number(nextWp?.[0]);
+          const wpLng = Number(nextWp?.[1]);
+          if (Number.isFinite(wpLat) && Number.isFinite(wpLng)) {
+            const wp = L.latLng(wpLat, wpLng);
+            const pos = L.latLng(lat, lng);
+            const distM = pos.distanceTo(wp);
+
+            // 50m tolerance để chắc chắn bắt waypoint (có thể chỉnh nhỏ lại nếu muốn)
+            if (distM < 50) {
+              stateRef.current.paused = true;
+              stateRef.current.pausedAt = Date.now();
+              stateRef.current.elapsedTime = elapsed;
+              stateRef.current.segmentIndex = currentSegmentIndex + 1;
+
+              // Remove this waypoint from pending list to avoid re-trigger
+              stateRef.current.pendingWaypointIndices = pending.slice(1);
+
+              console.log("[BusRouteDriver] Reached waypoint", nextWpIdx, { distM: Math.round(distM) });
+
+              const resumeFn = () => {
+                stateRef.current.paused = false;
+                stateRef.current.pausedAt = null;
+                stateRef.current.startTime = Date.now();
+                animRef.current = requestAnimationFrame(step);
+              };
+
+              onReachStop(nextWpIdx, resumeFn);
+              return;
+            }
+          }
         }
         
         stateRef.current.segmentIndex = currentSegmentIndex;

@@ -50,17 +50,18 @@ export default function StudentsPanel({
           {/* Content */}
           <div className="flex-1 overflow-y-auto">
             {stops
-              .filter((stop) => !stop.isStartOrEnd)
-              .map((stop, stopIndex) => (
+              .map((stop, originalIndex) => ({ stop, originalIndex }))
+              .filter(({ stop }) => !stop.isStartOrEnd)
+              .map(({ stop, originalIndex }, stopIndex) => (
                 <div key={stop.id} className="border-b border-gray-200">
                   {/* Stop Header */}
                   <div className="bg-gray-50 px-4 py-3 sticky top-0 z-10">
                     <div className="flex items-center gap-3">
                       <div
                         className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold text-sm ${
-                          stop.id - 1 === currentStopIndex
+                          originalIndex === currentStopIndex
                             ? "bg-blue-500"
-                            : stop.id - 1 < currentStopIndex
+                            : originalIndex < currentStopIndex
                             ? "bg-green-500"
                             : "bg-gray-400"
                         }`}
@@ -75,16 +76,16 @@ export default function StudentsPanel({
                       </div>
                       <div
                         className={`text-xs px-2 py-1 rounded-full font-medium ${
-                          stop.id - 1 === currentStopIndex
+                          originalIndex === currentStopIndex
                             ? "bg-blue-100 text-blue-700"
-                            : stop.id - 1 < currentStopIndex
+                            : originalIndex < currentStopIndex
                             ? "bg-green-100 text-green-700"
                             : "bg-gray-100 text-gray-600"
                         }`}
                       >
-                        {stop.id - 1 === currentStopIndex
+                        {originalIndex === currentStopIndex
                           ? "Hiện tại"
-                          : stop.id - 1 < currentStopIndex
+                          : originalIndex < currentStopIndex
                           ? "Hoàn thành"
                           : "Chờ"}
                       </div>

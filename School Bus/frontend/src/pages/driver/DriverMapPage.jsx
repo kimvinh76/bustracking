@@ -196,64 +196,22 @@ const estimatedTime = nextStop
         // 1. Lấy thông tin schedule
         const scheduleData = await schedulesService.getScheduleById(scheduleId, driverId);
 
-        // 2 & 3 & 4. Lấy danh sách stops kèm thời gian đã tính toán từ Backend
-        // Thay vì gọi routesService.getRouteStops + calculateStopTimes
+        // 2. Lấy danh sách stops kèm thời gian + học sinh đã gán sẵn từ Backend
+        // Backend đã xử lý: tính time cho từng stop + JOIN students vào từng stop
         const stopsData = await schedulesService.getScheduleStops(driverId, scheduleId);
         
-        // Map về format mà frontend đang dùng
-        const stopsWithTime = (stopsData.stops || []).map(stop => ({
-            id: stop.id,
-            name: stop.name,
-            address: stop.address,
-            lat: stop.latitude, // Backend trả về latitude
-            lng: stop.longitude, // Backend trả về longitude
-            order: stop.order,
-            time: stop.time,
-            isStartOrEnd: stop.type === 'Xuất phát' || stop.type === 'Kết thúc',
-            students: [] 
+        // Map về format mà frontend đang dùng (backend đã gán students vào từng stop rồi)
+        const stopsWithStudents = (stopsData.stops || []).map((stop) => ({
+          id: stop.id,
+          name: stop.name,
+          address: stop.address,
+          lat: stop.latitude,
+          lng: stop.longitude,
+          order: stop.order,
+          time: stop.time,
+          isStartOrEnd: stop.type === 'Xuất phát' || stop.type === 'Kết thúc',
+          students: stop.students || []  // ← Backend đã gán sẵn học sinh (không cần FE filter nữa)
         }));
-
-        // 5. Load students theo route và shift (morning/afternoon)
-        const timeOfDay = scheduleData.shiftType === 'morning' ? 'morning' : 'afternoon';
-        const routeStudentsRaw = await studentsService.getStudentsByRoute(scheduleData.routeId, timeOfDay);
-
-        // Chuẩn hóa field stop-id (backend trả snake_case)
-        const routeStudents = (routeStudentsRaw || []).map((s) => ({
-          ...s,
-          morningPickupStopId: s.morningPickupStopId ?? s.morning_pickup_stop_id ?? s.pickup_stop_id,
-          afternoonDropoffStopId: s.afternoonDropoffStopId ?? s.afternoon_dropoff_stop_id ?? s.dropoff_stop_id,
-        }));
-        
-        // 6. Gán students vào đúng stops dựa trên pickup_stop_id hoặc dropoff_stop_id
-        const stopsWithStudents = stopsWithTime.map((stop) => {
-          if (stop.isStartOrEnd) {
-            return { ...stop, students: [] };
-          }
-
-          const stopIdNum = Number(stop.id);
-          
-          // Lọc học sinh thuộc điểm dừng này
-          const studentsForStop = routeStudents.filter(student => {
-            const morningId = Number(student.morningPickupStopId);
-            const afternoonId = Number(student.afternoonDropoffStopId);
-            if (timeOfDay === 'morning') {
-              return Number.isFinite(stopIdNum) && Number.isFinite(morningId) && morningId === stopIdNum;
-            } else {
-              return Number.isFinite(stopIdNum) && Number.isFinite(afternoonId) && afternoonId === stopIdNum;
-            }
-          });
-          
-          return {
-            ...stop,
-            students: studentsForStop.map(s => ({ 
-              id: s.id,
-              name: s.name,
-              class: s.class,
-              phone: s.phone,
-              status: 'waiting' 
-            }))
-          };
-        });
 
         const totalStudents = stopsWithStudents.reduce(
           (sum, stop) => sum + stop.students.length, 0

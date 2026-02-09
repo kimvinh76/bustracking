@@ -6,6 +6,60 @@ import StudentService from '../services/studentService.js';
 
 const router = express.Router();
 
+/**
+ * Helper: Gán học sinh vào từng điểm dừng
+ * @param {Array} stops - Danh sách stops từ service 
+ * @param {Array} allStudents - Danh sách tất cả students của route
+ * @param {string} timeOfDay - 'morning' hoặc 'afternoon'
+ * @returns {Array} Stops đã được gán students và format cho frontend
+ */
+const assignStudentsToStops = (stops, allStudents, timeOfDay) => {
+    return stops.map((stop, index) => {
+        // Xác định loại điểm
+        let displayOrder = stop.order;
+        let type = 'Điểm dừng';
+        
+        if (stop.order === 0 || index === 0) {
+            displayOrder = 'Bắt đầu';
+            type = 'Xuất phát';
+        } else if (index === stops.length - 1) {
+            displayOrder = 'Kết thúc';
+            type = 'Kết thúc';
+        }
+
+        // Backend gán học sinh vào từng stop (chỉ áp dụng cho điểm dừng thường)
+        const stopId = stop.stop_id ?? stop.id;
+        const studentsAtStop = type === 'Xuất phát' || type === 'Kết thúc' ? [] : allStudents.filter(student => {
+            const targetId = timeOfDay === 'morning' 
+                ? student.morning_pickup_stop_id 
+                : student.afternoon_dropoff_stop_id;
+            return Number(targetId) === Number(stopId);
+        }).map(s => ({
+            id: s.id,
+            name: s.name,
+            class: s.class || s.class_name,
+            phone: s.phone,
+            status: 'waiting'
+        }));
+
+        return {
+            id: stopId,
+            order: stop.order,
+            displayOrder: displayOrder,
+            name: stop.name,
+            address: stop.address,
+            type: type,
+            latitude: stop.lat,
+            longitude: stop.lng,
+            time: stop.time,
+            distanceFromStart: stop.distanceFromStart,
+            status: 'scheduled',
+            note: '',
+            students: studentsAtStop
+        };
+    });
+};
+
 // GET /api/schedules/active?routeIds=1,2&limit=1 - Lấy chuyến đang chạy theo các tuyến (Parent)
 router.get('/active', async (req, res) => {
     console.log(' GET /api/schedules/active - Lấy chuyến đang chạy cho Parent');
@@ -177,46 +231,22 @@ router.get('/driver/:driverId/stops/:scheduleId', async (req, res) => {
             });
         }
 
-        // Gọi service mới để lấy stops kèm thời gian tính toán
+        // Gọi service để lấy stops kèm thời gian tính toán
         const scheduleWithTime = await ScheduleService.getScheduleWithStopsAndTime(scheduleId);
         const stopsWithTime = scheduleWithTime.stops || [];
 
-        // Format lại cho đúng cấu trúc frontend mong đợi
-        const processedStops = stopsWithTime.map((stop, index) => {
-            // Xác định loại điểm
-            let displayOrder = stop.order;
-            let type = 'Điểm dừng';
-            
-            // Logic hiển thị tương tự cũ
-            if (stop.order === 0 || index === 0) {
-                displayOrder = 'Bắt đầu';
-                type = 'Xuất phát';
-            } else if (index === stopsWithTime.length - 1) {
-                displayOrder = 'Kết thúc';
-                type = 'Kết thúc';
-            }
+        // Lấy danh sách học sinh theo tuyến và ca
+        const timeOfDay = schedule.shift_type === 'morning' ? 'morning' : 'afternoon';
+        let allStudents = [];
+        try {
+            allStudents = await StudentService.getStudentsByRoute(schedule.route_id, timeOfDay);
+            console.log(` Lấy ${allStudents.length} học sinh cho tuyến ${schedule.route_id} (${timeOfDay})`);
+        } catch (error) {
+            console.warn(' Không thể lấy danh sách học sinh:', error.message);
+        }
 
-            return {
-                id: stop.id,
-                order: stop.order,
-                displayOrder: displayOrder,
-                name: stop.name,
-                address: stop.address,
-                type: type,
-                latitude: stop.lat,   // Service trả về lat
-                longitude: stop.lng,  // Service trả về lng
-                time: stop.time,      // Đã có time từ service
-                distanceFromStart: stop.distanceFromStart,
-                status: 'scheduled',
-                note: ''
-            };
-        });
-
-        // Lấy route name (service trả về schedule đã merged schedule info, nhưng cần check lại)
-        // scheduleWithTime là object spread của schedule + stops
-        // Cần lấy route_name từ đâu đó. getScheduleById trả về row join với routes rồi?
-        // Check getScheduleById implementation: "SELECT s.*, r.route_name..." usually.
-        // Assume schedule object has route_name.
+        // Sử dụng helper function để gán học sinh vào stops
+        const processedStops = assignStudentsToStops(stopsWithTime, allStudents, timeOfDay);
 
         console.log(` Lấy ${processedStops.length} điểm dừng`);
         res.json({
@@ -260,7 +290,11 @@ router.put('/:id/status', async (req, res) => {
     } catch (error) {
         console.error(' Lỗi khi cập nhật trạng thái lịch trình:', error.message);
         const msg = String(error?.message || '');
-        const statusCode = msg.includes('Không tìm thấy') ? 404 : msg.includes('không hợp lệ') || msg.includes('Thiếu') ? 400 : 500;
+        const statusCode =
+            msg.includes('Không thể bắt đầu chuyến') ? 403 :
+            msg.includes('Không tìm thấy') ? 404 :
+            msg.includes('không hợp lệ') || msg.includes('Thiếu') ? 400 :
+            500;
         res.status(statusCode).json({
             success: false,
             message: error.message

@@ -52,6 +52,14 @@ export default function BusTrackingMap({
   const routeWaypoints = stops.map(s => [s.lat, s.lng]);
   const mapCenter = routeWaypoints[0] || DEFAULT_CENTER;
 
+  // currentStopIndex trong websocket được hiểu là "điểm đã tới gần nhất".
+  // Dùng ?? thay vì || để không làm mất giá trị 0.
+  const effectiveCurrentStopIndex = Number.isFinite(busStatus?.currentStopIndex)
+    ? busStatus.currentStopIndex
+    : (Number.isFinite(currentStopIndex) ? currentStopIndex : 0);
+
+  const effectiveDriverStatus = busStatus?.driverStatus || 'idle';
+
   return (
     <div className="bg-white p-6 rounded-lg shadow-md">
       <h2 className="text-2xl font-bold text-gray-800 mb-4">Bản đồ theo dõi xe buýt</h2>
@@ -71,15 +79,15 @@ export default function BusTrackingMap({
           {stops.length > 0 && (
             <BusRouteParent
               waypoints={routeWaypoints}
-              isVisible={busStatus.driverStatus === "in_progress" || busStatus.driverStatus === "paused"}
+              isVisible={effectiveDriverStatus === "in_progress" || effectiveDriverStatus === "paused"}
               currentPosition={busStatus.currentPosition || busPosition}
-              driverStatus={busStatus.driverStatus}
-              currentStopIndex={busStatus.currentStopIndex || currentStopIndex}
+              driverStatus={effectiveDriverStatus}
+              currentStopIndex={effectiveCurrentStopIndex}
             />
           )}
 
           {/* Marker tĩnh khi chưa bắt đầu */}
-          {busStatus.driverStatus === "idle" && routeWaypoints[0] && (
+          {effectiveDriverStatus === "idle" && routeWaypoints[0] && (
             <Marker position={routeWaypoints[0]}>
               <Popup>Xe buýt chưa bắt đầu chuyến</Popup>
             </Marker>
@@ -87,13 +95,29 @@ export default function BusTrackingMap({
 
           {/* Hiển thị các điểm dừng */}
           {stops.map((stop, index) => (
+            (() => {
+              const isPassed = index <= effectiveCurrentStopIndex;
+              const isNextInProgress = effectiveDriverStatus === 'in_progress' && index === effectiveCurrentStopIndex + 1;
+              const isCurrentPaused = effectiveDriverStatus === 'paused' && index === effectiveCurrentStopIndex;
+
+              const statusText = isCurrentPaused
+                ? 'Đang dừng'
+                : (isNextInProgress
+                    ? 'Đang tới'
+                    : (isPassed ? 'Đã qua' : 'Chưa tới'));
+
+              const bg = isNextInProgress || isCurrentPaused
+                ? '#4CAF50'
+                : (isPassed ? '#9E9E9E' : '#2196F3');
+
+              return (
             <Marker
               key={stop.id}
               position={[stop.lat, stop.lng]}
               icon={L.divIcon({
                 className: 'custom-stop-marker',
                 html: `<div style="
-                  background: ${index === currentStopIndex ? '#4CAF50' : index < currentStopIndex ? '#9E9E9E' : '#2196F3'}; 
+                  background: ${bg}; 
                   color: white; 
                   border-radius: 50%; 
                   width: 24px; 
@@ -114,13 +138,12 @@ export default function BusTrackingMap({
                 <div>
                   <strong>{stop.name}</strong>
                   {stop.time && <p>Thời gian: {stop.time}</p>}
-                  <p>Trạng thái: {
-                    index < currentStopIndex ? 'Đã qua' : 
-                    index === currentStopIndex ? 'Đang tới' : 'Chưa tới'
-                  }</p>
+                  <p>Trạng thái: {statusText}</p>
                 </div>
               </Popup>
             </Marker>
+              );
+            })()
           ))}
 
           <BusLocationButton busPosition={busPosition || busStatus.currentPosition} />

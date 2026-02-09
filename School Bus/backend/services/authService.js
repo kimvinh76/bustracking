@@ -3,6 +3,12 @@
 
 import UserModel from '../models/User.js';
 
+function httpError(message, statusCode) {
+  const err = new Error(message);
+  err.statusCode = statusCode;
+  return err;
+}
+
 class AuthService {
   /**
    * Đăng nhập
@@ -16,7 +22,7 @@ class AuthService {
     
     if (!identifier || !password) {
       console.log(' SERVICE: Thiếu thông tin đăng nhập');
-      throw new Error('Thiếu thông tin: email/username và password');
+      throw httpError('Thiếu thông tin: email/username và password', 400);
     }
 
     console.log(' SERVICE: Validation passed');
@@ -25,7 +31,7 @@ class AuthService {
     const user = await UserModel.findByEmailOrUsername(identifier);
     if (!user) {
       console.log(' SERVICE: Không tìm thấy người dùng');
-      throw new Error('Email/Username hoặc mật khẩu không đúng');
+      throw httpError('Email/Username hoặc mật khẩu không đúng', 401);
     }
 
     console.log(' SERVICE: Tìm thấy user, id:', user.id);
@@ -40,7 +46,7 @@ class AuthService {
     // Tạm thời so sánh trực tiếp (KHÔNG AN TOÀN - chỉ dùng để test)
     if (password !== user.password) {
       console.log(' SERVICE: Mật khẩu không đúng');
-      throw new Error('Email/Username hoặc mật khẩu không đúng');
+      throw httpError('Email/Username hoặc mật khẩu không đúng', 401);
     }
 
     console.log(' SERVICE: Mật khẩu đúng');
