@@ -356,6 +356,34 @@ class ScheduleModel {
 
     return rows;
   }
+
+  /**
+   * Lấy tất cả schedule đang chạy (in_progress), không lọc theo route.
+   * Ưu tiên schedule mới cập nhật gần nhất (updated_at DESC).
+   * @param {number} limit
+   */
+  static async findActive(limit = 50) {
+    const lim = Number.isFinite(Number(limit)) ? Math.max(1, Math.min(100, Number(limit))) : 50;
+
+    const [rows] = await pool.execute(
+      `SELECT s.*, 
+              DATE_FORMAT(s.date, '%Y-%m-%d') as date,
+              TIME_FORMAT(s.scheduled_start_time, '%H:%i') as start_time,
+              TIME_FORMAT(s.scheduled_end_time, '%H:%i') as end_time,
+              r.route_name, 
+              b.bus_number, b.license_plate,
+              d.name AS driver_name, d.phone AS driver_phone
+       FROM schedules s
+       LEFT JOIN routes r ON s.route_id = r.id
+       LEFT JOIN buses b ON s.bus_id = b.id
+       LEFT JOIN drivers d ON s.driver_id = d.id
+       WHERE s.status = 'in_progress'
+       ORDER BY s.updated_at DESC
+       LIMIT ${lim}`
+    );
+
+    return rows;
+  }
 }
 
 export default ScheduleModel;

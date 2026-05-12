@@ -59,6 +59,7 @@ export default function DriverMapPage() {
   const [showNoActiveTripDialog, setShowNoActiveTripDialog] = useState(false);
 
   const lastPosDebugAtRef = useRef(0);
+  const lastDbLogAtRef = useRef(0);
   const isStartingTripRef = useRef(false);
   const DEBUG_TAG = '[DriverTracking]';
 
@@ -196,11 +197,10 @@ const estimatedTime = nextStop
         // 1. Lấy thông tin schedule
         const scheduleData = await schedulesService.getScheduleById(scheduleId, driverId);
 
-        // 2. Lấy danh sách stops kèm thời gian + học sinh đã gán sẵn từ Backend
-        // Backend đã xử lý: tính time cho từng stop + JOIN students vào từng stop
+        // 2. Lấy danh sách stops kèm thời gian từ Backend
         const stopsData = await schedulesService.getScheduleStops(driverId, scheduleId);
         
-        // Map về format mà frontend đang dùng (backend đã gán students vào từng stop rồi)
+        // Map về format mà frontend đang dùng
         const stopsWithStudents = (stopsData.stops || []).map((stop) => ({
           id: stop.id,
           name: stop.name,
@@ -208,9 +208,9 @@ const estimatedTime = nextStop
           lat: stop.latitude,
           lng: stop.longitude,
           order: stop.order,
-          time: stop.time,
+          time: stop.estimatedTime ?? stop.time,
           isStartOrEnd: stop.type === 'Xuất phát' || stop.type === 'Kết thúc',
-          students: stop.students || []  // ← Backend đã gán sẵn học sinh (không cần FE filter nữa)
+          students: stop.students || []
         }));
 
         const totalStudents = stopsWithStudents.reduce(
@@ -360,10 +360,12 @@ const estimatedTime = nextStop
     setTracking(false);
     updateActiveTripSession("cleared");
     
-    // Cập nhật trạng thái lịch làm việc lên backend (actual_end_time = thời điểm hiện tại trên server)
+    // Cập nhật trạng thái lịch làm việc + actual_end_time
     if (scheduleId) {
       schedulesService
-        .updateScheduleStatus(scheduleId, "completed")
+        .updateScheduleStatus(scheduleId, "completed", null, {
+          actualEndTime: estimatedTime
+        })
         .catch((err) => {
           console.error(" Không thể cập nhật trạng thái lịch trình:", err);
         });
@@ -609,25 +611,37 @@ const estimatedTime = nextStop
                     });
                   }
                   
-                  // Gửi vị trí realtime qua WebSocket
-                  busTrackingService.updateDriverStatus({
-                    currentPosition: position
-                  });
-
-                  // Ghi log GPS vào DB (background, không chặn UI)
-                  try {
-                    trackingService.logLocation({
-                      busId: schedule?.busId,
-                      driverId: schedule?.driverId,
-                      scheduleId: scheduleId ? Number(scheduleId) : null,
-                      latitude: position.lat,
-                      longitude: position.lng,
-                      speed: null,
-                      heading: null,
-                      accuracy: null
+                  // Gửi vị trí realtime qua WebSocket (throttle 2s)
+                  if (now - lastPosDebugAtRef.current >= 2000) {
+                    lastPosDebugAtRef.current = now;
+                    busTrackingService.updateDriverStatus({
+                      isRunning: status === "in_progress",
+                      driverStatus: status,
+                      currentStopIndex: stopIdx,
+                      currentPosition: position,
+                      nextStop: nextStop
+                        ? { lat: nextStop.lat, lng: nextStop.lng }
+                        : null
                     });
-                  } catch (err) {
-                    console.warn(' Failed to log location:', err?.message || err);
+                  }
+
+                  // Ghi log GPS vào DB (throttle 3s)
+                  if (now - lastDbLogAtRef.current >= 3000) {
+                    lastDbLogAtRef.current = now;
+                    try {
+                      trackingService.logLocation({
+                        busId: schedule?.busId,
+                        driverId: schedule?.driverId,
+                        scheduleId: scheduleId ? Number(scheduleId) : null,
+                        latitude: position.lat,
+                        longitude: position.lng,
+                        speed: null,
+                        heading: null,
+                        accuracy: null
+                      });
+                    } catch (err) {
+                      console.warn(' Failed to log location:', err?.message || err);
+                    }
                   }
                 }}
                 onTripComplete={({ finalStopIndex, finalPosition }) => {
@@ -654,10 +668,12 @@ const estimatedTime = nextStop
                     currentPosition: lastPos || busCurrentPosition
                   });
 
-                  // Cập nhật trạng thái lịch làm việc lên backend (actual_end_time = thời điểm hiện tại trên server)
+                  // Cập nhật trạng thái lịch làm việc + actual_end_time
                   if (scheduleId) {
                     schedulesService
-                      .updateScheduleStatus(scheduleId, "completed")
+                      .updateScheduleStatus(scheduleId, "completed", null, {
+                        actualEndTime: estimatedTime
+                      })
                       .catch((err) => {
                         console.error(
                           " Không thể cập nhật trạng thái lịch trình (auto):",

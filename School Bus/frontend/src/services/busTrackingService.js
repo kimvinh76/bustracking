@@ -15,11 +15,16 @@ class BusTrackingService {
 
   // Khởi tạo và kết nối tới server
   connect(role, tripId) {
+    const normalizedTripId = tripId != null ? String(tripId) : null;
+    const prevTripId = this.tripId;
     this.role = role;
-    this.tripId = tripId;
+    this.tripId = normalizedTripId;
 
     // Nếu socket đã tồn tại và đang kết nối: chỉ cần join lại đúng room (tripId mới)
     if (this.socket && this.socket.connected) {
+      if (prevTripId && prevTripId !== this.tripId) {
+        this.socket.emit('leave_trip', { tripId: prevTripId });
+      }
       if (this.tripId) this.socket.emit('join_trip', { tripId: this.tripId });
       return;
     }
@@ -40,7 +45,7 @@ class BusTrackingService {
       // Lắng nghe các sự kiện mặc định của Socket.IO
       this.socket.on('connect', () => {
         console.log(`Socket.IO connected as ${this.role} with id ${this.socket.id}`);
-        
+
         // SAU KHI KẾT NỐI, THAM GIA PHÒNG THEO DÕI CHUYẾN ĐI
         if (this.tripId) this.socket.emit('join_trip', { tripId: this.tripId });
       });

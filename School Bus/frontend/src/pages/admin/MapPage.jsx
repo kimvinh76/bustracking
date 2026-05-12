@@ -5,7 +5,9 @@ import "leaflet/dist/leaflet.css";
 import "leaflet-routing-machine/dist/leaflet-routing-machine.css"; // CSS cho đường đi thực tế
 import BusRouteAdmin from "../../components/map/BusRouteAdmin.jsx";
 import busTrackingService from "../../services/busTrackingService.js";
-import { useState, useEffect } from "react";
+import { schedulesService } from "../../services/schedulesService.js";
+import { routesService } from "../../services/routesService.js";
+import { useState, useEffect, useMemo } from "react";
 
 import iconUrl from "leaflet/dist/images/marker-icon.png";
 import iconShadow from "leaflet/dist/images/marker-shadow.png";
@@ -27,25 +29,93 @@ export default function MapPage() {
     resumeFromPause: false
   });
   const [incidentAlerts, setIncidentAlerts] = useState([]);
+  const [activeSchedules, setActiveSchedules] = useState([]);
+  const [selectedScheduleId, setSelectedScheduleId] = useState(null);
+  const [routeStops, setRouteStops] = useState([]);
+  const [loadingSchedules, setLoadingSchedules] = useState(false);
 
   // Tọa độ Đại học Sài Gòn (273 An Dương Vương, Quận 5, TP.HCM) gần chính xác
   const campus = [10.75875, 106.68095];
   const center = campus;
 
-  const stops = [
-    { id: 1, name: "Nhà Văn hóa Thanh Niên", lat: 10.75875, lng: 106.68095 },
-    { id: 2, name: "Nguyễn Văn Cừ", lat: 10.76055, lng: 106.6834 },
-    { id: 3, name: "Nguyễn Biểu", lat: 10.7579, lng: 106.6831 },
-    { id: 4, name: "Trường THCS Nguyễn Du", lat: 10.7545, lng: 106.6815 },
-  ];
+  const selectedSchedule = useMemo(
+    () => activeSchedules.find((s) => String(s.id) === String(selectedScheduleId)) || null,
+    [activeSchedules, selectedScheduleId]
+  );
 
   // Tuyến đường tuyến tính (không quay về điểm xuất phát)
-  const routeWaypoints = stops.map((s) => [s.lat, s.lng]);
+  const routeWaypoints = routeStops.map((s) => [s.lat, s.lng]);
+
+  const resetBusStatus = () => {
+    setBusStatus({
+      isRunning: false,
+      driverStatus: "idle",
+      currentStopIndex: 0,
+      currentPosition: null,
+      resumeFromPause: false
+    });
+  };
+
+  // Load danh sách chuyến đang chạy (Admin)
+  useEffect(() => {
+    let isMounted = true;
+    const loadActiveSchedules = async () => {
+      try {
+        setLoadingSchedules(true);
+        const rows = await schedulesService.getActiveSchedulesList(50);
+        if (!isMounted) return;
+
+        setActiveSchedules(rows);
+
+        if (!rows.length) {
+          setSelectedScheduleId(null);
+          setRouteStops([]);
+          resetBusStatus();
+          return;
+        }
+
+        const stillExists = rows.some((s) => String(s.id) === String(selectedScheduleId));
+        if (!selectedScheduleId || !stillExists) {
+          setSelectedScheduleId(rows[0].id);
+        }
+      } catch (error) {
+        console.error("Lỗi tải danh sách chuyến đang chạy:", error);
+      } finally {
+        if (isMounted) setLoadingSchedules(false);
+      }
+    };
+
+    loadActiveSchedules();
+    const interval = setInterval(loadActiveSchedules, 10000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [selectedScheduleId]);
+
+  // Khi chọn chuyến: load route stops + join room theo scheduleId
+  useEffect(() => {
+    if (!selectedSchedule) return;
+
+    resetBusStatus();
+    busTrackingService.connect("admin", String(selectedSchedule.id));
+
+    const loadStops = async () => {
+      try {
+        const stopsData = await routesService.getRouteStops(selectedSchedule.route_id);
+        const transformed = routesService.transformStopsForMap(stopsData);
+        setRouteStops(transformed);
+      } catch (error) {
+        console.error("Lỗi tải điểm dừng tuyến:", error);
+        setRouteStops([]);
+      }
+    };
+
+    loadStops();
+  }, [selectedSchedule]);
 
   // Kết nối WebSocket để nhận trạng thái từ driver
   useEffect(() => {
-    busTrackingService.connect('admin', 1);
-
     const handleBusStatusUpdate = (status) => {
       console.log(' Admin received bus status update:', status);
       console.log(' Admin current busStatus before update:', busStatus);
@@ -99,6 +169,24 @@ export default function MapPage() {
       <div className="flex justify-between items-center mb-3 pl-4">
         <h1 className="text-3xl font-bold text-[#174D2C]">Bản đồ</h1>
         <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-600">Chuyến đang chạy:</label>
+            <select
+              className="border rounded-md px-2 py-1 text-sm"
+              value={selectedScheduleId || ""}
+              onChange={(e) => setSelectedScheduleId(e.target.value || null)}
+              disabled={loadingSchedules || activeSchedules.length === 0}
+            >
+              {activeSchedules.length === 0 && (
+                <option value="">Không có chuyến</option>
+              )}
+              {activeSchedules.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.route_name || `Tuyến ${s.route_id}`} | {s.license_plate || s.bus_number || 'N/A'}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className={`px-3 py-1 rounded-full text-sm font-medium ${
             busStatus.driverStatus === 'in_progress' ? 'bg-green-100 text-green-800' :
             busStatus.driverStatus === 'paused' ? 'bg-yellow-100 text-yellow-800' :
@@ -111,7 +199,7 @@ export default function MapPage() {
              '⏹️ Chưa bắt đầu'}
           </div>
           <div className="text-sm text-gray-600">
-            Điểm hiện tại: {busStatus.currentStopIndex + 1}/{stops.length}
+            Điểm hiện tại: {busStatus.currentStopIndex + 1}/{routeStops.length || 0}
           </div>
         </div>
       </div>
@@ -156,7 +244,7 @@ export default function MapPage() {
           />
 
           {/* Hiển thị các điểm dừng */}
-          {stops.map((s, index) => (
+          {routeStops.map((s, index) => (
             <Marker key={s.id} position={[s.lat, s.lng]}>
               <Popup>
                 <strong>{s.name}</strong>
@@ -177,8 +265,6 @@ export default function MapPage() {
             currentStopIndex={busStatus.currentStopIndex}
           />
           
-          {console.log(' Admin busStatus.driverStatus:', busStatus.driverStatus, 'isRunning calculated:', busStatus.driverStatus === "in_progress" && busStatus.isRunning)}
-          
           {/* Hiển thị marker tĩnh khi driver chưa bắt đầu */}
           {busStatus.driverStatus === "idle" && (
             <Marker position={routeWaypoints[0] || [10.76, 106.68]}>
@@ -190,7 +276,7 @@ export default function MapPage() {
           {busStatus.driverStatus === "paused" && busStatus.currentPosition && (
             <Marker position={[busStatus.currentPosition.lat, busStatus.currentPosition.lng]}>
               <Popup>
-                Xe buýt đang dừng tại: {stops[busStatus.currentStopIndex]?.name}
+                Xe buýt đang dừng tại: {routeStops[busStatus.currentStopIndex]?.name}
                 <br />Đang đón học sinh...
               </Popup>
             </Marker>

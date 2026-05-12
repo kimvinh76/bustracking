@@ -34,20 +34,30 @@ class BusTrackingSocket {
       // Client sẽ gửi sự kiện 'join_trip' với tripId để tham gia vào phòng theo dõi tương ứng
       socket.on('join_trip', ({ tripId }) => {
         if (!tripId) return;
+        const roomId = String(tripId);
         
         // Cho socket này tham gia vào phòng có tên là tripId
-        socket.join(tripId);
-        console.log(`Client ${socket.id} joined trip room: ${tripId}`);
+        socket.join(roomId);
+        console.log(`Client ${socket.id} joined trip room: ${roomId}`);
 
         // Gửi trạng thái hiện tại của chuyến đi cho client vừa tham gia
-        const currentStatus = this.tripStatuses.get(tripId) || this.getInitialStatus(tripId);
+        const currentStatus = this.tripStatuses.get(roomId) || this.getInitialStatus(roomId);
         socket.emit('bus_status_update', currentStatus);
+      });
+
+      // Rời phòng khi client đổi chuyến
+      socket.on('leave_trip', ({ tripId }) => {
+        if (!tripId) return;
+        const roomId = String(tripId);
+        socket.leave(roomId);
+        console.log(`Client ${socket.id} left trip room: ${roomId}`);
       });
 
       // 2. TÀI XẾ CẬP NHẬT TRẠNG THÁI
       // Lắng nghe sự kiện cập nhật từ tài xế
       socket.on('driver_status_update', async ({ tripId, status }) => {
         if (!tripId) return;
+        const roomId = String(tripId);
 
         let etaNextStop = null;
 
@@ -67,18 +77,18 @@ class BusTrackingSocket {
         }
 
         // Lấy trạng thái cũ, kết hợp với trạng thái mới và cập nhật
-        const currentStatus = this.tripStatuses.get(tripId) || this.getInitialStatus(tripId);
+        const currentStatus = this.tripStatuses.get(roomId) || this.getInitialStatus(roomId);
         const newStatus = {
           ...currentStatus,
           ...status,
           etaNextStop: etaNextStop, // Thêm dữ liệu ETA vào status
           lastUpdate: new Date()
         };
-        this.tripStatuses.set(tripId, newStatus);
+        this.tripStatuses.set(roomId, newStatus);
 
         // Gửi cập nhật đến TẤT CẢ client trong cùng một phòng (tripId)
-        this.io.to(tripId).emit('bus_status_update', newStatus);
-        console.log(`Status updated for trip ${tripId}:`, newStatus);
+        this.io.to(roomId).emit('bus_status_update', newStatus);
+        console.log(`Status updated for trip ${roomId}:`, newStatus);
       });
       
       // 3. XỬ LÝ KHI CLIENT NGẮT KẾT NỐI
@@ -94,18 +104,19 @@ class BusTrackingSocket {
   // API để các phần khác của backend (ví dụ: REST endpoint) có thể cập nhật trạng thái
   updateBusStatus(tripId, status) {
     if (!tripId) return;
+    const roomId = String(tripId);
 
-    const currentStatus = this.tripStatuses.get(tripId) || this.getInitialStatus(tripId);
+    const currentStatus = this.tripStatuses.get(roomId) || this.getInitialStatus(roomId);
     const newStatus = {
       ...currentStatus,
       ...status,
       lastUpdate: new Date()
     };
-    this.tripStatuses.set(tripId, newStatus);
+    this.tripStatuses.set(roomId, newStatus);
     
     // Gửi cập nhật đến phòng tương ứng
-    this.io.to(tripId).emit('bus_status_update', newStatus);
-    console.log(`External status update for trip ${tripId}`);
+    this.io.to(roomId).emit('bus_status_update', newStatus);
+    console.log(`External status update for trip ${roomId}`);
   }
 
   // Helper để tạo trạng thái ban đầu cho một chuyến đi mới

@@ -71,6 +71,15 @@ class ScheduleService {
   }
 
   /**
+   * Lấy tất cả lịch trình đang chạy (in_progress)
+   * Dùng cho Admin để chọn chuyến đang theo dõi.
+   */
+  static async getActiveSchedules(limit = 50) {
+    await this.resetStaleInProgressIfNeeded();
+    return ScheduleModel.findActive(limit);
+  }
+
+  /**
    * Lấy lịch trình theo ID
    */
   static async getScheduleById(id) {
