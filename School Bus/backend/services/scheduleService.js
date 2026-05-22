@@ -41,6 +41,12 @@ class ScheduleService {
     const affected = await ScheduleModel.resetStaleInProgress(cutoffStr);
     if (affected > 0) {
       console.log(` SERVICE: Reset ${affected} schedule stale in_progress -> scheduled`);
+      try {
+        const { default: busTrackingSocket } = await import('../websocket/busTrackingSocket.js');
+        await busTrackingSocket.cleanupOrphanSimulations();
+      } catch (err) {
+        console.warn(' SERVICE: cleanup orphan simulations failed:', err?.message || err);
+      }
     }
   }
 

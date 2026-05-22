@@ -1,33 +1,18 @@
 // src/pages/admin/MapPage.jsx
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import "leaflet-routing-machine/dist/leaflet-routing-machine.css"; // CSS cho đường đi thực tế
-import BusRouteAdmin from "../../components/map/BusRouteAdmin.jsx";
+import BusRouteLayer from "../../components/map/BusRouteLayer.jsx";
+import { mergeBusStatus, INITIAL_BUS_STATUS, isTripActiveOnMap, isPreTripOnMap } from "../../utils/mergeBusStatus.js";
+import { applyLeafletDefaultIcon } from "../../utils/mapDefaults.js";
 import busTrackingService from "../../services/busTrackingService.js";
 import { schedulesService } from "../../services/schedulesService.js";
 import { routesService } from "../../services/routesService.js";
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 
-import iconUrl from "leaflet/dist/images/marker-icon.png";
-import iconShadow from "leaflet/dist/images/marker-shadow.png";
-const DefaultIcon = L.icon({
-  iconUrl,
-  shadowUrl: iconShadow,
-  iconAnchor: [12, 41],
-});
-L.Marker.prototype.options.icon = DefaultIcon;
-
+applyLeafletDefaultIcon();
 
 export default function MapPage() {
-  // State để đồng bộ với driver
-  const [busStatus, setBusStatus] = useState({
-    isRunning: false,
-    driverStatus: "idle", // Sử dụng "idle" thay vì "not_started"
-    currentStopIndex: 0,
-    currentPosition: null,
-    resumeFromPause: false
-  });
+  const [busStatus, setBusStatus] = useState(INITIAL_BUS_STATUS);
   const [incidentAlerts, setIncidentAlerts] = useState([]);
   const [activeSchedules, setActiveSchedules] = useState([]);
   const [selectedScheduleId, setSelectedScheduleId] = useState(null);
@@ -43,17 +28,33 @@ export default function MapPage() {
     [activeSchedules, selectedScheduleId]
   );
 
+  const selectedTripId = useMemo(
+    () => (selectedScheduleId ? String(selectedScheduleId) : null),
+    [selectedScheduleId]
+  );
+
   // Tuyến đường tuyến tính (không quay về điểm xuất phát)
-  const routeWaypoints = routeStops.map((s) => [s.lat, s.lng]);
+  const validRouteStops = useMemo(
+    () =>
+      routeStops.filter(
+        (s) =>
+          s &&
+          Number.isFinite(Number(s.lat)) &&
+          Number.isFinite(Number(s.lng))
+      ),
+    [routeStops]
+  );
+
+  const routeWaypoints = useMemo(
+    () => validRouteStops.map((s) => [Number(s.lat), Number(s.lng)]),
+    [validRouteStops]
+  );
+
+  const mapCenter = routeWaypoints.length ? routeWaypoints[0] : center;
+  const mapKey = selectedTripId ? `trip-${selectedTripId}-${routeWaypoints.length}` : "no-trip";
 
   const resetBusStatus = () => {
-    setBusStatus({
-      isRunning: false,
-      driverStatus: "idle",
-      currentStopIndex: 0,
-      currentPosition: null,
-      resumeFromPause: false
-    });
+    setBusStatus(INITIAL_BUS_STATUS);
   };
 
   // Load danh sách chuyến đang chạy (Admin)
@@ -117,48 +118,34 @@ export default function MapPage() {
   // Kết nối WebSocket để nhận trạng thái từ driver
   useEffect(() => {
     const handleBusStatusUpdate = (status) => {
-      console.log(' Admin received bus status update:', status);
-      console.log(' Admin current busStatus before update:', busStatus);
+      if (selectedTripId && status?.tripId && String(status.tripId) !== selectedTripId) {
+        return;
+      }
       
-      // Xử lý incident alert
+      
       if (status.incidentAlert) {
-        const alert = {
-          ...status.incidentAlert,
-          id: Date.now() // Unique ID for admin
-        };
-        setIncidentAlerts(prev => [alert, ...prev.slice(0, 4)]);  // Keep last 5 alerts
-        console.log(' Admin received incident alert:', alert);
-        
-        // Auto-remove after 10 seconds
+        const alertId = status.incidentAlert.id ?? Date.now();
+        setIncidentAlerts((prev) => [
+          { ...status.incidentAlert, id: alertId },
+          ...prev.slice(0, 4),
+        ]);
         setTimeout(() => {
-          setIncidentAlerts(prev => prev.filter(a => a.id !== alert.id));
+          setIncidentAlerts((prev) => prev.filter((a) => a.id !== alertId));
         }, 10000);
       }
       
-      setBusStatus(prevStatus => ({
-        ...prevStatus,
-        ...status,
-        resumeFromPause: status.resumeFromPause || false
-      }));
-      
-      // Reset resume flag sau một chút
-      if (status.resumeFromPause) {
-        setTimeout(() => {
-          setBusStatus(prev => ({...prev, resumeFromPause: false}));
-        }, 100);
-      }
-      console.log(' Admin busStatus after setState:', status);
+      setBusStatus((prev) => mergeBusStatus(prev, status));
     };
 
     busTrackingService.on('bus_status_update', handleBusStatusUpdate);
 
     return () => {
-      busTrackingService.off('bus_status_update', handleBusStatusUpdate);
-      busTrackingService.disconnect();
+      busTrackingService.off("bus_status_update", handleBusStatusUpdate);
+      if (selectedTripId) busTrackingService.leaveTrip(selectedTripId);
     };
-  }, []);
+  }, [selectedTripId]);
 
-  return (
+  const mapView = (
     <div
       className="flex flex-col w-full h-[88vh] bg-white p-4"
       style={{
@@ -232,57 +219,86 @@ export default function MapPage() {
           height: "100%",
         }}
       >
-        <MapContainer
-          center={routeWaypoints.length ? routeWaypoints[0] : center}
-          zoom={16}
-          style={{ height: "100%", width: "100%" }}
-          scrollWheelZoom
-        >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
+        {!routeWaypoints.length ? (
+          <div className="w-full h-full flex items-center justify-center text-gray-600">
+            Không có dữ liệu điểm dừng hợp lệ để hiển thị bản đồ.
+          </div>
+        ) : (
+          <MapContainer
+            key={mapKey}
+            center={mapCenter}
+            zoom={16}
+            style={{ height: "100%", width: "100%" }}
+            scrollWheelZoom
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
 
-          {/* Hiển thị các điểm dừng */}
-          {routeStops.map((s, index) => (
-            <Marker key={s.id} position={[s.lat, s.lng]}>
-              <Popup>
-                <strong>{s.name}</strong>
-                <br />Lat: {s.lat.toFixed(5)}
-                <br />Lng: {s.lng.toFixed(5)}
-                <br />Trạng thái: {index < busStatus.currentStopIndex ? 'Đã qua' : 
-                                   index === busStatus.currentStopIndex ? 'Hiện tại' : 'Chưa tới'}
-              </Popup>
-            </Marker>
-          ))}
+            {/* Hiển thị các điểm dừng */}
+            {validRouteStops.map((s, index) => (
+              <Marker key={s.id} position={[Number(s.lat), Number(s.lng)]}>
+                <Popup>
+                  <strong>{s.name}</strong>
+                  <br />Lat: {Number(s.lat).toFixed(5)}
+                  <br />Lng: {Number(s.lng).toFixed(5)}
+                  <br />Trạng thái: {index < busStatus.currentStopIndex ? 'Đã qua' : 
+                                     index === busStatus.currentStopIndex ? 'Hiện tại' : 'Chưa tới'}
+                </Popup>
+              </Marker>
+            ))}
 
-          {/* Admin view - chỉ hiển thị khi driver đã bắt đầu */}
-          <BusRouteAdmin
-            waypoints={routeWaypoints}
-            isVisible={busStatus.driverStatus === "in_progress" || busStatus.driverStatus === "paused"}
-            currentPosition={busStatus.currentPosition}
-            driverStatus={busStatus.driverStatus}
-            currentStopIndex={busStatus.currentStopIndex}
-          />
+            {/* Admin view - chỉ hiển thị khi driver đã bắt đầu */}
           
-          {/* Hiển thị marker tĩnh khi driver chưa bắt đầu */}
-          {busStatus.driverStatus === "idle" && (
-            <Marker position={routeWaypoints[0] || [10.76, 106.68]}>
-              <Popup>Xe buýt chưa bắt đầu</Popup>
-            </Marker>
-          )}
-          
-          {/* Hiển thị marker tĩnh khi driver pause tại điểm dừng */}
-          {busStatus.driverStatus === "paused" && busStatus.currentPosition && (
-            <Marker position={[busStatus.currentPosition.lat, busStatus.currentPosition.lng]}>
-              <Popup>
-                Xe buýt đang dừng tại: {routeStops[busStatus.currentStopIndex]?.name}
-                <br />Đang đón học sinh...
-              </Popup>
-            </Marker>
-          )}
-        </MapContainer>
+            <BusRouteLayer
+              waypoints={routeWaypoints}
+              isVisible={isTripActiveOnMap(busStatus.driverStatus)}
+              currentPosition={busStatus.currentPosition}
+            />
+            
+            {/* Hiển thị marker tĩnh khi driver chưa bắt đầu */}
+            {isPreTripOnMap(busStatus.driverStatus) && (
+              <Marker position={routeWaypoints[0] || [10.76, 106.68]}>
+                <Popup>Xe buýt chưa bắt đầu</Popup>
+              </Marker>
+            )}
+            
+          </MapContainer>
+        )}
       </div>
     </div>
   );
+
+  return (
+    <MapErrorBoundary>
+      {mapView}
+    </MapErrorBoundary>
+  );
+}
+
+class MapErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, info) {
+    console.error("MapErrorBoundary caught an error:", error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="w-full h-[88vh] flex items-center justify-center bg-white text-gray-700">
+          Không thể hiển thị bản đồ do dữ liệu không hợp lệ.
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }

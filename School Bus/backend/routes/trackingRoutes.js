@@ -1,5 +1,6 @@
 // /backend/routes/trackingRoutes.js
-// Endpoints cho GPS tracking: lưu vị trí bus realtime
+// Lưu lịch sử GPS (tùy chọn). Realtime map dùng WebSocket, không đọc bảng này.
+ 
 
 import express from 'express';
 import BusLocation from '../models/BusLocation.js';
