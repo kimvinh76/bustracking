@@ -3,7 +3,31 @@
 
 import pool from '../config/db.js';
 
+/**
+ * TripSimulationModel
+ * - Lưu/xóa/đọc checkpoint mô phỏng (`trip_simulations`) để backend có thể
+ *   khôi phục các chuyến đang tạm dừng hoặc đang chạy sau khi restart.
+ * - KHÔNG phải là lịch sử vị trí chi tiết; chỉ dùng cho resume/restore.
+ */
 class TripSimulationModel {
+  /**
+   * Normalize cutoff input (Date or MySQL datetime string). Trả về Date.
+   */
+  static _normalizeCutoff(cutoff) {
+    if (cutoff instanceof Date && !Number.isNaN(cutoff.getTime())) {
+      return cutoff;
+    }
+
+    if (typeof cutoff === 'string' && cutoff.trim()) {
+      const parsed = new Date(cutoff);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed;
+      }
+    }
+
+    return new Date(Date.now() - 24 * 60 * 60 * 1000);
+  }
+
   static async upsert(state) {
     const {
       trip_id,
@@ -50,6 +74,7 @@ class TripSimulationModel {
   }
 
   static async findActive() {
+    // Lấy các checkpoint đang active để restore khi server khởi động lại
     const [rows] = await pool.execute(
       `SELECT * FROM trip_simulations WHERE status IN ('in_progress', 'paused')`
     );
@@ -72,11 +97,23 @@ class TripSimulationModel {
     return result.affectedRows > 0;
   }
 
-  static async deleteAllActive() {
+  /**
+   * Xóa các checkpoint 'in_progress' hoặc 'paused' cũ hơn `cutoff`.
+   * Mục đích: tránh xóa toàn bộ active rows; chỉ dọn simulation mồ côi.
+   */
+  static async cleanupStaleActive(cutoff) {
+    const normalizedCutoff = this._normalizeCutoff(cutoff);
     const [result] = await pool.execute(
-      `DELETE FROM trip_simulations WHERE status IN ('in_progress', 'paused')`
+      `DELETE FROM trip_simulations
+       WHERE status IN ('in_progress', 'paused')
+         AND updated_at < ?`,
+      [normalizedCutoff]
     );
     return result.affectedRows || 0;
+  }
+
+  static async deleteAllActive() {
+    return this.cleanupStaleActive();
   }
 }
 

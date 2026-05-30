@@ -9,6 +9,7 @@ export default function AdminLayout() {
   };
 
   return (
+           
     <div className="flex min-h-screen w-full bg-gray-50">
       <aside className="h-screen w-56 sm:w-60 md:w-64 lg:w-72 flex-shrink-0 text-white flex flex-col p-4 bg-bg overflow-y-auto">
         <div className="pb-4 items-center flex justify-center">
@@ -29,6 +30,7 @@ export default function AdminLayout() {
             { path: "/admin/students", label: "Học sinh" },
             { path: "/admin/parents", label: "Phụ huynh" },
             { path: "/admin/schedule", label: "Lịch trình" },
+             { path: "/admin/history", label: "Lịch sử" },
 
             { path: "/admin/user", label: "Tài Khoản" },
             // { path: "/admin/reports", label: "Báo cáo" },

@@ -5,15 +5,24 @@ import axios from 'axios';
 import RouteService from './routeService.js';
 import ScheduleService from './scheduleService.js';
 import TripSimulationModel from '../models/TripSimulation.js';
+import BusLocation from '../models/BusLocation.js';
 
 class TripSimulationService {
   constructor({ emitStatus }) {
     this.emitStatus = emitStatus;
     this.trips = new Map();
     this.persistIntervalMs = 5000;
+    // Optional: enable writing history points into `bus_locations` to keep
+    // a replayable trail. Controlled by env ENABLE_BUS_LOCATION_HISTORY=1
+    // and BUS_LOCATION_HISTORY_INTERVAL_MS (ms)
+    this.historyEnabled = process.env.ENABLE_BUS_LOCATION_HISTORY === '1';
+    this.historyIntervalMs = Number(process.env.BUS_LOCATION_HISTORY_INTERVAL_MS) || 30_000;
   }
 
   async restoreActiveTrips() {
+    // Khôi phục các checkpoint từ DB khi server khởi động lại.
+    // Nếu một row không thể khôi phục (ví dụ route bị xóa), sẽ xóa row đó
+    // để tránh retry vô hạn và tiếp tục restore các trip khác.
     const rows = await TripSimulationModel.findActive();
     for (const row of rows) {
       try {
@@ -27,14 +36,17 @@ class TripSimulationService {
 
         if (tripState.currentPosition) {
           this.emitStatus(tripState.tripId, this._statusPayload(tripState));
-
-          
         }
         if (!tripState.paused) {
           this._startTimer(tripState);
         }
       } catch (error) {
         console.warn(`Failed to restore trip ${row.trip_id}:`, error?.message || error);
+        try {
+          await TripSimulationModel.deleteByTripId(row.trip_id);
+        } catch (cleanupError) {
+          console.warn(`Failed to delete invalid trip checkpoint ${row.trip_id}:`, cleanupError?.message || cleanupError);
+        }
       }
     }
   }
@@ -42,6 +54,7 @@ class TripSimulationService {
   async startTrip({ tripId, routeId, speedMetersPerSec = 15 }) {
     if (!tripId || !routeId) throw new Error('Thiếu tripId hoặc routeId');
 
+    // Bắt đầu mô phỏng mới cho trip; nếu đã có in-memory simulation thì dừng nó.
     const existing = this.trips.get(String(tripId));
     if (existing) this._stopTimer(existing);
 
@@ -59,6 +72,7 @@ class TripSimulationService {
       driverStatus: 'in_progress'
     });
 
+    // Ghi checkpoint ngay khi start (force=true) để có thể resume nếu crash ngay.
     this._persistState(tripState, 'in_progress', true).catch(() => {});
     this._startTimer(tripState);
   }
@@ -67,6 +81,7 @@ class TripSimulationService {
     const trip = this.trips.get(String(tripId));
     if (!trip || trip.completed || trip.paused) return;
 
+    // Đánh dấu tạm dừng và persist checkpoint ngay lập tức.
     trip.paused = true;
     this._stopTimer(trip);
     this.emitStatus(tripId, { isRunning: false, driverStatus: 'paused', currentStopIndex: trip.currentStopIndex });
@@ -77,6 +92,7 @@ class TripSimulationService {
     const trip = this.trips.get(String(tripId));
     if (!trip || trip.completed || !trip.paused) return;
 
+    // Resume mô phỏng từ checkpoint in-memory; persist để cập nhật status.
     trip.paused = false;
     trip.lastTickAt = Date.now();
     this.emitStatus(tripId, { isRunning: true, driverStatus: 'in_progress', currentStopIndex: trip.currentStopIndex });
@@ -88,6 +104,7 @@ class TripSimulationService {
     const trip = this.trips.get(String(tripId));
     if (!trip) return;
 
+    // Kết thúc chuyến: dừng timer, phát sự kiện completed và final cleanup.
     trip.completed = true;
     trip.paused = false;
     this._stopTimer(trip);
@@ -112,6 +129,8 @@ class TripSimulationService {
   }
 
   async _createTripState({ tripId, routeId, speedMetersPerSec, restore }) {
+    // Tải geometri tuyến (có thể sử dụng OSRM) — đây là nơi COSTy có thể xảy ra.
+    // Sau này nên cache geometry theo `route_id` để tránh gọi OSRM mỗi lần.
     const { stops, coords, segments, speed } = await this._loadRouteGeometry(routeId, speedMetersPerSec);
 
     const pendingStopIndices = this._parsePendingIndices(restore?.pending_stop_indices, stops.length);
@@ -125,8 +144,25 @@ class TripSimulationService {
       currentPosition = { lat: Number(restore.current_lat), lng: Number(restore.current_lng) };
     }
 
+    let busId = null;
+    let driverId = null;
+    const scheduleIdNum = Number(tripId);
+    if (Number.isFinite(scheduleIdNum)) {
+      try {
+        const schedule = await ScheduleService.getScheduleById(scheduleIdNum);
+        busId = schedule?.bus_id ?? null;
+        driverId = schedule?.driver_id ?? null;
+      } catch (error) {
+        console.warn('TripSimulationService: failed to load schedule for history:', error?.message || error);
+      }
+    }
+
     return {
       tripId: String(tripId),
+      // store schedule id for history association
+      scheduleId: Number(tripId),
+      busId,
+      driverId,
       routeId,
       stops,
       coords,
@@ -140,12 +176,14 @@ class TripSimulationService {
       completed: false,
       lastTickAt: Date.now(),
       lastPersistAt: restore ? Date.now() : 0,
+      lastHistoryAt: 0,
       currentPosition,
       timer: null
     };
   }
 
   async _loadRouteGeometry(routeId, speedMetersPerSec) {
+    // Lấy thông tin tuyến kèm danh sách stop từ DB (RouteService)
     const route = await RouteService.getRouteWithStops(routeId);
     const stops = (route?.stops || []).map((s) => ({
       id: s.id,
@@ -156,6 +194,7 @@ class TripSimulationService {
     if (stops.length < 2) throw new Error('Cần ít nhất 2 điểm dừng để mô phỏng');
 
     const waypoints = stops.map((s) => ({ lat: s.lat, lng: s.lng }));
+    // Dò đường chi tiết theo waypoints (gọi OSRM nếu cần). Kết quả nên được cache.
     const coords = await this._resolveRouteCoords(waypoints);
     const speed = Number.isFinite(speedMetersPerSec) && speedMetersPerSec > 0 ? speedMetersPerSec : 15;
 
@@ -287,6 +326,7 @@ class TripSimulationService {
 
   async _resolveRouteCoords(waypoints) {
     try {
+      // Gọi OSRM public để lấy đường đi. Nếu fail sẽ fallback về straight waypoints.
       const coordsStr = waypoints.map((wp) => `${wp.lng},${wp.lat}`).join(';');
       const url = `http://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=full&geometries=geojson`;
       const response = await axios.get(url);
@@ -294,6 +334,7 @@ class TripSimulationService {
       if (!coordinates?.length) throw new Error('No routes found');
       return coordinates.map((c) => ({ lat: c[1], lng: c[0] }));
     } catch {
+      // OSRM lỗi -> dùng trực tiếp waypoints (thẳng giữa các stop)
       return waypoints;
     }
   }
@@ -311,6 +352,7 @@ class TripSimulationService {
   }
 
   async _finalizeTrip(trip) {
+    // Khi chuyến hoàn thành: cập nhật trạng thái schedule và xóa checkpoint.
     await this._markScheduleCompleted(trip.tripId);
     await this._clearSimulation(trip);
   }
@@ -348,6 +390,8 @@ class TripSimulationService {
     if (!Number.isFinite(tripIdNum) || !Number.isFinite(routeIdNum)) return;
 
     const currentPos = trip.currentPosition || trip.coords[trip.segmentIndex] || trip.coords[0];
+    // Ghi checkpoint để có thể resume sau crash. Lưu ý: đây là nguyên nhân chính gây
+    // write pressure nếu persistIntervalMs quá nhỏ hoặc có nhiều trip cùng lúc.
     try {
       await TripSimulationModel.upsert({
         trip_id: tripIdNum,
@@ -361,6 +405,28 @@ class TripSimulationService {
         pending_stop_indices: JSON.stringify(trip.pendingStopIndices || []),
         speed_mps: trip.speedMetersPerSec
       });
+      // Optionally persist a history point to `bus_locations` (throttled)
+      if (this.historyEnabled) {
+        const now = Date.now();
+        if (!trip.lastHistoryAt || now - trip.lastHistoryAt >= this.historyIntervalMs) {
+          trip.lastHistoryAt = now;
+          try {
+            if (!trip.busId || !trip.driverId) {
+              console.warn('BusLocation persist skipped: missing bus_id or driver_id');
+            } else {
+              await BusLocation.create({
+                bus_id: trip.busId,
+                driver_id: trip.driverId,
+                schedule_id: trip.scheduleId || tripIdNum,
+                latitude: currentPos?.lat ?? null,
+                longitude: currentPos?.lng ?? null
+              });
+            }
+          } catch (err) {
+            console.warn('BusLocation persist failed:', err?.message || err);
+          }
+        }
+      }
     } catch (error) {
       console.warn('Trip persist failed:', error?.message || error);
     }
