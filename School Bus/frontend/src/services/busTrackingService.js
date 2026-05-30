@@ -3,7 +3,10 @@
 
 import { io } from 'socket.io-client';
 
-const SOCKET_URL = 'http://localhost:5000'; // Địa chỉ backend server (Socket.IO dùng HTTP handshake trước)
+const SOCKET_URL =
+  import.meta.env.VITE_SOCKET_URL ||
+  import.meta.env.VITE_API_BASE_URL?.replace(/\/api\/?$/, "") ||
+  "http://localhost:5000";
 
 class BusTrackingService {
   constructor() {
@@ -15,11 +18,16 @@ class BusTrackingService {
 
   // Khởi tạo và kết nối tới server
   connect(role, tripId) {
+    const normalizedTripId = tripId != null ? String(tripId) : null;
+    const prevTripId = this.tripId;
     this.role = role;
-    this.tripId = tripId;
+    this.tripId = normalizedTripId;
 
     // Nếu socket đã tồn tại và đang kết nối: chỉ cần join lại đúng room (tripId mới)
     if (this.socket && this.socket.connected) {
+      if (prevTripId && prevTripId !== this.tripId) {
+        this.socket.emit('leave_trip', { tripId: prevTripId });
+      }
       if (this.tripId) this.socket.emit('join_trip', { tripId: this.tripId });
       return;
     }
@@ -30,7 +38,7 @@ class BusTrackingService {
       this.socket = io(SOCKET_URL, {
         autoConnect: false,
         reconnection: true,
-        reconnectionAttempts: 5,
+        reconnectionAttempts: Infinity,
         reconnectionDelay: 2000,
       });
       this._listenersRegistered = false;
@@ -40,7 +48,7 @@ class BusTrackingService {
       // Lắng nghe các sự kiện mặc định của Socket.IO
       this.socket.on('connect', () => {
         console.log(`Socket.IO connected as ${this.role} with id ${this.socket.id}`);
-        
+
         // SAU KHI KẾT NỐI, THAM GIA PHÒNG THEO DÕI CHUYẾN ĐI
         if (this.tripId) this.socket.emit('join_trip', { tripId: this.tripId });
       });
@@ -60,11 +68,24 @@ class BusTrackingService {
     this.socket.connect();
   }
 
-  // Ngắt kết nối
+  /** Rời room — giữ socket cho các trang khác (admin/parent). */
+  leaveTrip(tripId) {
+    const id = tripId != null ? String(tripId) : this.tripId;
+    if (this.socket?.connected && id) {
+      this.socket.emit("leave_trip", { tripId: id });
+    }
+    if (id && this.tripId === id) {
+      this.tripId = null;
+    }
+  }
+
   disconnect() {
     if (this.socket) {
+      if (this.tripId) this.leaveTrip(this.tripId);
       this.socket.disconnect();
       this.socket = null;
+      this.tripId = null;
+      this.role = null;
     }
   }
 
@@ -78,6 +99,20 @@ class BusTrackingService {
     }
     // Gửi sự kiện lên server, kèm theo tripId để server biết gửi vào phòng nào
     this.socket.emit('driver_status_update', { tripId: this.tripId, status });
+  }
+
+  // Driver điều khiển mô phỏng từ backend (start/pause/resume/stop)
+  controlTrip(action, payload = {}) {
+    if (this.role !== 'driver' || !this.socket || !this.tripId) {
+      console.warn(' Only driver can control trip, or socket not connected/tripId not set.');
+      return;
+    }
+    // Gửi lệnh điều khiển để backend phát vị trí đồng bộ cho mọi client
+    this.socket.emit('driver_trip_control', {
+      tripId: this.tripId,
+      action,
+      ...payload
+    });
   }
 
   // === HỆ THỐNG LẮNG NGHE SỰ KIỆN (EVENT LISTENER) ===

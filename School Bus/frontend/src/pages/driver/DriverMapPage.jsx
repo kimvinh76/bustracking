@@ -1,14 +1,9 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import "leaflet-routing-machine/dist/leaflet-routing-machine.css";
-
-// Component vẽ tuyến đường + di chuyển bus cho tài xế
-// Lưu ý: Trang Driver dùng BusRouteDriver; các biến thể khác như
-// AdminMapPage dùng BusRouteAdmin, ParentMapPage dùng BusRouteParent
-import BusRouteDriver from "../../components/map/BusRouteDriver.jsx";
+import BusRouteLayer from "../../components/map/BusRouteLayer.jsx";
+import { applyLeafletDefaultIcon } from "../../utils/mapDefaults.js";
 import DriverHeader from "../../components/driver/DriverHeader.jsx";
 import AlertsContainer from "../../components/driver/AlertsContainer.jsx";
 import TripStatusPanel from "../../components/driver/TripStatusPanel.jsx";
@@ -17,25 +12,15 @@ import IncidentReportModal from "../../components/driver/IncidentReportModal.jsx
 import EndTripModal from "../../components/driver/EndTripModal.jsx";
 import StudentsPanel from "../../components/driver/StudentsPanel.jsx";
 import ConfirmDialog from "../../components/UI/ConfirmDialog.jsx";
-import { studentsService } from "../../services/studentsService.js";
 import { schedulesService } from "../../services/schedulesService.js";
 import routesService from "../../services/routesService.js";
 import busTrackingService from "../../services/busTrackingService.js";
-import trackingService from "../../services/trackingService.js";
 import { 
   FaPlay, FaUsers, FaCheckCircle, FaExclamationTriangle, 
   FaPhone
 } from "react-icons/fa";
 
-import iconUrl from "leaflet/dist/images/marker-icon.png";
-import iconShadow from "leaflet/dist/images/marker-shadow.png";
-
-const DefaultIcon = L.icon({
-  iconUrl,
-  shadowUrl: iconShadow,
-  iconAnchor: [12, 41],
-});
-L.Marker.prototype.options.icon = DefaultIcon;
+applyLeafletDefaultIcon();
 
 export default function DriverMapPage() {
   const navigate = useNavigate();
@@ -52,15 +37,15 @@ export default function DriverMapPage() {
   const [incidentMsg, setIncidentMsg] = useState("");
   const [tracking, setTracking] = useState(true);
   const [clock, setClock] = useState(new Date());
-  const [resumeFn, setResumeFn] = useState(null);
   const [pausedWpIdx, setPausedWpIdx] = useState(null);
   const [busCurrentPosition, setBusCurrentPosition] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showNoActiveTripDialog, setShowNoActiveTripDialog] = useState(false);
 
-  const lastPosDebugAtRef = useRef(0);
   const isStartingTripRef = useRef(false);
-  const DEBUG_TAG = '[DriverTracking]';
+  const busPosRef = useRef(null);
+  const lastPausedIdxRef = useRef(null);
+  const completedHandledRef = useRef(false);
 
   // Data from API
   const [schedule, setSchedule] = useState(null);
@@ -153,6 +138,85 @@ const estimatedTime = nextStop
     };
   }, [scheduleId]);
 
+  // Reset các cờ nội bộ khi đổi schedule
+  useEffect(() => {
+    completedHandledRef.current = false;
+    lastPausedIdxRef.current = null;
+  }, [scheduleId]);
+
+  // Nhận trạng thái từ backend để driver UI luôn đồng bộ (passive)
+  useEffect(() => {
+    if (!scheduleId) return;
+    
+
+    const handleStatusUpdate = (statusPayload) => {
+      if (!statusPayload) return;
+
+      const serverTripId = statusPayload.tripId != null ? String(statusPayload.tripId) : null;
+      if (serverTripId && String(scheduleId) !== serverTripId) return;
+
+      const driverStatus = statusPayload.driverStatus;
+      if (!driverStatus) return;
+
+      const serverStopIndex = Number.isFinite(statusPayload.currentStopIndex)
+        ? statusPayload.currentStopIndex
+        : 0;
+
+      const hasPosition =
+        statusPayload.currentPosition &&
+        Number.isFinite(statusPayload.currentPosition.lat) &&
+        Number.isFinite(statusPayload.currentPosition.lng);
+
+      if (hasPosition) {
+        setBusCurrentPosition(statusPayload.currentPosition);
+        busPosRef.current = statusPayload.currentPosition;
+      }
+
+      setStopIdx(serverStopIndex);
+      setStatus(driverStatus);
+      updateActiveTripSession(driverStatus);
+
+      if (driverStatus === 'paused') {
+        setPausedWpIdx(serverStopIndex);
+        if (lastPausedIdxRef.current !== serverStopIndex) {
+          lastPausedIdxRef.current = serverStopIndex;
+          setShowStudents(true);
+          pushNotice("warning", ` Đã đến điểm dừng: ${stops[serverStopIndex]?.name || "N/A"}`);
+        }
+      } else {
+        setPausedWpIdx(null);
+      }
+
+      if (driverStatus === 'completed' && !completedHandledRef.current) {
+        completedHandledRef.current = true;
+        setShowStudents(false);
+        setShowArrival(false);
+        updateActiveTripSession("cleared");
+
+        if (scheduleId) {
+          schedulesService
+            .updateScheduleStatus(scheduleId, "completed")
+            .catch((err) => {
+              console.error(" Không thể cập nhật trạng thái lịch trình (auto):", err);
+            });
+        }
+
+        if (schedule?.routeId) {
+          routesService
+            .recalculateRouteDistance(schedule.routeId)
+            .catch((err) => {
+              console.error(" Không thể tính lại quãng đường tuyến:", err);
+            });
+        }
+      }
+    };
+
+    busTrackingService.on('bus_status_update', handleStatusUpdate);
+    return () => {
+      busTrackingService.off('bus_status_update', handleStatusUpdate);
+    };
+  }, [scheduleId]);
+
   // Khi người dùng vào /driver/map (không có scheduleId):
   // - Nếu có chuyến đang chạy trong sessionStorage → tự điều hướng tới /driver/map/:scheduleId đó
   // - Nếu không có chuyến đang chạy → hiện dialog yêu cầu quay lại trang Lịch làm việc
@@ -196,11 +260,10 @@ const estimatedTime = nextStop
         // 1. Lấy thông tin schedule
         const scheduleData = await schedulesService.getScheduleById(scheduleId, driverId);
 
-        // 2. Lấy danh sách stops kèm thời gian + học sinh đã gán sẵn từ Backend
-        // Backend đã xử lý: tính time cho từng stop + JOIN students vào từng stop
+        // 2. Lấy danh sách stops kèm thời gian từ Backend
         const stopsData = await schedulesService.getScheduleStops(driverId, scheduleId);
         
-        // Map về format mà frontend đang dùng (backend đã gán students vào từng stop rồi)
+        // Map về format mà frontend đang dùng
         const stopsWithStudents = (stopsData.stops || []).map((stop) => ({
           id: stop.id,
           name: stop.name,
@@ -208,9 +271,9 @@ const estimatedTime = nextStop
           lat: stop.latitude,
           lng: stop.longitude,
           order: stop.order,
-          time: stop.time,
+          time: stop.estimatedTime ?? stop.time,
           isStartOrEnd: stop.type === 'Xuất phát' || stop.type === 'Kết thúc',
-          students: stop.students || []  // ← Backend đã gán sẵn học sinh (không cần FE filter nữa)
+          students: stop.students || []
         }));
 
         const totalStudents = stopsWithStudents.reduce(
@@ -263,29 +326,23 @@ const estimatedTime = nextStop
     }
     if (isStartingTripRef.current) return;
 
+    if (!schedule?.routeId) {
+      pushNotice("error", "Đang tải tuyến, vui lòng thử lại sau vài giây");
+      return;
+    }
+
     isStartingTripRef.current = true;
     try {
-      // Đồng bộ với backend: chỉ bắt đầu UI sau khi BE update status OK
-      await schedulesService.updateScheduleStatus(scheduleId, 'in_progress');
+      await schedulesService.updateScheduleStatus(scheduleId, "in_progress");
 
       setStatus('in_progress');
       updateActiveTripSession('in_progress');
       pushNotice('success', 'Đã bắt đầu chuyến đi!');
 
-      // Gửi status qua WebSocket
-      const statusUpdate = {
-        isRunning: true,
-        driverStatus: 'in_progress',
-        currentStopIndex: stopIdx,
-        tripId: scheduleId || 1
-      };
-      console.groupCollapsed(`${DEBUG_TAG} startTrip()`);
-      console.log('scheduleId:', scheduleId);
-      console.log('routeId(from schedule state):', schedule?.routeId);
-      console.log('currentStopIndex:', stopIdx);
-      console.log('statusUpdate:', statusUpdate);
-      console.groupEnd();
-      busTrackingService.updateDriverStatus(statusUpdate);
+      busTrackingService.controlTrip("start", {
+        routeId: schedule.routeId,
+        speedMetersPerSec: 15,
+      });
     } catch (err) {
       const msg = err?.message || 'Không thể bắt đầu chuyến đi';
       console.warn('Không cập nhật được schedule status in_progress:', err);
@@ -302,35 +359,15 @@ const estimatedTime = nextStop
       return;
     }
 
-    if (resumeFn) resumeFn();
-
     pushNotice("success", ` Đã đón xong tại ${currentStop.name}`);
 
-    const isCompleted = stopIdx === stops.length - 1;
-    if (isCompleted) {
+    const isLastStop = stopIdx === stops.length - 1;
+    if (isLastStop) {
       pushNotice("success", " Đã hoàn thành tuyến đường");
-      setStatus("completed");
-      updateActiveTripSession("cleared");
-      
-      // Gửi trạng thái hoàn thành
-      busTrackingService.updateDriverStatus({
-        isRunning: false,
-        driverStatus: "completed",
-        currentStopIndex: stopIdx
-      });
-    } else {
-      // Tiếp tục chuyến đi - resume animation, xe sẽ tự động tới stop tiếp theo
-      // Gửi currentStopIndex hiện tại (chưa +1) vì xe vẫn đang ở stop này, chưa di chuyển
-      busTrackingService.updateDriverStatus({
-        isRunning: true,
-        driverStatus: "in_progress", 
-        currentStopIndex: stopIdx, //  Không +1, vì xe chưa tới stop tiếp theo
-        resumeFromPause: true
-      });
     }
+    busTrackingService.controlTrip("resume");
 
     setPausedWpIdx(null);
-    setResumeFn(null);
     setShowArrival(false);
     setShowStudents(false);
   };
@@ -346,7 +383,7 @@ const estimatedTime = nextStop
           description: createdIncident.description,
           type: createdIncident.incident_type,
           timestamp: new Date(),
-          route: 'Tuyến 1'
+          route: schedule?.routeName || `Tuyến ${schedule?.routeId || ""}`
         }
       });
       console.log(' Driver broadcasted incident alert:', createdIncident);
@@ -355,38 +392,21 @@ const estimatedTime = nextStop
     setShowIncident(false);
   };
 
-  const confirmEndTrip = () => {
-    setStatus("completed");
-    setTracking(false);
-    updateActiveTripSession("cleared");
-    
-    // Cập nhật trạng thái lịch làm việc lên backend (actual_end_time = thời điểm hiện tại trên server)
-    if (scheduleId) {
-      schedulesService
-        .updateScheduleStatus(scheduleId, "completed")
-        .catch((err) => {
-          console.error(" Không thể cập nhật trạng thái lịch trình:", err);
-        });
-    }
-
-    // Tính lại quãng đường tuyến và lưu vào DB (dựa trên route_stops)
-    if (schedule?.routeId) {
-      routesService
-        .recalculateRouteDistance(schedule.routeId)
-        .catch((err) => {
-          console.error(" Không thể tính lại quãng đường tuyến:", err);
-        });
-    }
-    
-    // Gửi trạng thái kết thúc qua WebSocket
-    busTrackingService.updateDriverStatus({
-      isRunning: false,
-      driverStatus: "completed",
-      currentStopIndex: stops.length - 1
-    });
-    
-    pushNotice("success", " Đã kết thúc chuyến đi");
+  const confirmEndTrip = async () => {
     setShowEndTrip(false);
+    try {
+      if (scheduleId) {
+        await schedulesService.updateScheduleStatus(scheduleId, "completed");
+      }
+      busTrackingService.controlTrip("stop");
+      setStatus("completed");
+      setTracking(false);
+      updateActiveTripSession("cleared");
+      pushNotice("success", " Đã kết thúc chuyến đi");
+    } catch (err) {
+      pushNotice("error", err?.message || "Không thể kết thúc chuyến");
+      return;
+    }
     setTimeout(() => navigate("/driver/schedule"), 2000);
   };
 
@@ -587,118 +607,11 @@ const estimatedTime = nextStop
               </Marker>
             ))}
 
-            {status === "in_progress" && stops.length > 0 && (
-              <BusRouteDriver
+            {status !== "not_started" && stops.length > 0 && (
+              <BusRouteLayer
                 waypoints={routeWaypoints}
-                speedMetersPerSec={15}
-                loop={false}
-                isRunning={true} // Driver component - always running when in_progress
-                onPositionUpdate={(position) => {
-                  setBusCurrentPosition(position);
-
-                  // Debug: throttle để không spam console
-                  const now = Date.now();
-                  if (now - lastPosDebugAtRef.current > 5000) {
-                    lastPosDebugAtRef.current = now;
-                    console.debug(`${DEBUG_TAG} position`, {
-                      scheduleId,
-                      routeId: schedule?.routeId,
-                      stopIdx,
-                      lat: position?.lat,
-                      lng: position?.lng
-                    });
-                  }
-                  
-                  // Gửi vị trí realtime qua WebSocket
-                  busTrackingService.updateDriverStatus({
-                    currentPosition: position
-                  });
-
-                  // Ghi log GPS vào DB (background, không chặn UI)
-                  try {
-                    trackingService.logLocation({
-                      busId: schedule?.busId,
-                      driverId: schedule?.driverId,
-                      scheduleId: scheduleId ? Number(scheduleId) : null,
-                      latitude: position.lat,
-                      longitude: position.lng,
-                      speed: null,
-                      heading: null,
-                      accuracy: null
-                    });
-                  } catch (err) {
-                    console.warn(' Failed to log location:', err?.message || err);
-                  }
-                }}
-                onTripComplete={({ finalStopIndex, finalPosition }) => {
-                  const fallbackIndex = stops.length > 0 ? stops.length - 1 : 0;
-                  const finalIndex = typeof finalStopIndex === "number" ? finalStopIndex : fallbackIndex;
-                  const finalStop = stops[finalIndex];
-                  const lastPos = finalPosition || (finalStop ? { lat: finalStop.lat, lng: finalStop.lng } : null);
-
-                  setStopIdx(finalIndex);
-                  setPausedWpIdx(null);
-                  setResumeFn(null);
-                  setShowStudents(false);
-                  setShowArrival(false);
-                  setStatus("completed");
-                  updateActiveTripSession("cleared");
-                  if (lastPos) {
-                    setBusCurrentPosition(lastPos);
-                  }
-
-                  busTrackingService.updateDriverStatus({
-                    isRunning: false,
-                    driverStatus: "completed",
-                    currentStopIndex: finalIndex,
-                    currentPosition: lastPos || busCurrentPosition
-                  });
-
-                  // Cập nhật trạng thái lịch làm việc lên backend (actual_end_time = thời điểm hiện tại trên server)
-                  if (scheduleId) {
-                    schedulesService
-                      .updateScheduleStatus(scheduleId, "completed")
-                      .catch((err) => {
-                        console.error(
-                          " Không thể cập nhật trạng thái lịch trình (auto):",
-                          err
-                        );
-                      });
-                  }
-
-                  // Tính lại quãng đường tuyến và lưu vào DB (dựa trên route_stops)
-                  if (schedule?.routeId) {
-                    routesService
-                      .recalculateRouteDistance(schedule.routeId)
-                      .catch((err) => {
-                        console.error(
-                          " Không thể tính lại quãng đường tuyến:",
-                          err
-                        );
-                      });
-                  }
-
-                  pushNotice("success", " Đã hoàn thành tuyến đường (tự động)");
-                }}
-                onReachStop={(wpIdx, resumeFn) => {
-                  setStopIdx(wpIdx);
-                  setPausedWpIdx(wpIdx);
-                  setResumeFn(() => resumeFn);
-                  setShowStudents(true);
-                  
-                  // Gửi trạng thái pause qua WebSocket
-                  busTrackingService.updateDriverStatus({
-                    isRunning: false,
-                    driverStatus: "paused",
-                    currentStopIndex: wpIdx,
-                    currentPosition: busCurrentPosition
-                  });
-                  
-                  pushNotice(
-                    "warning",
-                    ` Đã đến điểm dừng: ${stops[wpIdx].name} - chờ xác nhận`
-                  );
-                }}
+                isVisible={status !== "not_started"}
+                currentPosition={busCurrentPosition}
               />
             )}
           </MapContainer>

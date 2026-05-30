@@ -48,7 +48,6 @@ export default function ParentPage() {
     currentPosition: null,
     isRunning: false
   });
-  const [busPosition, setBusPosition] = useState(null);
 
   const displayedNotificationsRef = useRef(new Set());
   // Chống race-condition khi load route stops (request cũ về sau không được ghi đè)
@@ -99,7 +98,6 @@ export default function ParentPage() {
     setRouteId(null);
     setRouteStops([]);
     setBusInfo(null);
-    setBusPosition(null);
     setBusStatus({
       driverStatus: 'idle',
       currentStopIndex: 0,
@@ -288,10 +286,6 @@ export default function ParentPage() {
           isRunning: false
         }));
 
-        if (status.currentPosition) {
-          setBusPosition(status.currentPosition);
-        }
-
         // Grace period (ms). Đủ để phụ huynh nhìn lại trước khi UI ẩn theo Option B.
         clearCompletedTimeoutRef.current = setTimeout(() => {
           clearActiveTripUI();
@@ -307,10 +301,6 @@ export default function ParentPage() {
         currentStopIndex: status.currentStopIndex ?? prev.currentStopIndex,
         currentPosition: status.currentPosition || prev.currentPosition
       }));
-
-      if (status.currentPosition) {
-        setBusPosition(status.currentPosition);
-      }
 
       if (status.incidentAlert) {
         const incidentKey = `incident-${status.incidentAlert.description}-${status.incidentAlert.timestamp || Date.now()}`;
@@ -351,7 +341,8 @@ export default function ParentPage() {
     busTrackingService.on('bus_status_update', handleBusStatusUpdate);
 
     return () => {
-      busTrackingService.off('bus_status_update', handleBusStatusUpdate);
+      busTrackingService.off("bus_status_update", handleBusStatusUpdate);
+      if (activeTripId) busTrackingService.leaveTrip(activeTripId);
       if (clearCompletedTimeoutRef.current) {
         clearTimeout(clearCompletedTimeoutRef.current);
         clearCompletedTimeoutRef.current = null;
@@ -404,12 +395,7 @@ export default function ParentPage() {
             />
 
             {/* Bản đồ tracking */}
-            <BusTrackingMap
-              stops={routeStops}
-              busStatus={busStatus}
-              busPosition={busPosition}
-              currentStopIndex={busStatus.currentStopIndex}
-            />
+            <BusTrackingMap stops={routeStops} busStatus={busStatus} />
           </>
         )}
 

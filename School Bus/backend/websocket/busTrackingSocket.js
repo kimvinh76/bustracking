@@ -1,120 +1,132 @@
-// WebSocket server cho realtime tracking, ĐÃ NÂNG CẤP LÊN SOCKET.IO
-// Ý NGHĨA CÁC THAY ĐỔI:
-// - Sử dụng 'socket.io' thay cho 'ws' để có các tính năng cao cấp hơn.
-// - Bỏ quản lý client thủ công: Socket.IO tự quản lý kết nối.
-// - Sử dụng Rooms: Mỗi chuyến đi (`tripId`) là một "phòng". Client (tài xế, phụ huynh) sẽ "tham gia" vào phòng này.
-// - Gửi tin nhắn theo mục tiêu: Cập nhật vị trí chỉ được gửi đến các client trong cùng một phòng, thay vì gửi cho tất cả mọi người.
-// - Tự động giữ kết nối: Socket.IO tự xử lý ping/pong và kết nối lại.
 
 import { Server } from 'socket.io';
-import RouteService from '../services/routeService.js';
+import TripSimulationService from '../services/tripSimulationService.js';
+import TripSimulationModel from '../models/TripSimulation.js';
 
+/**
+ * BusTrackingSocket
+ * - Điều phối kết nối Socket.IO cho realtime bus_status_update.
+ * - Nhận các control từ driver (start/pause/resume/stop) và ủy quyền cho
+ *   TripSimulationService thực hiện mô phỏng.
+ * - Lưu trạng thái hiện tại trong `tripStatuses` để khi client join có thể
+ *   nhận ngay trạng thái hiện tại.
+ */
 class BusTrackingSocket {
   constructor() {
     this.io = null;
-    // Quản lý trạng thái của từng chuyến đi riêng biệt
-    this.tripStatuses = new Map(); 
+    this.tripStatuses = new Map();
+    this.tripSimulator = new TripSimulationService({
+      emitStatus: (tripId, status) => this.updateBusStatus(tripId, status)
+    });
   }
-
-  // Khởi tạo Socket.IO server
+ 
   init(server) {
-    // Cấu hình CORS để cho phép client từ frontend kết nối vào
     this.io = new Server(server, {
       cors: {
-        origin: "http://localhost:5173", // Địa chỉ của frontend
-        methods: ["GET", "POST"]
+        origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+        methods: ['GET', 'POST']
       }
     });
 
-    // Lắng nghe sự kiện khi có một client mới kết nối
     this.io.on('connection', (socket) => {
       console.log(`New client connected: ${socket.id}`);
 
-      // 1. THAM GIA PHÒNG (ROOM)
-      // Client sẽ gửi sự kiện 'join_trip' với tripId để tham gia vào phòng theo dõi tương ứng
+      // Client tham gia room để nhận updates cho trip cụ thể
       socket.on('join_trip', ({ tripId }) => {
         if (!tripId) return;
-        
-        // Cho socket này tham gia vào phòng có tên là tripId
-        socket.join(tripId);
-        console.log(`Client ${socket.id} joined trip room: ${tripId}`);
+        const roomId = String(tripId);
+        socket.join(roomId);
+        console.log(`Client ${socket.id} joined trip room: ${roomId}`);
 
-        // Gửi trạng thái hiện tại của chuyến đi cho client vừa tham gia
-        const currentStatus = this.tripStatuses.get(tripId) || this.getInitialStatus(tripId);
+        const currentStatus = this.tripStatuses.get(roomId) || this.getInitialStatus(roomId);
         socket.emit('bus_status_update', currentStatus);
       });
 
-      // 2. TÀI XẾ CẬP NHẬT TRẠNG THÁI
-      // Lắng nghe sự kiện cập nhật từ tài xế
-      socket.on('driver_status_update', async ({ tripId, status }) => {
+      // Client rời room
+      socket.on('leave_trip', ({ tripId }) => {
         if (!tripId) return;
-
-        let etaNextStop = null;
-
-        // Tính toán ETA bằng OSRM nếu có đủ thông tin vị trí và điểm đến tiếp theo
-        if (status.currentPosition && status.nextStop && status.nextStop.lat && status.nextStop.lng) {
-            try {
-                const durationInSeconds = await RouteService.getEtaOSRM(
-                    status.currentPosition.lat, status.currentPosition.lng,
-                    status.nextStop.lat, status.nextStop.lng
-                );
-                // etaNextStop = Math.ceil(durationInSeconds / 60); // Đổi ra phút
-                // Hoặc giữ nguyên giây nếu FE cần, user yêu cầu "Math.ceil(durationInSeconds / 60)" logic trong prompt
-                etaNextStop = Math.ceil(durationInSeconds / 60); 
-            } catch (err) {
-                console.error("Error calculating ETA:", err);
-            }
-        }
-
-        // Lấy trạng thái cũ, kết hợp với trạng thái mới và cập nhật
-        const currentStatus = this.tripStatuses.get(tripId) || this.getInitialStatus(tripId);
-        const newStatus = {
-          ...currentStatus,
-          ...status,
-          etaNextStop: etaNextStop, // Thêm dữ liệu ETA vào status
-          lastUpdate: new Date()
-        };
-        this.tripStatuses.set(tripId, newStatus);
-
-        // Gửi cập nhật đến TẤT CẢ client trong cùng một phòng (tripId)
-        this.io.to(tripId).emit('bus_status_update', newStatus);
-        console.log(`Status updated for trip ${tripId}:`, newStatus);
+        socket.leave(String(tripId));
       });
-      
-      // 3. XỬ LÝ KHI CLIENT NGẮT KẾT NỐI
+
+      // Cảnh báo / pickup — không phải nguồn vị trí (vị trí do tripSimulator phát)
+      // Chỉ merge cảnh báo (sự cố, đón HS) — vị trí xe do tripSimulator phát
+      // Driver gửi các bản tin cảnh báo/alert (không phải vị trí). Merge và
+      // broadcast để các client khác nhận cảnh báo kèm vị trí hiện tại.
+      socket.on('driver_status_update', ({ tripId, status }) => {
+        if (!tripId || !status) return;
+        this._mergeAndBroadcast(String(tripId), status);
+      });
+
+      // Driver điều khiển trip: start/pause/resume/stop. Các hành động này
+      // được chuyển sang TripSimulationService để xử lý và persist checkpoint.
+      socket.on('driver_trip_control', async ({ tripId, action, routeId, speedMetersPerSec }) => {
+        if (!tripId || !action) return;
+        const roomId = String(tripId);
+
+        try {
+          const actions = {
+            start: () => this.tripSimulator.startTrip({ tripId: roomId, routeId, speedMetersPerSec }),
+            pause: () => this.tripSimulator.pauseTrip(roomId),
+            resume: () => this.tripSimulator.resumeTrip(roomId),
+            stop: () => this.tripSimulator.stopTrip(roomId)
+          };
+          const handler = actions[action];
+          if (!handler) return;
+          if (action === 'start' && !routeId) return;
+          await handler();
+        } catch (error) {
+          console.error(`Trip control error (${action}) for ${roomId}:`, error);
+        }
+      });
+
       socket.on('disconnect', () => {
         console.log(`Client disconnected: ${socket.id}`);
-        // Socket.IO tự động dọn dẹp client ra khỏi các phòng
       });
     });
 
     console.log('Socket.IO server initialized');
+    // Khi khởi tạo socket server thì cố gắng restore các trip đang active
+    // từ DB (nếu có checkpoint). Nếu restore thất bại sẽ log và tiếp tục.
+    this.tripSimulator.restoreActiveTrips().catch((err) => {
+      console.warn('Trip restore failed:', err?.message || err);
+    });
   }
 
-  // API để các phần khác của backend (ví dụ: REST endpoint) có thể cập nhật trạng thái
+  _mergeAndBroadcast(roomId, patch) {
+    // Hợp nhất patch (ví dụ alert) với trạng thái hiện tại rồi broadcast
+    const current = this.tripStatuses.get(roomId) || this.getInitialStatus(roomId);
+    const newStatus = { ...current, ...patch, lastUpdate: new Date() };
+    this.tripStatuses.set(roomId, newStatus);
+    this.io?.to(roomId).emit('bus_status_update', newStatus);
+    return newStatus;
+  }
+
   updateBusStatus(tripId, status) {
-    if (!tripId) return;
-
-    const currentStatus = this.tripStatuses.get(tripId) || this.getInitialStatus(tripId);
-    const newStatus = {
-      ...currentStatus,
-      ...status,
-      lastUpdate: new Date()
-    };
-    this.tripStatuses.set(tripId, newStatus);
-    
-    // Gửi cập nhật đến phòng tương ứng
-    this.io.to(tripId).emit('bus_status_update', newStatus);
-    console.log(`External status update for trip ${tripId}`);
+    // Cập nhật trạng thái in-memory và broadcast đến các client đang nghe
+    if (!tripId || !status) return;
+    const roomId = String(tripId);
+    this._mergeAndBroadcast(roomId, status);
+    if (status.driverStatus === 'completed') {
+      setTimeout(() => this.tripStatuses.delete(roomId), 60_000);
+    }
   }
 
-  // Helper để tạo trạng thái ban đầu cho một chuyến đi mới
+  /** Gọi khi reset schedule stale — tránh simulation mồ côi. */
+  async cleanupOrphanSimulations(cutoff) {
+    // Dọn các checkpoint quá cũ và xóa timers trong RAM để tránh orphaned simulations
+    const affected = await TripSimulationModel.cleanupStaleActive(cutoff);
+    if (affected > 0) {
+      this.tripSimulator.stopAllInMemory();
+    }
+    return affected;
+  }
+
   getInitialStatus(tripId) {
     return {
-      tripId: tripId,
+      tripId,
       isRunning: false,
       currentPosition: null,
-      driverStatus: "not_started",
+      driverStatus: 'not_started',
       lastUpdate: null
     };
   }

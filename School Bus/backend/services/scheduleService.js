@@ -41,6 +41,12 @@ class ScheduleService {
     const affected = await ScheduleModel.resetStaleInProgress(cutoffStr);
     if (affected > 0) {
       console.log(` SERVICE: Reset ${affected} schedule stale in_progress -> scheduled`);
+      try {
+        const { default: busTrackingSocket } = await import('../websocket/busTrackingSocket.js');
+        await busTrackingSocket.cleanupOrphanSimulations(cutoffStr);
+      } catch (err) {
+        console.warn(' SERVICE: cleanup orphan simulations failed:', err?.message || err);
+      }
     }
   }
 
@@ -68,6 +74,15 @@ class ScheduleService {
   static async getActiveSchedulesByRoutes(routeIds = [], limit = 1) {
     await this.resetStaleInProgressIfNeeded();
     return ScheduleModel.findActiveByRoutes(routeIds, limit);
+  }
+
+  /**
+   * Lấy tất cả lịch trình đang chạy (in_progress)
+   * Dùng cho Admin để chọn chuyến đang theo dõi.
+   */
+  static async getActiveSchedules(limit = 50) {
+    await this.resetStaleInProgressIfNeeded();
+    return ScheduleModel.findActive(limit);
   }
 
   /**

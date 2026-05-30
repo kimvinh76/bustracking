@@ -32,6 +32,19 @@ export const schedulesService = {
         }
     },
 
+    // Lấy danh sách chuyến đang chạy (Admin)
+    // GET /api/schedules/active-list?limit=50
+    getActiveSchedulesList: async (limit = 50) => {
+        try {
+            const lim = Number.isFinite(Number(limit)) ? Number(limit) : 50;
+            const response = await apiClient.get(`/schedules/active-list?limit=${lim}`);
+            return Array.isArray(response) ? response : [];
+        } catch (error) {
+            console.error('Error fetching active schedules list:', error);
+            throw error;
+        }
+    },
+
     // Lấy lịch làm việc của driver
     getDriverSchedules: async (driverId, params = {}) => {
         try {

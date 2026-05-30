@@ -61,7 +61,29 @@ CREATE TABLE `bus_locations` (
   `latitude` decimal(10,8) NOT NULL COMMENT 'Vĩ độ (-90 to 90)',
   `longitude` decimal(11,8) NOT NULL COMMENT 'Kinh độ (-180 to 180)',
   `timestamp` datetime DEFAULT current_timestamp() COMMENT 'Thời điểm ghi nhận'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Lịch sử vị trí GPS của xe bus';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Lịch sử GPS (tùy chọn, không dùng cho realtime; map dùng WebSocket)';
+
+-- --------------------------------------------------------
+
+--
+-- Cấu trúc bảng cho bảng `trip_simulations`
+-- Lưu trạng thái mô phỏng để khôi phục sau khi server restart
+--
+
+CREATE TABLE `trip_simulations` (
+  `trip_id` int(11) NOT NULL,
+  `route_id` int(11) NOT NULL,
+  `status` enum('in_progress','paused','completed') NOT NULL,
+  `current_stop_index` int(11) NOT NULL DEFAULT 0,
+  `current_lat` decimal(10,8) DEFAULT NULL,
+  `current_lng` decimal(11,8) DEFAULT NULL,
+  `segment_index` int(11) NOT NULL DEFAULT 0,
+  `segment_elapsed_ms` int(11) NOT NULL DEFAULT 0,
+  `pending_stop_indices` text DEFAULT NULL,
+  `speed_mps` decimal(10,2) DEFAULT 15.00,
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`trip_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Checkpoint mô phỏng (1 row/trip, xóa khi completed; restore sau restart)';
 
 -- --------------------------------------------------------
 

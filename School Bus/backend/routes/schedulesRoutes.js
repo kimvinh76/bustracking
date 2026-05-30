@@ -86,6 +86,26 @@ router.get('/active', async (req, res) => {
     }
 });
 
+// GET /api/schedules/active-list?limit=50 - Lấy danh sách chuyến đang chạy (Admin)
+router.get('/active-list', async (req, res) => {
+    console.log(' GET /api/schedules/active-list - Lấy danh sách chuyến đang chạy cho Admin');
+    try {
+        const { limit } = req.query;
+        const rows = await ScheduleService.getActiveSchedules(Number(limit) || 50);
+
+        res.json({
+            success: true,
+            data: rows
+        });
+    } catch (error) {
+        console.error(' Lỗi khi lấy danh sách chuyến đang chạy:', error.message);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
 // GET /api/schedules/driver/:driverId - Lấy danh sách lịch làm việc của tài xế
 router.get('/driver/:driverId', async (req, res) => {
     console.log(` GET /api/schedules/driver/${req.params.driverId} - Lấy lịch làm việc tài xế`);

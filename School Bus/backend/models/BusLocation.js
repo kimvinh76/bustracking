@@ -3,6 +3,13 @@
 
 import pool from '../config/db.js';
 
+/**
+ * BusLocation
+ * - Bảng `bus_locations` giữ lịch sử vị trí (audit/history) nếu cần phân tích
+ *   sau này (playback, analytics, debugging). Không dùng cho realtime.
+ * - Việc ghi vào bảng này là tùy chọn: nếu driver frontend passive không gửi
+ *   dữ liệu thường xuyên thì bảng này sẽ ít/không có bản ghi.
+ */
 class BusLocation {
   static async create(data) {
     const { bus_id, driver_id, schedule_id = null, latitude, longitude } = data;
