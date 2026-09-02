@@ -19,6 +19,8 @@ services:
       - FRONTEND_URL=http://localhost:${FRONTEND_PORT:-5173}
       - ENABLE_BUS_LOCATION_HISTORY=${ENABLE_BUS_LOCATION_HISTORY}
       - BUS_LOCATION_HISTORY_INTERVAL_MS=${BUS_LOCATION_HISTORY_INTERVAL_MS}
+      - REDIS_URL=redis://redis:6379
+      - OSRM_API_URL=${OSRM_API_URL}
     depends_on:
       db-mysql:
         condition: service_healthy
@@ -48,6 +50,7 @@ services:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME}
       MYSQL_ROOT_HOST: '%'
+      TZ: Asia/Ho_Chi_Minh
     ports:
       - "3306:3306" # Mở port để dùng DBeaver
     volumes:
@@ -62,6 +65,17 @@ services:
       retries: 5
     restart: unless-stopped
 
-# Định nghĩa volumes để lưu dữ liệu MySQL
+  # 4. Redis (For Trip Simulation State)
+  redis:
+    image: redis:7.0-alpine
+    container_name: school-bus-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+# Định nghĩa volumes
 volumes:
   mysql_data:
+  redis_data:

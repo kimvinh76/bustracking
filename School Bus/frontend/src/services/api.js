@@ -17,11 +17,11 @@ const apiClient = axios.create({
 // Request interceptor để thêm auth token (nếu cần)
 apiClient.interceptors.request.use(
     (config) => {
-        // Có thể thêm auth token ở đây
-        // const token = localStorage.getItem('authToken');
-        // if (token) {
-        //     config.headers.Authorization = `Bearer ${token}`;
-        // }
+        // Lấy token từ sessionStorage (do LoginPage lưu vào sessionStorage)
+        const token = sessionStorage.getItem('authToken');
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
         return config;
     },
     (error) => {
