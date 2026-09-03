@@ -235,7 +235,24 @@ export default function DriverSchedulePage() {
                         {schedule.ca}
                       </td>
                       <td className="px-6 py-4">
-                        <div className="font-medium text-slate-900">{schedule.time}</div>
+                        <div className="font-medium text-slate-900">{schedule.time} (DK)</div>
+                        {(schedule.actual_start_time || schedule.actual_end_time) && (
+                          <div className="text-sm font-medium text-green-700 mt-1">
+                            {(() => {
+                              const renderTime = (t) => {
+                                if (!t) return '--:--';
+                                try {
+                                  const d = new Date(t);
+                                  if (!isNaN(d.getTime())) return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+                                  return String(t).substring(11, 16);
+                                } catch { return '--:--'; }
+                              };
+                              const start = renderTime(schedule.actual_start_time);
+                              const end = renderTime(schedule.actual_end_time);
+                              return `${start} - ${end} (TT)`;
+                            })()}
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-slate-700">{schedule.route}</div>

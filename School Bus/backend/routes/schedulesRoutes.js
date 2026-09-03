@@ -27,18 +27,20 @@ const assignStudentsToStops = (stops, allStudents, timeOfDay) => {
             type = 'Kết thúc';
         }
 
-        // Backend gán học sinh vào từng stop (chỉ áp dụng cho điểm dừng thường)
+        // Backend gán học sinh vào từng stop
         const stopId = stop.stop_id ?? stop.id;
-        const studentsAtStop = type === 'Xuất phát' || type === 'Kết thúc' ? [] : allStudents.filter(student => {
-            const targetId = timeOfDay === 'morning' 
-                ? student.morning_pickup_stop_id 
-                : student.afternoon_dropoff_stop_id;
-            return Number(targetId) === Number(stopId);
+        const studentsAtStop = allStudents.filter(student => {
+            const sub = student.subscriptions?.find(s => s.shift_type === timeOfDay);
+            if (!sub) return false;
+            return Number(sub.stop_id) === Number(stopId);
         }).map(s => ({
             id: s.id,
             name: s.name,
             class: s.class || s.class_name,
+            grade: s.grade,
             phone: s.phone,
+            parent_name: s.parent_name,
+            parent_phone: s.parent_phone,
             status: 'waiting'
         }));
 
@@ -128,6 +130,8 @@ router.get('/driver/:driverId', async (req, res) => {
             date: row.date,
             ca: row.shift_type === 'morning' ? 'Sáng' : 'Chiều',
             time: `${row.scheduled_start_time?.substring(0, 5)} - ${row.scheduled_end_time?.substring(0, 5)}`,
+            actual_start_time: row.actual_start_time,
+            actual_end_time: row.actual_end_time,
             route: row.route_name || 'Tuyến chưa xác định',
             busNumber: row.license_plate || row.bus_number || 'N/A',
             status: row.status || 'scheduled',

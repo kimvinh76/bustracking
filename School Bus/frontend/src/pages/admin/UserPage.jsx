@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import UserTable from "../../components/admin/User/UserTable";
 import UserForm from "../../components/admin/User/UserForm";
+import apiClient from "../../services/api";
 
 function UserPage() {
     const [users, setUsers] = useState([]);
@@ -13,12 +14,10 @@ function UserPage() {
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch("http://localhost:5000/api/users"); // dùng URL đầy đủ
-            if (!res.ok) throw new Error(`Server returned ${res.status}`);
-            const data = await res.json();
+            const data = await apiClient.get("/users");
             setUsers(data);
         } catch (err) {
-            setError(err.message);
+            setError(err.message || 'Lỗi khi tải danh sách users');
         } finally {
             setLoading(false);
         }
@@ -41,19 +40,11 @@ function UserPage() {
     const handleDelete = async (user) => {
         if (!window.confirm(`Xác nhận xóa user "${user.username}"?`)) return;
         try {
-            const res = await fetch(`http://localhost:5000/api/users/${user.id}`, { 
-                method: "DELETE" 
-            });
-            
-            if (!res.ok) {
-                const errData = await res.json().catch(() => ({}));
-                throw new Error(errData.message || `Delete failed: ${res.status}`);
-            }
-            
+            await apiClient.delete(`/users/${user.id}`);
             setUsers((prev) => prev.filter((u) => u.id !== user.id));
         } catch (err) {
             console.error('Delete error:', err);
-            alert("Xóa thất bại: " + err.message);
+            alert("Xóa thất bại: " + (err.message || err.toString()));
         }
     };
 
@@ -63,29 +54,11 @@ function UserPage() {
             
             if (isEdit) {
                 // Update existing user
-                const res = await fetch(`http://localhost:5000/api/users/${formData.id}`, {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(formData),
-                });
-                if (!res.ok) {
-                    const errData = await res.json().catch(() => ({}));
-                    throw new Error(errData.message || `Update failed: ${res.status}`);
-                }
-                const updated = await res.json();
+                const updated = await apiClient.put(`/users/${formData.id}`, formData);
                 setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
             } else {
                 // Create new user
-                const res = await fetch("http://localhost:5000/api/users", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(formData),
-                });
-                if (!res.ok) {
-                    const errData = await res.json().catch(() => ({}));
-                    throw new Error(errData.message || `Create failed: ${res.status}`);
-                }
-                const created = await res.json();
+                const created = await apiClient.post("/users", formData);
                 setUsers((prev) => [created, ...prev]);
             }
             
@@ -93,7 +66,7 @@ function UserPage() {
             setEditingUser(null);
         } catch (err) {
             console.error('Form submit error:', err);
-            alert("Lưu thất bại: " + err.message);
+            alert("Lưu thất bại: " + (err.message || err.toString()));
         }
     };
 

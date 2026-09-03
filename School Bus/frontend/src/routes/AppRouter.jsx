@@ -13,6 +13,7 @@ import ParentLayout from "../layouts/ParentLayout";
 // --- Admin Pages ---
 import BusesPage from "../pages/admin/BusesPage";
 import RoutePage from "../pages/admin/RoutePage";
+import RouteBuilder from "../pages/admin/RouteBuilder";
 import Schedule from "../pages/admin/Schedule";
 import DriverPage from "../pages/admin/DriversPage";
 import StudentsPage from "../pages/admin/StudentsPage";
@@ -45,6 +46,7 @@ export default function AppRouter() {
             <Route index element={<Navigate to="/admin/mapview" replace />} />
             <Route path="mapview" element={<MapPage />} />
             <Route path="routes" element={<RoutePage />} />
+            <Route path="routes/:id/builder" element={<RouteBuilder />} />
             <Route path="buses" element={<BusesPage />} />
             <Route path="schedule" element={<Schedule />} />
             <Route path="drivers" element={<DriverPage />} />

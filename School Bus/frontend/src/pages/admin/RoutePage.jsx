@@ -1,14 +1,17 @@
-import AddRouteForm from "./AddRouteForm";
-import { Eye, SlidersHorizontal } from "lucide-react";
+import { Eye, SlidersHorizontal, Map } from "lucide-react";
 import DetailsBusForm from "./DetailsBusForm";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Header from "../../components/admin/Header";
 import Table from "../../components/common/Table";
 import ConfirmDialog from "../../components/UI/ConfirmDialog";
-import axios from "axios";
+import apiClient from "../../services/api";
 import boxDialog from "../../components/UI/BoxDialog";
+import axios from "axios";
+import AddRouteForm from "./AddRouteForm";
 
 export default function RoutePage() {
+  const navigate = useNavigate();
   const [isOpenFormAdd, setIsOpenFormAdd] = useState(false);
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,14 +29,14 @@ export default function RoutePage() {
         setLoading(true);
         setError(null);
         console.log("🔵 Fetching routes from API...");
-        const response = await axios.get("http://localhost:5000/api/routes", {
+        const data = await apiClient.get("/routes", {
           timeout: 15000, // 15 giây thay vì 10 giây
         });
-        console.log(" Routes response:", response.data);
+        console.log(" Routes response:", data);
 
-        if (response.data && response.data.data) {
+        if (data) {
           // Map backend data to frontend format
-          const mappedRoutes = response.data.data.map((route) => ({
+          const mappedRoutes = data.map((route) => ({
             ...route,
             name: route.route_name || route.name,
             // Backend trả về route_name
@@ -100,13 +103,10 @@ export default function RoutePage() {
   // Xóa route
   const handleDeleteRoute = async (id) => {
     try {
-      const response = await axios.delete(
-        `http://localhost:5000/api/routes/${id}`
-      );
-
-      if (response.data.success) {
+      const data = await apiClient.delete(`/routes/${id}`);
+      if (data) {
         setRoutes((prev) => prev.filter((route) => route.id !== id));
-        boxDialog("success");
+        boxDialog("success", "Xóa tuyến đường thành công!");
       }
     } catch (error) {
       console.error("Lỗi khi xóa route:", error);
@@ -234,6 +234,14 @@ export default function RoutePage() {
             setIsEditOpen(true);
           }}
           onDelete={(route) => handleDeleteClick(route)}
+          customActions={[
+            {
+              label: "Xếp Trạm",
+              icon: Map,
+              className: "bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100",
+              onClick: (route) => navigate(`/admin/routes/${route.id}/builder`)
+            }
+          ]}
           addButtonText="Thêm tuyến đường"
           filters={filters}
           emptyMessage={

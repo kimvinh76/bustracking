@@ -10,6 +10,7 @@ const Table = ({
   onView,
   onEdit,
   onDelete,
+  customActions = [],
   addButtonText = "Thêm mới",
   filters = [],
   isLoading = false,
@@ -145,6 +146,18 @@ const Table = ({
                           Xóa
                         </button>
                       )}
+                      
+                      {customActions.map((action, actionIdx) => (
+                        <button
+                          key={actionIdx}
+                          onClick={() => action.onClick(item)}
+                          className={`h-8 rounded-md px-3 font-medium transition flex items-center gap-1 text-xs whitespace-nowrap ${action.className || 'border border-slate-300 text-slate-700 hover:bg-slate-200'}`}
+                          title={action.label}
+                        >
+                          {action.icon && <action.icon size={12} />}
+                          {action.label}
+                        </button>
+                      ))}
                     </div>
                   </td>
                 </tr>

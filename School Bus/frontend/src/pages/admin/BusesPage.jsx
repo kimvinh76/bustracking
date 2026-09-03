@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import apiClient from "../../services/api";
 import AddBusForm from "./AddBusForm";
 import { Eye, SlidersHorizontal, Plus, Pencil, Trash2 } from "lucide-react";
 import DetailsBusForm from "./DetailsBusForm";
@@ -28,9 +28,9 @@ export default function BusesPage() {
     const fetchBuses = async () => {
       try {
         setLoading(true);
-        const response = await axios.get("http://localhost:5000/api/buses");
+        const data = await apiClient.get("/buses");
 
-        setBuses(response.data.data);
+        setBuses(data);
         setError(null);
       } catch (err) {
         setError(err.message);
@@ -46,14 +46,10 @@ export default function BusesPage() {
   // Xử lý xóa xe buýt
   const handleDeleteBus = async (id) => {
     try {
-      const response = await axios.delete(
-        `http://localhost:5000/api/buses/${id}`
-      );
+      await apiClient.delete(`/buses/${id}`);
 
-      if (response.data.success) {
-        setBuses((prev) => prev.filter((bus) => bus.id !== id));
-        boxDialog("success");
-      }
+      setBuses((prev) => prev.filter((bus) => bus.id !== id));
+      boxDialog("success");
     } catch (error) {
       console.error("Lỗi khi xóa xe:", error);
       boxDialog("error");

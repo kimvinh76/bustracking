@@ -8,6 +8,7 @@ import process from 'process';
 import pool from './config/db.js';
 import busRoutes from './routes/BusesRoutes.js';
 import routeRoutes from './routes/routeRoutes.js';
+import stopsRoutes from './routes/stopsRoutes.js';
 import studentsRoutes from './routes/studentsRoutes.js';
 import driversRoutes from './routes/driversRoutes.js';
 import parentsRoutes from './routes/parentsRoutes.js';
@@ -58,6 +59,7 @@ app.use(authMiddleware);
 
 app.use('/api/buses', busRoutes);
 app.use('/api/routes', routeRoutes);
+app.use('/api/stops', stopsRoutes);
 app.use('/api/students', studentsRoutes);
 app.use('/api/drivers', driversRoutes);
 app.use('/api/parents', parentsRoutes);

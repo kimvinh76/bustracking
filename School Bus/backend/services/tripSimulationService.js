@@ -23,13 +23,13 @@ class TripSimulationService {
     // Khôi phục các checkpoint từ Redis khi server khởi động lại.
     try {
       if (!redisClient.isOpen) await redisClient.connect();
-      
+
       const keys = await redisClient.keys('trip_simulation:*');
       for (const key of keys) {
         try {
           const dataStr = await redisClient.get(key);
           if (!dataStr) continue;
-          
+
           const row = JSON.parse(dataStr);
           const tripState = await this._createTripState({
             tripId: String(row.trip_id),
@@ -77,7 +77,7 @@ class TripSimulationService {
     });
 
     // Ghi checkpoint ngay khi start (force=true) để có thể resume nếu crash ngay.
-    this._persistState(tripState, 'in_progress', true).catch(() => {});
+    this._persistState(tripState, 'in_progress', true).catch(() => { });
     this._startTimer(tripState);
   }
 
@@ -89,7 +89,7 @@ class TripSimulationService {
     trip.paused = true;
     this._stopTimer(trip);
     this.emitStatus(tripId, { isRunning: false, driverStatus: 'paused', currentStopIndex: trip.currentStopIndex });
-    this._persistState(trip, 'paused', true).catch(() => {});
+    this._persistState(trip, 'paused', true).catch(() => { });
   }
 
   resumeTrip(tripId) {
@@ -100,7 +100,7 @@ class TripSimulationService {
     trip.paused = false;
     trip.lastTickAt = Date.now();
     this.emitStatus(tripId, { isRunning: true, driverStatus: 'in_progress', currentStopIndex: trip.currentStopIndex });
-    this._persistState(trip, 'in_progress', true).catch(() => {});
+    this._persistState(trip, 'in_progress', true).catch(() => { });
     this._startTimer(trip);
   }
 
@@ -120,7 +120,8 @@ class TripSimulationService {
       currentStopIndex: trip.stops.length - 1,
       currentPosition: lastPos
     });
-    this._finalizeTrip(trip).catch(() => {});
+
+    this._finalizeTrip(trip).catch(() => { });
   }
 
   /** Dừng mọi simulation trong RAM (khi reset schedule stale). */
@@ -272,7 +273,7 @@ class TripSimulationService {
         currentStopIndex: trip.stops.length - 1,
         currentPosition: finalPos
       });
-      this._finalizeTrip(trip).catch(() => {});
+      this._finalizeTrip(trip).catch(() => { });
       return;
     }
 
@@ -302,7 +303,7 @@ class TripSimulationService {
           currentStopIndex: nextStopIdx,
           currentPosition: currentPos
         });
-        this._persistState(trip, 'paused', true).catch(() => {});
+        this._persistState(trip, 'paused', true).catch(() => { });
         return;
       }
     }
@@ -313,7 +314,7 @@ class TripSimulationService {
       currentStopIndex: trip.currentStopIndex,
       currentPosition: currentPos
     });
-    this._persistState(trip, 'in_progress', false).catch(() => {});
+    this._persistState(trip, 'in_progress', false).catch(() => { });
   }
 
   _buildSegments(coords, speedMetersPerSec) {
@@ -411,7 +412,7 @@ class TripSimulationService {
         speed_mps: trip.speedMetersPerSec
       };
       await redisClient.set(`trip_simulation:${tripIdNum}`, JSON.stringify(payload));
-      
+
       // Optionally persist a history point to `bus_locations` (throttled)
       if (this.historyEnabled) {
         if (!trip.lastHistoryAt || now - trip.lastHistoryAt >= this.historyIntervalMs) {

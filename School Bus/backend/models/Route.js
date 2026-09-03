@@ -10,7 +10,7 @@ class RouteModel {
    */
   static async findAll() {
     console.log(' MODEL: Lấy tất cả tuyến đường từ database');
-    const [rows] = await pool.query('SELECT id, route_name, distance, status, created_at FROM routes ORDER BY id ASC');
+    const [rows] = await pool.query('SELECT id, route_name, shift_type, distance, status, created_at FROM routes ORDER BY id ASC');
     console.log(` MODEL: Tìm thấy ${rows.length} tuyến đường`);
     return rows;
   }
@@ -22,7 +22,7 @@ class RouteModel {
    */
   static async findById(id) {
     console.log(' MODEL: Tìm tuyến đường theo ID:', id);
-    const [rows] = await pool.query('SELECT id, route_name, distance, status, created_at FROM routes WHERE id = ?', [id]);
+    const [rows] = await pool.query('SELECT id, route_name, shift_type, distance, status, created_at FROM routes WHERE id = ?', [id]);
     
     const route = rows[0] || null;
     console.log(route ? ' MODEL: Tìm thấy tuyến đường' : ' MODEL: Không tìm thấy tuyến đường');
@@ -36,7 +36,7 @@ class RouteModel {
    */
   static async findByName(routeName) {
     console.log(' MODEL: Tìm tuyến đường theo tên:', routeName);
-    const [rows] = await pool.query('SELECT id, route_name, distance, status, created_at FROM routes WHERE route_name = ?', [routeName]);
+    const [rows] = await pool.query('SELECT id, route_name, shift_type, distance, status, created_at FROM routes WHERE route_name = ?', [routeName]);
     return rows[0] || null;
   }
 
@@ -119,14 +119,14 @@ class RouteModel {
    * @returns {Promise<Object>} Tuyến đường vừa tạo
    */
   static async create(routeData) {
-    const { route_name, distance, status = 'active' } = routeData;
+    const { route_name, shift_type = 'morning', distance, status = 'active' } = routeData;
     
     console.log(' MODEL: Tạo tuyến đường mới trong database');
-    console.log(' MODEL: Dữ liệu:', { route_name, distance, status });
+    console.log(' MODEL: Dữ liệu:', { route_name, shift_type, distance, status });
     
     const [result] = await pool.execute(
-      'INSERT INTO routes (route_name, distance, status) VALUES (?, ?, ?)',
-      [route_name, distance || null, status]
+      'INSERT INTO routes (route_name, shift_type, distance, status) VALUES (?, ?, ?, ?)',
+      [route_name, shift_type, distance || 0, status]
     );
     
     console.log(` MODEL: Insert thành công! insertId: ${result.insertId}`);
@@ -143,13 +143,13 @@ class RouteModel {
    * @returns {Promise<Object>} Tuyến đường sau khi cập nhật
    */
   static async update(id, routeData) {
-    const { route_name, distance, status = 'active' } = routeData;
+    const { route_name, shift_type, distance, status = 'active' } = routeData;
     
     console.log(' MODEL: Cập nhật tuyến đường ID:', id);
     
     await pool.execute(
-      'UPDATE routes SET route_name = ?, distance = ?, status = ? WHERE id = ?',
-      [route_name, distance || null, status, id]
+      'UPDATE routes SET route_name = ?, shift_type = COALESCE(?, shift_type), distance = COALESCE(?, distance), status = ? WHERE id = ?',
+      [route_name, shift_type, distance, status, id]
     );
     
     console.log(' MODEL: Cập nhật thành công');
@@ -214,6 +214,42 @@ class RouteModel {
     const deleted = result.affectedRows > 0;
     console.log(deleted ? ' MODEL: Xóa điểm dừng thành công' : ' MODEL: Không tìm thấy để xóa');
     return deleted;
+  }
+
+  /**
+   * Cập nhật danh sách điểm dừng hàng loạt (Bulk Update)
+   * @param {number} routeId - ID tuyến đường
+   * @param {Array} stopsArray - Mảng object [{stop_id, stop_order}]
+   */
+  static async updateStopsBulk(routeId, stopsArray) {
+    console.log(' MODEL: Cập nhật hàng loạt trạm cho tuyến', routeId);
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      
+      // 1. Xóa toàn bộ trạm cũ
+      await connection.execute('DELETE FROM route_stops WHERE route_id = ?', [routeId]);
+      
+      // 2. Insert trạm mới
+      if (stopsArray && stopsArray.length > 0) {
+        const values = stopsArray.map(s => [routeId, s.stop_id, s.stop_order]);
+        
+        await connection.query(
+          'INSERT INTO route_stops (route_id, stop_id, stop_order) VALUES ?',
+          [values]
+        );
+      }
+      
+      await connection.commit();
+      console.log(' MODEL: Cập nhật hàng loạt trạm thành công');
+      return true;
+    } catch (error) {
+      await connection.rollback();
+      console.error(' MODEL: Lỗi cập nhật hàng loạt trạm:', error);
+      throw error;
+    } finally {
+      connection.release();
+    }
   }
 
   /**

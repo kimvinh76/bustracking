@@ -63,11 +63,14 @@ class RouteService {
     console.log(' SERVICE: Dữ liệu nhận được:', routeData);
     
     // 1. Validation
-    const { route_name, distance, status = 'active' } = routeData;
+    const { route_name, shift_type, status = 'active' } = routeData;
     
     if (!route_name || !route_name.trim()) {
       console.log(' SERVICE: Thiếu thông tin bắt buộc');
       throw new Error('Thiếu thông tin bắt buộc: tên tuyến đường');
+    }
+    if (!shift_type || !['morning', 'afternoon'].includes(shift_type)) {
+      throw new Error('Thiếu hoặc sai thông tin phân ca (shift_type)');
     }
 
     console.log(' SERVICE: Validation passed');
@@ -81,15 +84,11 @@ class RouteService {
     
     console.log(' SERVICE: Không trùng tên tuyến');
 
-    // 3. Validate distance và duration (nếu có)
-    if (distance && distance < 0) {
-      throw new Error('Khoảng cách phải là số dương');
-    }
-
     // 4. Format dữ liệu
     const formattedData = {
       route_name: route_name.trim(),
-      distance: distance || null,
+      shift_type: shift_type,
+      distance: 0, // Luôn set 0, BE sẽ tự tính sau
       status: status || 'active'
     };
     
@@ -112,10 +111,14 @@ class RouteService {
     await this.getRouteById(id);
 
     // 2. Validation
-    const { route_name, distance, status = 'active' } = routeData;
+    const { route_name, shift_type, status = 'active' } = routeData;
     
     if (!route_name || !route_name.trim()) {
       throw new Error('Thiếu thông tin bắt buộc: tên tuyến đường');
+    }
+    
+    if (shift_type && !['morning', 'afternoon'].includes(shift_type)) {
+      throw new Error('Sai thông tin phân ca (shift_type)');
     }
 
     // 3. Kiểm tra trùng tên (loại trừ chính nó)
@@ -124,15 +127,10 @@ class RouteService {
       throw new Error('Tên tuyến đường đã tồn tại');
     }
 
-    // 4. Validate distance và duration
-    if (distance && distance < 0) {
-      throw new Error('Khoảng cách phải là số dương');
-    }
-
     // 5. Format dữ liệu
     const formattedData = {
       route_name: route_name.trim(),
-      distance: distance || null,
+      shift_type: shift_type || undefined,
       status: status || 'active'
     };
 
@@ -191,14 +189,14 @@ class RouteService {
     // 3. Thêm điểm dừng
     await RouteModel.addStop(routeId, stop_id, stop_order);
     
+    // Tự động tính lại khoảng cách ở background
+    this.recalculateRouteDistance(routeId).catch(err => console.error("Lỗi tự tính lại khoảng cách:", err));
+
     console.log(' SERVICE: Thêm điểm dừng thành công');
     return { message: 'Thêm điểm dừng thành công' };
   }
 
-  /**
-   * Xóa điểm dừng khỏi tuyến
-   */
-  static async removeStopFromRoute(routeStopId) {
+  static async removeStopFromRoute(routeStopId, routeId) {
     console.log(' SERVICE: Xóa điểm dừng khỏi tuyến');
     
     const deleted = await RouteModel.removeStop(routeStopId);
@@ -206,8 +204,38 @@ class RouteService {
       throw new Error('Không tìm thấy điểm dừng để xóa');
     }
 
+    if (routeId) {
+      // Tự động tính lại distance ở background
+      this.recalculateRouteDistance(routeId).catch(err => console.error("Lỗi tự tính lại khoảng cách:", err));
+    }
+
     console.log(' SERVICE: Xóa điểm dừng thành công');
     return { message: 'Xóa điểm dừng thành công' };
+  }
+
+  /**
+   * Cập nhật hàng loạt trạm cho tuyến (Bulk Update)
+   */
+  static async updateRouteStops(routeId, stopsArray) {
+    console.log(' SERVICE: Cập nhật hàng loạt trạm cho tuyến', routeId);
+    
+    // 1. Kiểm tra tồn tại
+    const route = await this.getRouteById(routeId);
+
+    // 2. Validation
+    if (!Array.isArray(stopsArray)) {
+      throw new Error('Danh sách trạm không hợp lệ');
+    }
+
+    // Tùy chọn: Validate logic phân ca (school stop order) nếu cần
+
+    // 3. Lưu vào DB
+    await RouteModel.updateStopsBulk(routeId, stopsArray);
+
+    // 4. Tính lại quãng đường
+    this.recalculateRouteDistance(routeId).catch(err => console.error("Lỗi tự tính lại khoảng cách:", err));
+
+    return { message: 'Cập nhật danh sách trạm thành công' };
   }
 
   /**
@@ -244,9 +272,31 @@ class RouteService {
 
     const stops = route.stops || [];
     if (stops.length < 2) {
-      throw new Error('Cần ít nhất 2 điểm dừng để tính quãng đường');
+      // Nếu ít hơn 2 trạm thì distance = 0
+      await RouteModel.updateDistance(id, 0);
+      return { ...route, calculated_distance: 0 };
     }
 
+    try {
+      // Gom tất cả tọa độ thành chuỗi cho OSRM (longitude,latitude;...)
+      const coordinates = stops.map(s => `${s.longitude},${s.latitude}`).join(';');
+      const url = `http://router.project-osrm.org/route/v1/driving/${coordinates}?overview=false`;
+      
+      const response = await axios.get(url);
+      if (response.data.routes && response.data.routes.length > 0) {
+        const distanceMeters = response.data.routes[0].distance;
+        const totalKm = distanceMeters / 1000;
+        const roundedDistance = Number(totalKm.toFixed(2));
+        
+        const updatedRoute = await RouteModel.updateDistance(id, roundedDistance);
+        console.log(` SERVICE: Đã cập nhật khoảng cách tuyến = ${roundedDistance} km (OSRM)`);
+        return { ...updatedRoute, calculated_distance: roundedDistance };
+      }
+    } catch (error) {
+      console.error('Lỗi tính khoảng cách bằng OSRM:', error.message);
+    }
+
+    // Fallback: Nếu OSRM lỗi, dùng Haversine
     let totalKm = 0;
     for (let i = 1; i < stops.length; i++) {
       const prev = stops[i - 1];
@@ -261,7 +311,7 @@ class RouteService {
 
     const roundedDistance = Number(totalKm.toFixed(2));
     const updatedRoute = await RouteModel.updateDistance(id, roundedDistance);
-    console.log(` SERVICE: Đã cập nhật khoảng cách tuyến = ${roundedDistance} km`);
+    console.log(` SERVICE: Đã cập nhật khoảng cách tuyến = ${roundedDistance} km (Haversine Fallback)`);
     return { ...updatedRoute, calculated_distance: roundedDistance };
   }
 }
