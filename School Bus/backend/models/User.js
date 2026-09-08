@@ -107,13 +107,13 @@ class UserModel {
    * @param {Object} userData - Dữ liệu người dùng
    * @returns {Promise<Object>} Người dùng vừa tạo
    */
-  static async create(userData) {
+  static async create(userData, connection = pool) {
     const { username, email, password, role = 'parent' } = userData;
     
     console.log(' MODEL: Tạo người dùng mới trong database');
     console.log(' MODEL: Dữ liệu:', { username, email, role });
     
-    const [result] = await pool.execute(
+    const [result] = await connection.execute(
       'INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)',
       [username, email, password, role]
     );
@@ -121,8 +121,8 @@ class UserModel {
     console.log(` MODEL: Insert thành công! insertId: ${result.insertId}`);
     
     // Lấy người dùng vừa tạo (không có password)
-    const newUser = await this.findById(result.insertId);
-    return newUser;
+    const [rows] = await connection.execute('SELECT id, username, email, role FROM users WHERE id = ?', [result.insertId]);
+    return rows[0];
   }
 
   /**

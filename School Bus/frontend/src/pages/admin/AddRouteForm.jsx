@@ -12,6 +12,7 @@ export default function AddRouteForm({
 }) {
   const [formData, setFormData] = useState({
     route_name: "",
+    shift_type: "morning",
     distance: "",
     status: "active",
   });
@@ -25,13 +26,15 @@ export default function AddRouteForm({
       if (mode === "edit" && initialData) {
         setFormData({
           route_name: initialData.route_name || "",
-          distance: initialData.distance || "",
+          shift_type: initialData.shift_type || "morning",
+          distance: initialData.distance || 0,
           status: initialData.status || "active",
         });
       } else {
         setFormData({
           route_name: "",
-          distance: "",
+          shift_type: "morning",
+          distance: 0,
           status: "active",
         });
       }
@@ -49,11 +52,6 @@ export default function AddRouteForm({
       newErrors.route_name = "Tên tuyến đường phải có ít nhất 3 ký tự";
     }
 
-    if (!formData.distance.trim()) {
-      newErrors.distance = "Khoảng cách là bắt buộc";
-    } else if (isNaN(formData.distance) || parseFloat(formData.distance) <= 0) {
-      newErrors.distance = "Khoảng cách phải là số dương";
-    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -97,15 +95,29 @@ export default function AddRouteForm({
         />
 
         <FormInput
-          label="Khoảng cách"
+          label="Phân ca (Sáng / Chiều)"
+          name="shift_type"
+          type="select"
+          value={formData.shift_type}
+          onChange={(e) => setFormData({ ...formData, shift_type: e.target.value })}
+          options={[
+            { value: "morning", label: "Ca Sáng" },
+            { value: "afternoon", label: "Ca Chiều" },
+          ]}
+          required
+        />
+
+        <FormInput
+          label="Khoảng cách (km)"
           name="distance"
           value={formData.distance}
           onChange={(e) =>
             setFormData({ ...formData, distance: e.target.value })
           }
-          placeholder="VD: 15 km"
+          placeholder={mode === "add" ? "Hệ thống tự động tính khi thêm trạm" : `${formData.distance} km (Tự động tính)`}
           error={errors.distance}
-          required
+          readOnly
+          disabled
         />
 
         <FormInput

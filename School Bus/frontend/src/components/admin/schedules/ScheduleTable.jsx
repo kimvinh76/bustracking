@@ -81,8 +81,54 @@ const ScheduleTable = ({ schedules = [], loading = false, onAdd, onEdit, onView,
         }
       }
     },
-    { key: 'start_time', header: 'Giờ bắt đầu' },
-    { key: 'end_time', header: 'Giờ kết thúc' },
+    { 
+      key: 'start_time', 
+      header: 'Giờ bắt đầu',
+      render: (value, row) => {
+        const renderTime = (timeData) => {
+          if (!timeData) return '';
+          try {
+            const d = new Date(timeData);
+            if (!isNaN(d.getTime())) return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+            return String(timeData).substring(11, 16);
+          } catch { return ''; }
+        };
+        return (
+          <div className="flex flex-col">
+            <span className="text-gray-700">{value ? value.substring(0, 5) : '--:--'} (DK)</span>
+            {row.actual_start_time && (
+              <span className="text-sm text-green-600 font-medium">
+                {renderTime(row.actual_start_time)} (TT)
+              </span>
+            )}
+          </div>
+        );
+      }
+    },
+    { 
+      key: 'end_time', 
+      header: 'Giờ kết thúc',
+      render: (value, row) => {
+        const renderTime = (timeData) => {
+          if (!timeData) return '';
+          try {
+            const d = new Date(timeData);
+            if (!isNaN(d.getTime())) return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+            return String(timeData).substring(11, 16);
+          } catch { return ''; }
+        };
+        return (
+          <div className="flex flex-col">
+            <span className="text-gray-700">{value ? value.substring(0, 5) : '--:--'} (DK)</span>
+            {row.actual_end_time && (
+              <span className="text-sm text-green-600 font-medium">
+                {renderTime(row.actual_end_time)} (TT)
+              </span>
+            )}
+          </div>
+        );
+      }
+    },
     { key: 'student_count', header: 'Số học sinh' },
     { 
       key: 'status', 

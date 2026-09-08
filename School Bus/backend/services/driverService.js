@@ -3,6 +3,7 @@
 
 import DriverModel from '../models/Driver.js';
 import UserModel from '../models/User.js';
+import pool from '../config/db.js';
 
 class DriverService {
   /**
@@ -96,6 +97,9 @@ class DriverService {
     const defaultPassword = "driver123"; // TODO: Hash password
     
     let user_id = null;
+    const connection = await pool.getConnection();
+    await connection.beginTransaction();
+
     try {
       const existingUser = await UserModel.findByEmail(email);
       if (existingUser) {
@@ -107,31 +111,35 @@ class DriverService {
         email,
         password: defaultPassword,
         role: 'driver'
-      });
+      }, connection);
       user_id = newUser.id;
       console.log(' SERVICE: Tạo user account thành công, user_id:', user_id);
+
+      // 5. Format dữ liệu
+      const formattedData = {
+        name,
+        phone,
+        license_number: license_number.toUpperCase(), // Uppercase
+        address: address || null,
+        status,
+        user_id
+      };
+      
+      console.log(' SERVICE: Dữ liệu sau khi format:', formattedData);
+
+      // 6. Tạo driver
+      const newDriver = await DriverModel.create(formattedData, connection);
+      
+      await connection.commit();
+      console.log(' SERVICE: Transaction commit thành công. Driver id:', newDriver.id);
+      return newDriver;
     } catch (err) {
-      console.log(' SERVICE: Lỗi tạo user account:', err.message);
-      throw new Error(`Lỗi tạo tài khoản: ${err.message}`);
+      await connection.rollback();
+      console.log(' SERVICE: Transaction rollback. Lỗi tạo driver:', err.message);
+      throw new Error(`Lỗi tạo tài khoản hoặc tài xế: ${err.message}`);
+    } finally {
+      connection.release();
     }
-
-    // 5. Format dữ liệu
-    const formattedData = {
-      name,
-      phone,
-      license_number: license_number.toUpperCase(), // Uppercase
-      address: address || null,
-      status,
-      user_id
-    };
-    
-    console.log(' SERVICE: Dữ liệu sau khi format:', formattedData);
-
-    // 6. Tạo driver
-    const newDriver = await DriverModel.create(formattedData);
-    
-    console.log(' SERVICE: Tạo tài xế thành công');
-    return newDriver;
   }
 
   /**

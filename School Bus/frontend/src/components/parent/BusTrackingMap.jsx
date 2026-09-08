@@ -42,7 +42,7 @@ export default function BusTrackingMap({ stops, busStatus }) {
 
       <div className="w-full h-[500px] relative rounded-lg overflow-hidden border">
         <MapContainer center={mapCenter} zoom={MAP_DEFAULT_ZOOM} style={{ height: "100%", width: "100%" }}>
-          <TileLayer attribution="&copy; OpenStreetMap" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+          <TileLayer attribution="&copy; OpenStreetMap" url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
           {stops.length > 0 && (
             <BusRouteLayer

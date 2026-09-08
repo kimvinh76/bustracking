@@ -148,6 +148,7 @@ const ScheduleForm = ({ schedule, mode, onSubmit, onCancel }) => {
           onChange={handleChange}
           error={errors.driver_id}
           options={drivers.map(d => ({ value: d.id, label: d.name }))}
+          placeholder="-- Chọn tài xế --"
           required
           readOnly={isReadOnly}
         />
@@ -160,6 +161,7 @@ const ScheduleForm = ({ schedule, mode, onSubmit, onCancel }) => {
           onChange={handleChange}
           error={errors.bus_id}
           options={buses.map(b => ({ value: b.id, label: b.license_plate }))}
+          placeholder="-- Chọn xe buýt --"
           required
           readOnly={isReadOnly}
         />
@@ -172,6 +174,7 @@ const ScheduleForm = ({ schedule, mode, onSubmit, onCancel }) => {
           onChange={handleChange}
           error={errors.route_id}
           options={routes.map(r => ({ value: r.id, label: r.route_name }))}
+          placeholder="-- Chọn tuyến đường --"
           required
           readOnly={isReadOnly}
         />
@@ -197,8 +200,8 @@ const ScheduleForm = ({ schedule, mode, onSubmit, onCancel }) => {
           options={[
             { value: 'morning', label: 'Ca sáng' },
             { value: 'afternoon', label: 'Ca chiều' },
-            { value: 'evening', label: 'Ca tối' },
           ]}
+          placeholder="-- Chọn loại ca --"
           required
           readOnly={isReadOnly}
         />

@@ -49,8 +49,10 @@ const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
     setFormData({
       name: student.name || '', grade: student.grade || '', class: student.class_name || student.class || '',
       parent_id: student.parent_id || '', phone: student.phone || '', address: student.address || '',
-      morning_route_id: student.morning_route_id || '', morning_pickup_stop_id: student.morning_pickup_stop_id || '',
-      afternoon_route_id: student.afternoon_route_id || '', afternoon_dropoff_stop_id: student.afternoon_dropoff_stop_id || ''
+      morning_route_id: student.subscriptions?.find(s => s.shift_type === 'morning')?.route_id || '',
+      morning_pickup_stop_id: student.subscriptions?.find(s => s.shift_type === 'morning')?.stop_id || '',
+      afternoon_route_id: student.subscriptions?.find(s => s.shift_type === 'afternoon')?.route_id || '',
+      afternoon_dropoff_stop_id: student.subscriptions?.find(s => s.shift_type === 'afternoon')?.stop_id || ''
     });
 
  
@@ -65,8 +67,8 @@ const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
       }
     };
     
-    loadStops(student.morning_route_id, setMorningRouteStops);
-    loadStops(student.afternoon_route_id, setAfternoonRouteStops);
+    loadStops(student.subscriptions?.find(s => s.shift_type === 'morning')?.route_id, setMorningRouteStops);
+    loadStops(student.subscriptions?.find(s => s.shift_type === 'afternoon')?.route_id, setAfternoonRouteStops);
   }, [student]);
 
   const validateForm = () => {
@@ -94,9 +96,22 @@ const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
       newErrors.grade = `Lớp ${formData.class} thuộc khối ${selectedClass.grade}`;
     }
 
+    // Validate Routes & Stops
+    if (formData.morning_route_id && !formData.morning_pickup_stop_id) {
+      newErrors.morning_pickup_stop_id = 'Vui lòng chọn điểm đón sáng';
+    }
+    if (formData.afternoon_route_id && !formData.afternoon_dropoff_stop_id) {
+      newErrors.afternoon_dropoff_stop_id = 'Vui lòng chọn điểm trả chiều';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
+
+  // Filter routes based on shift_type
+  const morningRoutes = allRoutes.filter(r => r.shift_type === 'morning');
+  const afternoonRoutes = allRoutes.filter(r => r.shift_type === 'afternoon');
+
 
   // Hàm trợ giúp: tải điểm dừng cho tuyến (sử dụng khi người dùng thay đổi select tuyến)
  
@@ -151,7 +166,6 @@ const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
- 
     if (mode === 'view') {
       onCancel();
       return;
@@ -160,7 +174,29 @@ const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
     if (validateForm()) {
       setLoading(true);
       try {
-        await onSubmit(formData);
+        const subscriptions = [];
+        if (formData.morning_route_id && formData.morning_pickup_stop_id) {
+          subscriptions.push({
+            shift_type: 'morning',
+            route_id: formData.morning_route_id,
+            stop_id: formData.morning_pickup_stop_id
+          });
+        }
+        if (formData.afternoon_route_id && formData.afternoon_dropoff_stop_id) {
+          subscriptions.push({
+            shift_type: 'afternoon',
+            route_id: formData.afternoon_route_id,
+            stop_id: formData.afternoon_dropoff_stop_id
+          });
+        }
+        
+        const {
+          morning_route_id, morning_pickup_stop_id,
+          afternoon_route_id, afternoon_dropoff_stop_id,
+          ...restData
+        } = formData;
+
+        await onSubmit({ ...restData, subscriptions });
       } finally {
         setLoading(false);
       }
@@ -251,7 +287,7 @@ const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
           value={formData.morning_route_id}
           onChange={handleChange}
           error={errors.morning_route_id}
-          options={[{ value: '', label: 'Chọn tuyến đi' }, ...(allRoutes || []).map(r => ({ value: r.id, label: r.route_name || r.name || `Tuyến ${r.id}` }))]}
+          options={[{ value: '', label: 'Không đi / Chọn tuyến đi' }, ...(morningRoutes || []).map(r => ({ value: r.id, label: r.route_name || r.name || `Tuyến ${r.id}` }))]}
           readOnly={isReadOnly}
         />
 
@@ -282,7 +318,7 @@ const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
           value={formData.afternoon_route_id}
           onChange={handleChange}
           error={errors.afternoon_route_id}
-          options={[{ value: '', label: 'Chọn tuyến về' }, ...(allRoutes || []).map(r => ({ value: r.id, label: r.route_name || r.name || `Tuyến ${r.id}` }))]}
+          options={[{ value: '', label: 'Không đi / Chọn tuyến về' }, ...(afternoonRoutes || []).map(r => ({ value: r.id, label: r.route_name || r.name || `Tuyến ${r.id}` }))]}
           readOnly={isReadOnly}
         />
 

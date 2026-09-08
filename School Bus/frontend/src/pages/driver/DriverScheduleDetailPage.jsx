@@ -12,7 +12,7 @@ const getCurrentDriverId = async () => {
       console.warn('User không có driverId. Vui lòng login lại.');
       return null;
     }
-    
+
     return user.driverId; // Trả về driverId trực tiếp từ session
   } catch (error) {
     console.error('Lỗi khi lấy driver ID:', error);
@@ -48,24 +48,24 @@ export default function DriverScheduleDetailPage() {
   const fetchScheduleDetail = async () => {
     try {
       setLoading(true);
-      
+
       console.log(' [DEBUG] Bắt đầu tải lịch làm việc, scheduleId:', id);
-      
+
       const driverId = await getCurrentDriverId();
       console.log(' [DEBUG] Driver ID:', driverId);
-      
+
       if (!driverId) {
         setError('Không tìm thấy thông tin tài xế. Vui lòng đăng nhập lại.');
         console.error(' Không có driverId');
         return;
       }
-      
+
       console.log(' [API CALL] Gọi schedulesService.getScheduleById:', { id, driverId });
       const response = await schedulesService.getScheduleById(id, driverId);
       console.log(' [API RESPONSE] Schedule data nhận được:', response);
-      
+
       const scheduleData = Array.isArray(response) ? response[0] : response;
-      
+
       // Normalize: Convert camelCase từ API sang snake_case cho frontend
       const normalizedSchedule = {
         ...scheduleData,
@@ -83,7 +83,7 @@ export default function DriverScheduleDetailPage() {
         // Giữ nguyên các field khác
         students: scheduleData.students || [],
       };
-      
+
       console.log(' [PROCESSED] Schedule data sau xử lý:', normalizedSchedule);
       console.log(' [FIELDS CHECK]:', {
         route_name: normalizedSchedule.route_name,
@@ -96,7 +96,7 @@ export default function DriverScheduleDetailPage() {
         end_point: normalizedSchedule.end_point,
         students: normalizedSchedule.students?.length || 0
       });
-      
+
       setSchedule(normalizedSchedule || null);
       setError(null);
     } catch (err) {
@@ -117,22 +117,22 @@ export default function DriverScheduleDetailPage() {
   const fetchScheduleStops = async () => {
     try {
       console.log(' [DEBUG] Bắt đầu tải điểm dừng, scheduleId:', id);
-      
+
       const driverId = await getCurrentDriverId();
       console.log(' [DEBUG] Driver ID cho stops:', driverId);
-      
+
       if (!driverId) {
         console.error(' Không có driverId cho stops');
         setStops([]);
         return;
       }
-      
+
       console.log(' [API CALL] Gọi schedulesService.getScheduleStops:', { driverId, id });
       const stopsData = await schedulesService.getScheduleStops(driverId, id);
       console.log(' [API RESPONSE] Stops data nhận được:', stopsData);
-      
+
       const stopsArray = stopsData?.stops || [];
-      
+
       // Normalize stops: đảm bảo các field có sẵn và đúng format
       const normalizedStops = stopsArray.map((stop, index) => ({
         ...stop,
@@ -142,10 +142,10 @@ export default function DriverScheduleDetailPage() {
         type: stop.type || stop.stopType || (stop.order === 0 ? 'Xuất phát' : stop.order === 99 ? 'Kết thúc' : 'Trung gian'),
         order: stop.order !== undefined ? stop.order : index,
       }));
-      
+
       console.log(' [PROCESSED] Stops array:', normalizedStops);
       console.log(' [STOPS COUNT]:', normalizedStops.length);
-      
+
       if (normalizedStops.length > 0) {
         console.log(' [FIRST STOP SAMPLE]:', normalizedStops[0]);
         console.log(' [STOPS FIELDS CHECK]:', {
@@ -156,7 +156,7 @@ export default function DriverScheduleDetailPage() {
           hasOrder: normalizedStops[0]?.order !== undefined
         });
       }
-      
+
       setStops(normalizedStops);
     } catch (err) {
       console.error(' [ERROR] Lỗi khi fetch stops:', err);
@@ -193,8 +193,8 @@ export default function DriverScheduleDetailPage() {
           <div className="text-center text-red-600">
             <div className="text-6xl mb-4"></div>
             <p className="mb-4 text-lg">{error}</p>
-            <button 
-              onClick={() => navigate(-1)} 
+            <button
+              onClick={() => navigate(-1)}
               className="px-6 py-3 bg-[#174D2C] text-white rounded-lg hover:bg-[#2a5d42] transition-colors"
             >
               Quay lại
@@ -213,8 +213,8 @@ export default function DriverScheduleDetailPage() {
           <div className="text-center">
             <div className="mb-4 flex justify-center"><FiCalendar className="w-12 h-12" aria-hidden="true" /></div>
             <p className="text-slate-500 text-lg">Không tìm thấy thông tin lịch làm việc</p>
-            <button 
-              onClick={() => navigate(-1)} 
+            <button
+              onClick={() => navigate(-1)}
               className="mt-4 px-6 py-3 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors"
             >
               Quay lại
@@ -228,7 +228,7 @@ export default function DriverScheduleDetailPage() {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 to-green-50/30">
       <Header title="CHI TIẾT LỊCH LÀM VIỆC" name={schedule?.driver_name || currentDriverName} />
-      
+
       <div className="flex-1 overflow-y-auto w-full px-6 py-4">
         {/* Thông tin chuyến - Card chính */}
         <div className="bg-white rounded-xl shadow-lg border border-[#D8E359]/20 p-6 mb-6">
@@ -238,9 +238,9 @@ export default function DriverScheduleDetailPage() {
                 Chi tiết chuyến {id}
               </h1>
               <p className="text-slate-600">
-                {schedule.route_name} • 
-                {schedule.scheduled_start_time?.substring(0, 5) } – 
-                {schedule.scheduled_end_time?.substring(0, 5) }
+                {schedule.route_name} •
+                {schedule.scheduled_start_time?.substring(0, 5)} –
+                {schedule.scheduled_end_time?.substring(0, 5)}
               </p>
             </div>
             <button
@@ -260,7 +260,7 @@ export default function DriverScheduleDetailPage() {
               <div className="flex items-center gap-3">
                 <span className="text-slate-600 font-medium min-w-[120px]">Ngày:</span>
                 <span className="font-semibold text-slate-900">
-                  {schedule.date ? 
+                  {schedule.date ?
                     (() => {
                       const [year, month, day] = schedule.date.split('-');
                       return `${day}/${month}/${year}`;
@@ -274,14 +274,14 @@ export default function DriverScheduleDetailPage() {
                   {(() => {
                     // Xác định loại ca dựa trên shift_type
                     if (schedule.shift_type) {
-                      const shiftTypeText = schedule.shift_type === 'morning' ? 'Sáng' : 
-                                           schedule.shift_type === 'afternoon' ? 'Chiều' : 
-                                           schedule.shift_type === 'evening' ? 'Tối' : 'Khác';
+                      const shiftTypeText = schedule.shift_type === 'morning' ? 'Sáng' :
+                        schedule.shift_type === 'afternoon' ? 'Chiều' : 'Tối';
+
                       return `Ca ${shiftTypeText}`;
                     } else {
-                   
+
                       const startHour = schedule.start_time ? parseInt(schedule.start_time.split(':')[0]) : 0;
-               
+
                       let shiftTypeText = '';
                       if (startHour >= 6 && startHour < 12) {
                         shiftTypeText = 'Sáng';
@@ -296,10 +296,28 @@ export default function DriverScheduleDetailPage() {
                 </span>
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-slate-600 font-medium min-w-[120px]">Thời gian:</span>
+                <span className="text-slate-600 font-medium min-w-[120px]">Giờ dự kiến:</span>
                 <span className="font-bold text-lg text-slate-900">
-                   {schedule.scheduled_start_time?.substring(0, 5) } – 
-                  {schedule.scheduled_end_time?.substring(0, 5)}
+                  {schedule.scheduled_start_time?.substring(0, 5)} – {schedule.scheduled_end_time?.substring(0, 5)}
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-slate-600 font-medium min-w-[120px]">Giờ thực tế:</span>
+                <span className="font-bold text-lg text-green-700">
+                  {(() => {
+                    const renderTime = (t) => {
+                      if (!t) return '--:--';
+                      try {
+                        const d = new Date(t);
+                        if (!isNaN(d.getTime())) return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+                        return String(t).substring(11, 16);
+                      } catch { return '--:--'; }
+                    };
+                    const start = renderTime(schedule.actual_start_time);
+                    const end = renderTime(schedule.actual_end_time);
+                    if (start === '--:--' && end === '--:--') return 'Chưa chạy';
+                    return `${start} – ${end}`;
+                  })()}
                 </span>
               </div>
               <div className="flex items-center gap-3">
@@ -315,7 +333,7 @@ export default function DriverScheduleDetailPage() {
                   {schedule.license_plate}
                 </span>
               </div>
-       
+
               <div className="flex items-center gap-3">
                 <span className="text-slate-600 font-medium min-w-[120px]">Học sinh:</span>
                 <div className="flex items-center gap-2">
@@ -344,16 +362,16 @@ export default function DriverScheduleDetailPage() {
                   </button>
                 </div>
               </div>
-          
+
             </div>
           </div>
         </div>
 
         {/* Modal danh sách học sinh */}
         {showStudentsModal && (
-          <div 
+          <div
             className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-            // onClick={(e) => e.target === e.currentTarget && setShowStudentsModal(false)}
+          // onClick={(e) => e.target === e.currentTarget && setShowStudentsModal(false)}
           >
             <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden animate-in fade-in zoom-in duration-200">
               {/* Modal Header */}
@@ -376,7 +394,7 @@ export default function DriverScheduleDetailPage() {
                   </button>
                 </div>
               </div>
-              
+
               {/* Modal Body */}
               <div className="overflow-auto max-h-[calc(90vh-120px)]">
                 <table className="w-full">
@@ -385,7 +403,7 @@ export default function DriverScheduleDetailPage() {
                       <th className="px-6 py-4 text-left font-semibold">STT</th>
                       <th className="px-6 py-4 text-left font-semibold">HỌ TÊN</th>
                       <th className="px-6 py-4 text-left font-semibold">LỚP</th>
-                
+
                       <th className="px-6 py-4 text-left font-semibold">PHỤ HUYNH</th>
                       <th className="px-6 py-4 text-left font-semibold">LIÊN HỆ</th>
                     </tr>
@@ -400,11 +418,10 @@ export default function DriverScheduleDetailPage() {
                         </td>
                       </tr>
                     ) : schedule.students.map((student, index) => (
-                      <tr 
-                        key={student.id} 
-                        className={`hover:bg-slate-50 transition-colors duration-200 ${
-                          index % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'
-                        }`}
+                      <tr
+                        key={student.id}
+                        className={`hover:bg-slate-50 transition-colors duration-200 ${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'
+                          }`}
                       >
                         <td className="px-6 py-4 font-bold text-slate-900 text-lg text-center">
                           {index + 1}
@@ -418,8 +435,8 @@ export default function DriverScheduleDetailPage() {
                             {student.class} - Khối {student.grade}
                           </span>
                         </td>
-                     
-                      
+
+
                         <td className="px-6 py-4">
                           <div className="font-semibold text-slate-900">
                             {student.parent_name || 'Chưa có thông tin'}
@@ -430,7 +447,7 @@ export default function DriverScheduleDetailPage() {
                             {student.parent_phone || student.phone || 'Chưa có'}
                           </div>
                           {(student.parent_phone || student.phone) && (
-                            <button 
+                            <button
                               className="text-sm bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1 rounded-lg transition-colors flex items-center gap-2"
                               onClick={() => window.open(`tel:${student.parent_phone || student.phone}`)}
                               aria-label={`Gọi ${student.parent_name || student.name}`}
@@ -445,15 +462,15 @@ export default function DriverScheduleDetailPage() {
                   </tbody>
                 </table>
               </div>
-              
-          
+
+
             </div>
           </div>
         )}
 
         {/* Modal danh sách điểm dừng */}
         {showStopsModal && (
-          <div 
+          <div
             className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           >
             <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden animate-in fade-in zoom-in duration-200">
@@ -477,7 +494,7 @@ export default function DriverScheduleDetailPage() {
                   </button>
                 </div>
               </div>
-              
+
               {/* Modal Body */}
               <div className="overflow-auto max-h-[calc(90vh-120px)]">
                 <table className="w-full">
@@ -499,11 +516,10 @@ export default function DriverScheduleDetailPage() {
                         </td>
                       </tr>
                     ) : stops.map((stop, index) => (
-                      <tr 
-                        key={`${stop.id || stop.order}-${index}`} 
-                        className={`hover:bg-slate-50 transition-colors duration-200 ${
-                          index % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'
-                        }`}
+                      <tr
+                        key={`${stop.id || stop.order}-${index}`}
+                        className={`hover:bg-slate-50 transition-colors duration-200 ${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'
+                          }`}
                       >
                         <td className="px-6 py-4 font-bold text-slate-900 text-lg text-center">
                           {index + 1}
@@ -518,13 +534,12 @@ export default function DriverScheduleDetailPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                            stop.order === 0 || stop.type?.toLowerCase().includes('xuất phát') || stop.type?.toLowerCase().includes('start') 
-                              ? 'bg-green-100 text-green-700' :
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${stop.order === 0 || stop.type?.toLowerCase().includes('xuất phát') || stop.type?.toLowerCase().includes('start')
+                            ? 'bg-green-100 text-green-700' :
                             stop.order === 99 || stop.type?.toLowerCase().includes('kết thúc') || stop.type?.toLowerCase().includes('end')
                               ? 'bg-red-100 text-red-700' :
-                            'bg-blue-100 text-blue-700'
-                          }`}>
+                              'bg-blue-100 text-blue-700'
+                            }`}>
                             {stop.type || (stop.order === 0 ? 'Xuất phát' : stop.order === 99 ? 'Kết thúc' : 'Trung gian')}
                           </span>
                         </td>

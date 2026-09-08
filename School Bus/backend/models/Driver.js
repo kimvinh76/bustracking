@@ -92,13 +92,13 @@ class DriverModel {
    * @param {Object} driverData - Dữ liệu tài xế
    * @returns {Promise<Object>} Tài xế vừa tạo
    */
-  static async create(driverData) {
+  static async create(driverData, connection = pool) {
     const { name, phone, license_number, address, status = 'active', user_id } = driverData;
     
     console.log(' MODEL: Tạo tài xế mới trong database');
     console.log(' MODEL: Dữ liệu:', { name, phone, license_number, status, user_id });
     
-    const [result] = await pool.execute(
+    const [result] = await connection.execute(
       'INSERT INTO drivers (name, phone, license_number, address, status, user_id) VALUES (?, ?, ?, ?, ?, ?)',
       [name, phone, license_number, address || null, status, user_id]
     );
@@ -106,8 +106,15 @@ class DriverModel {
     console.log(` MODEL: Insert thành công! insertId: ${result.insertId}`);
     
     // Lấy tài xế vừa tạo
-    const newDriver = await this.findById(result.insertId);
-    return newDriver;
+    const [rows] = await connection.execute(`
+      SELECT 
+        d.*,
+        u.username, u.email
+      FROM drivers d
+      LEFT JOIN users u ON d.user_id = u.id
+      WHERE d.id = ?
+    `, [result.insertId]);
+    return rows[0];
   }
 
   /**

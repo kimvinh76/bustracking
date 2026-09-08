@@ -20,6 +20,8 @@ const pool = mysql.createPool({
     enableKeepAlive: true,                           // Giữ kết nối sống
     keepAliveInitialDelay: 0,                        // Delay trước khi bắt đầu keep-alive
     connectTimeout: 10000,                           // Timeout khi kết nối (10s)
+    timezone: '+07:00',                              // Fix lệch múi giờ (UTC+7)
+    dateStrings: true,                               // Trả về string YYYY-MM-DD HH:mm:ss thay vì Date object (bị ép về UTC 'Z')
 });
 
 // 3. (Tùy chọn) Hàm kiểm tra kết nối nhanh

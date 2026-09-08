@@ -24,3 +24,6 @@ backend/.env
 *.njsproj
 *.sln
 *.sw?
+
+# Antigravity IDE agent rules
+.agents/

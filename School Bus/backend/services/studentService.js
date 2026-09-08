@@ -6,6 +6,7 @@
 
 import StudentModel from '../models/Student.js';
 import ClassModel from '../models/Class.js';
+import RouteModel from '../models/Route.js';
 
 class StudentService {
   /**
@@ -95,6 +96,23 @@ class StudentService {
     studentData.name = name.trim();
     studentData.class = class_name.trim();
 
+    // Validate subscriptions shift_type
+    if (studentData.subscriptions && studentData.subscriptions.length > 0) {
+      for (const sub of studentData.subscriptions) {
+        if (sub.route_id) {
+          const route = await RouteModel.findById(sub.route_id);
+          if (!route) {
+            throw new Error(`Không tìm thấy tuyến đường (ID: ${sub.route_id})`);
+          }
+          if (route.shift_type !== sub.shift_type) {
+            const shiftName1 = route.shift_type === 'morning' ? 'Sáng' : 'Chiều';
+            const shiftName2 = sub.shift_type === 'morning' ? 'Sáng' : 'Chiều';
+            throw new Error(`Tuyến đường "${route.route_name}" thuộc ca ${shiftName1}, không thể đăng ký cho ca ${shiftName2}`);
+          }
+        }
+      }
+    }
+
     // Tạo học sinh
     return await StudentModel.create(studentData);
   }
@@ -135,6 +153,23 @@ class StudentService {
     studentData.name = name.trim();
     studentData.class = class_name.trim();
 
+    // Validate subscriptions shift_type
+    if (studentData.subscriptions && studentData.subscriptions.length > 0) {
+      for (const sub of studentData.subscriptions) {
+        if (sub.route_id) {
+          const route = await RouteModel.findById(sub.route_id);
+          if (!route) {
+            throw new Error(`Không tìm thấy tuyến đường (ID: ${sub.route_id})`);
+          }
+          if (route.shift_type !== sub.shift_type) {
+            const shiftName1 = route.shift_type === 'morning' ? 'Sáng' : 'Chiều';
+            const shiftName2 = sub.shift_type === 'morning' ? 'Sáng' : 'Chiều';
+            throw new Error(`Tuyến đường "${route.route_name}" thuộc ca ${shiftName1}, không thể đăng ký cho ca ${shiftName2}`);
+          }
+        }
+      }
+    }
+
     return await StudentModel.update(id, studentData);
   }
 
@@ -171,22 +206,26 @@ class StudentService {
       throw new Error('Thiếu thông tin tuyến đường, thời gian hoặc trạm');
     }
 
-    // Lấy thông tin học sinh hiện tại
-    const student = await this.getStudentById(studentId);
-
-    // Cập nhật tuyến đường
-    const updateData = { ...student };
-
-    if (timeOfDay === 'morning') {
-      updateData.morning_route_id = routeId;
-      updateData.morning_pickup_stop_id = stopId;
-    } else if (timeOfDay === 'afternoon') {
-      updateData.afternoon_route_id = routeId;
-      updateData.afternoon_dropoff_stop_id = stopId;
-    } else {
+    if (!['morning', 'afternoon'].includes(timeOfDay)) {
       throw new Error('timeOfDay phải là "morning" hoặc "afternoon"');
     }
 
+    // Lấy thông tin học sinh hiện tại
+    const student = await this.getStudentById(studentId);
+
+    let subs = student.subscriptions || [];
+    
+    // Xóa subscription cũ của ca này
+    subs = subs.filter(s => s.shift_type !== timeOfDay);
+    
+    // Thêm subscription mới
+    subs.push({
+      shift_type: timeOfDay,
+      route_id: routeId,
+      stop_id: stopId
+    });
+
+    const updateData = { ...student, subscriptions: subs };
     return await StudentModel.update(studentId, updateData);
   }
 }

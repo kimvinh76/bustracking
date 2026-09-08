@@ -182,7 +182,7 @@ export default function HistoryPage() {
               <MapContainer center={mapCenter} zoom={MAP_DEFAULT_ZOOM} style={{ height: "100%", width: "100%" }}>
                 <TileLayer
                   attribution='&copy; OpenStreetMap'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
                 {polylinePositions.length > 1 && (
                   <Polyline positions={polylinePositions} pathOptions={{ color: "#2563eb", weight: 4 }} />

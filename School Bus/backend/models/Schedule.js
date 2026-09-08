@@ -289,15 +289,16 @@ class ScheduleModel {
    * Cập nhật trạng thái + actual_end_time (nếu có)
    * Dùng khi tài xế kết thúc chuyến hoặc admin đổi trạng thái.
    */
-  static async updateStatus(id, status, notes = null, actual_end_time = null) {
+  static async updateStatus(id, status, notes = null, actual_end_time = null, actual_start_time = null) {
     console.log(' MODEL: Cập nhật trạng thái lịch trình ID:', id, 'status =', status);
 
     await pool.execute(
       `UPDATE schedules 
        SET status = ?, notes = ?, 
-           actual_end_time = COALESCE(?, actual_end_time)
+           actual_end_time = COALESCE(?, actual_end_time),
+           actual_start_time = COALESCE(?, actual_start_time)
        WHERE id = ?`,
-      [status, notes, actual_end_time, id]
+      [status, notes, actual_end_time, actual_start_time, id]
     );
 
     const updated = await this.findById(id);

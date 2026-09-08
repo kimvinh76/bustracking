@@ -8,6 +8,7 @@ import process from 'process';
 import pool from './config/db.js';
 import busRoutes from './routes/BusesRoutes.js';
 import routeRoutes from './routes/routeRoutes.js';
+import stopsRoutes from './routes/stopsRoutes.js';
 import studentsRoutes from './routes/studentsRoutes.js';
 import driversRoutes from './routes/driversRoutes.js';
 import parentsRoutes from './routes/parentsRoutes.js';
@@ -36,9 +37,29 @@ app.use(cors({
 }));
 
 
+// check health
+app.get('/api/health', async (req, res) => {
+    try {
+        const connection = await pool.getConnection();
+        connection.release();
+        res.json({ success: true, message: 'Server and database are healthy', timestamp: new Date().toISOString() });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Database connection failed', error: error.message });
+    }
+});
+
+// Import authMiddleware
+import authMiddleware from './middlewares/authMiddleware.js';
+
 // API Routes
+app.use("/api/auth", authRoutes); // Auth route must be public
+
+// Apply authMiddleware to all routes below
+app.use(authMiddleware);
+
 app.use('/api/buses', busRoutes);
 app.use('/api/routes', routeRoutes);
+app.use('/api/stops', stopsRoutes);
 app.use('/api/students', studentsRoutes);
 app.use('/api/drivers', driversRoutes);
 app.use('/api/parents', parentsRoutes);
@@ -46,29 +67,8 @@ app.use('/api/classes', classesRoutes);
 app.use('/api/schedules', schedulesRoutes);
 app.use('/api/admin-schedules', adminschedulesRoutes);
 app.use("/api/users", userRoutes);
-app.use("/api/auth", authRoutes);
 app.use("/api/incidents", incidentsRoutes);
 app.use('/api/tracking', trackingRoutes);
-// check
-app.get('/api/health', async (req, res) => {
-    try {
-        // Test database connection
-        const connection = await pool.getConnection();
-        connection.release();
-        
-        res.json({
-            success: true,
-            message: 'Server and database are healthy',
-            timestamp: new Date().toISOString() 
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: 'Database connection failed',
-            error: error.message
-        });
-    }
-});
 
 // 404 handler
 app.use('*', (req, res) => {

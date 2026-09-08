@@ -176,4 +176,28 @@ router.put('/:id/recalculate-distance', async (req, res) => {
   }
 });
 
+// PUT /api/routes/:id/stops - Cập nhật danh sách trạm hàng loạt
+router.put('/:id/stops', async (req, res) => {
+  console.log(` PUT /api/routes/${req.params.id}/stops - Cập nhật hàng loạt trạm`);
+  try {
+    const { id } = req.params;
+    const { stops } = req.body;
+    
+    if (!stops || !Array.isArray(stops)) {
+      return res.status(400).json({ success: false, message: 'Danh sách trạm không hợp lệ' });
+    }
+
+    const result = await RouteService.updateRouteStops(id, stops);
+
+    res.status(200).json({
+      success: true,
+      message: result.message
+    });
+  } catch (error) {
+    console.error(' Lỗi khi cập nhật danh sách trạm:', error.message);
+    const statusCode = error.message.includes('không hợp lệ') ? 400 : 500;
+    res.status(statusCode).json({ success: false, message: error.message });
+  }
+});
+
 export default router;
