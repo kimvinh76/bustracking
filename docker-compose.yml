@@ -52,7 +52,7 @@ services:
       MYSQL_ROOT_HOST: '%'
       TZ: Asia/Ho_Chi_Minh
     ports:
-      - "3306:3306" # Mở port để dùng DBeaver
+      - "${DB_PORT:-3308}:3306" # Mở port để dùng DBeaver
     volumes:
       # Mount folder migrations để MySQL tự động chạy TẤT CẢ file SQL theo thứ tự abc (01 -> 05...)
       - ./database/migrations:/docker-entrypoint-initdb.d

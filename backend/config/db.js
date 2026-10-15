@@ -6,8 +6,16 @@ import process from 'process';
 // Tải các biến từ tệp .env
 dotenv.config();
 // 2. Cấu hình SSL cho Cloud Database (TiDB)
-const isProduction = process.env.NODE_ENV === 'production';
-const sslConfig = isProduction ? { rejectUnauthorized: true } : undefined;
+// Chỉ bật SSL khi kết nối tới Cloud Database (như TiDB Cloud), không bật khi chạy với MySQL local/Docker
+const isLocalDb = !process.env.DB_HOST || 
+                  process.env.DB_HOST === 'localhost' || 
+                  process.env.DB_HOST === '127.0.0.1' || 
+                  process.env.DB_HOST === 'db-mysql';
+
+const useSSL = process.env.DB_SSL === 'true' || 
+               (!isLocalDb && (process.env.NODE_ENV === 'production' || process.env.DB_HOST?.includes('tidbcloud')));
+
+const sslConfig = useSSL ? { minVersion: 'TLSv1.2', rejectUnauthorized: true } : undefined;
 // 3. Tạo Connection Pool
 const pool = mysql.createPool({
     host: process.env.DB_HOST || 'localhost',
