@@ -55,6 +55,8 @@ describe('redis URL helpers', () => {
   test('normalizes whitespace, surrounding quotes, and redis-cli command', () => {
     expect(normalizeRedisUrl('  "redis://localhost:6379"  ')).toBe('redis://localhost:6379');
     expect(normalizeRedisUrl("redis-cli -u redis://default:secret@host:1234")).toBe('redis://default:secret@host:1234');
+    expect(normalizeRedisUrl("redis-cli --tls -u redis://default:secret@host:6379")).toBe('rediss://default:secret@host:6379');
+    expect(normalizeRedisUrl("redis://default:secret@thorough-dove-173888.upstash.io:6379")).toBe('rediss://default:secret@thorough-dove-173888.upstash.io:6379');
   });
 
   test('validates redis:// and rediss:// URLs and rejects invalid values', () => {

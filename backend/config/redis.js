@@ -4,15 +4,31 @@ dotenv.config();
 
 /**
  * Normalize REDIS_URL from environment variables.
- * Strips surrounding quotes/whitespace and optional `redis-cli -u` prefix.
+ * Strips surrounding quotes/whitespace, handles `redis-cli [--tls] -u <url>`,
+ * and upgrades `redis://` to `rediss://` when TLS is required (e.g. `--tls` or Upstash).
  */
 export function normalizeRedisUrl(rawValue) {
     if (typeof rawValue !== 'string') return '';
     let cleaned = rawValue.trim().replace(/^["']|["']$/g, '').trim();
+    let forceTls = false;
+
     if (/^redis-cli\b/i.test(cleaned)) {
+        forceTls = /\s--tls(?:\s|$)/i.test(cleaned);
         const match = cleaned.match(/-u\s+["']?([^\s"']+)["']?/i);
         cleaned = match ? match[1].trim() : '';
     }
+
+    if (/^redis:\/\//i.test(cleaned)) {
+        try {
+            const parsed = new URL(cleaned);
+            if (forceTls || parsed.hostname.endsWith('.upstash.io')) {
+                cleaned = cleaned.replace(/^redis:\/\//i, 'rediss://');
+            }
+        } catch {
+            // Keep as-is so isValidRedisUrl rejects malformed URLs cleanly.
+        }
+    }
+
     return cleaned;
 }
 
