@@ -2,6 +2,7 @@
 import { Server } from 'socket.io';
 import TripSimulationService from '../services/tripSimulationService.js';
 import TripSimulationModel from '../models/TripSimulation.js';
+import { corsOriginValidator } from '../config/cors.js';
 
 /**
  * BusTrackingSocket
@@ -23,8 +24,9 @@ class BusTrackingSocket {
   init(server) {
     this.io = new Server(server, {
       cors: {
-        origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-        methods: ['GET', 'POST']
+        origin: corsOriginValidator,
+        methods: ['GET', 'POST'],
+        credentials: true
       }
     });
 
