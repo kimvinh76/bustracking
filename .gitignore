@@ -30,3 +30,6 @@ backend/.env
 
 # Local test folder (do not push)
 tests/
+
+# Personal CV file (do not push)
+CV_TruongKimVinh_ITSupport.html

@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import BusRouteLayer from "../../components/map/BusRouteLayer.jsx";
 import { mergeBusStatus, INITIAL_BUS_STATUS, isTripActiveOnMap, isPreTripOnMap } from "../../utils/mergeBusStatus.js";
-import { applyLeafletDefaultIcon } from "../../utils/mapDefaults.js";
+import { applyLeafletDefaultIcon, MAP_TILE_URL, MAP_TILE_ATTRIBUTION } from "../../utils/mapDefaults.js";
 import busTrackingService from "../../services/busTrackingService.js";
 import { schedulesService } from "../../services/schedulesService.js";
 import { routesService } from "../../services/routesService.js";
@@ -153,13 +153,13 @@ export default function MapPage() {
         padding: 0,
       }}
     >
-      <div className="flex justify-between items-center mb-3 pl-4">
+      <div className="flex flex-wrap justify-between items-center gap-3 mb-3 px-4">
         <h1 className="text-3xl font-bold text-[#174D2C]">Bản đồ</h1>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
             <label className="text-sm text-gray-600">Chuyến đang chạy:</label>
             <select
-              className="border rounded-md px-2 py-1 text-sm"
+              className="border rounded-md px-2 py-1 text-sm bg-white"
               value={selectedScheduleId || ""}
               onChange={(e) => setSelectedScheduleId(e.target.value || null)}
               disabled={loadingSchedules || activeSchedules.length === 0}
@@ -174,20 +174,28 @@ export default function MapPage() {
               ))}
             </select>
           </div>
-          <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-            busStatus.driverStatus === 'in_progress' ? 'bg-green-100 text-green-800' :
-            busStatus.driverStatus === 'paused' ? 'bg-yellow-100 text-yellow-800' :
-            busStatus.driverStatus === 'completed' ? 'bg-blue-100 text-blue-800' :
-            'bg-gray-100 text-gray-800'
-          }`}>
-            {busStatus.driverStatus === 'in_progress' ? ' Đang chạy' :
-             busStatus.driverStatus === 'paused' ? '⏸️ Đang dừng' :
-             busStatus.driverStatus === 'completed' ? ' Hoàn thành' :
-             '⏹️ Chưa bắt đầu'}
-          </div>
-          <div className="text-sm text-gray-600">
-            Điểm hiện tại: {busStatus.currentStopIndex + 1}/{routeStops.length || 0}
-          </div>
+          {selectedSchedule ? (
+            <>
+              <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                busStatus.driverStatus === 'in_progress' ? 'bg-green-100 text-green-800' :
+                busStatus.driverStatus === 'paused' ? 'bg-yellow-100 text-yellow-800' :
+                busStatus.driverStatus === 'completed' ? 'bg-blue-100 text-blue-800' :
+                'bg-gray-100 text-gray-800'
+              }`}>
+                {busStatus.driverStatus === 'in_progress' ? '🚌 Đang chạy' :
+                 busStatus.driverStatus === 'paused' ? '⏸️ Đang dừng' :
+                 busStatus.driverStatus === 'completed' ? '✅ Hoàn thành' :
+                 '⏹️ Chưa bắt đầu'}
+              </div>
+              <div className="text-sm text-gray-600 whitespace-nowrap">
+                Điểm hiện tại: {routeStops.length > 0 ? `${Math.min(busStatus.currentStopIndex + 1, routeStops.length)}/${routeStops.length}` : '0/0'}
+              </div>
+            </>
+          ) : (
+            <div className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
+              Chưa có chuyến hoạt động
+            </div>
+          )}
         </div>
       </div>
       
@@ -213,59 +221,67 @@ export default function MapPage() {
       )}
 
       <div
-        className="flex-1 rounded-xl overflow-hidden shadow-md border border-gray-300"
+        className="flex-1 rounded-xl overflow-hidden shadow-md border border-gray-300 relative"
         style={{
           width: "100%",
           height: "100%",
         }}
       >
-        {!routeWaypoints.length ? (
-          <div className="w-full h-full flex items-center justify-center text-gray-600">
-            Không có dữ liệu điểm dừng hợp lệ để hiển thị bản đồ.
+        {!routeWaypoints.length && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-white/95 backdrop-blur px-4 py-2 rounded-full shadow-md border border-gray-200 text-sm text-gray-700 font-medium">
+            Hiện chưa có chuyến xe buýt nào đang hoạt động
           </div>
-        ) : (
-          <MapContainer
-            key={mapKey}
-            center={mapCenter}
-            zoom={16}
-            style={{ height: "100%", width: "100%" }}
-            scrollWheelZoom
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-              url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
+        )}
+        <MapContainer
+          key={mapKey}
+          center={mapCenter}
+          zoom={routeWaypoints.length ? 16 : 15}
+          style={{ height: "100%", width: "100%" }}
+          scrollWheelZoom
+        >
+          <TileLayer
+            attribution={MAP_TILE_ATTRIBUTION}
+            url={MAP_TILE_URL}
+          />
 
-            {/* Hiển thị các điểm dừng */}
-            {validRouteStops.map((s, index) => (
-              <Marker key={s.id} position={[Number(s.lat), Number(s.lng)]}>
-                <Popup>
-                  <strong>{s.name}</strong>
-                  <br />Lat: {Number(s.lat).toFixed(5)}
-                  <br />Lng: {Number(s.lng).toFixed(5)}
-                  <br />Trạng thái: {index < busStatus.currentStopIndex ? 'Đã qua' : 
-                                     index === busStatus.currentStopIndex ? 'Hiện tại' : 'Chưa tới'}
-                </Popup>
-              </Marker>
-            ))}
+          {!routeWaypoints.length && (
+            <Marker position={campus}>
+              <Popup>
+                <strong>Trường THCS Nguyễn Du / Đại học Sài Gòn</strong>
+                <br />Chưa có chuyến xe đang chạy
+              </Popup>
+            </Marker>
+          )}
 
-            {/* Admin view - chỉ hiển thị khi driver đã bắt đầu */}
-          
+          {/* Hiển thị các điểm dừng */}
+          {validRouteStops.map((s, index) => (
+            <Marker key={s.id} position={[Number(s.lat), Number(s.lng)]}>
+              <Popup>
+                <strong>{s.name}</strong>
+                <br />Lat: {Number(s.lat).toFixed(5)}
+                <br />Lng: {Number(s.lng).toFixed(5)}
+                <br />Trạng thái: {index < busStatus.currentStopIndex ? 'Đã qua' : 
+                                   index === busStatus.currentStopIndex ? 'Hiện tại' : 'Chưa tới'}
+              </Popup>
+            </Marker>
+          ))}
+
+          {/* Admin view - chỉ hiển thị khi driver đã bắt đầu */}
+          {routeWaypoints.length > 0 && (
             <BusRouteLayer
               waypoints={routeWaypoints}
               isVisible={isTripActiveOnMap(busStatus.driverStatus)}
               currentPosition={busStatus.currentPosition}
             />
-            
-            {/* Hiển thị marker tĩnh khi driver chưa bắt đầu */}
-            {isPreTripOnMap(busStatus.driverStatus) && (
-              <Marker position={routeWaypoints[0] || [10.76, 106.68]}>
-                <Popup>Xe buýt chưa bắt đầu</Popup>
-              </Marker>
-            )}
-            
-          </MapContainer>
-        )}
+          )}
+          
+          {/* Hiển thị marker tĩnh khi driver chưa bắt đầu */}
+          {routeWaypoints.length > 0 && isPreTripOnMap(busStatus.driverStatus) && (
+            <Marker position={routeWaypoints[0] || [10.76, 106.68]}>
+              <Popup>Xe buýt chưa bắt đầu</Popup>
+            </Marker>
+          )}
+        </MapContainer>
       </div>
     </div>
   );

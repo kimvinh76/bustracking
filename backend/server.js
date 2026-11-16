@@ -6,6 +6,7 @@ import cors from 'cors';
 import http from 'http';
 import process from 'process';
 import pool from './config/db.js';
+import redisClient from './config/redis.js';
 import { corsOriginValidator } from './config/cors.js';
 import busRoutes from './routes/BusesRoutes.js';
 import routeRoutes from './routes/routeRoutes.js';
@@ -41,7 +42,24 @@ app.get('/api/health', async (req, res) => {
     try {
         const connection = await pool.getConnection();
         connection.release();
-        res.json({ success: true, message: 'Server and database are healthy', timestamp: new Date().toISOString() });
+
+        let redisStatus = 'disconnected';
+        try {
+            if (redisClient.isReady) {
+                const pong = await redisClient.ping();
+                if (pong === 'PONG') redisStatus = 'connected';
+            }
+        } catch {
+            redisStatus = 'disconnected';
+        }
+
+        res.json({
+            success: true,
+            message: 'Server and database are healthy',
+            database: 'connected',
+            redis: redisStatus,
+            timestamp: new Date().toISOString()
+        });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Database connection failed', error: error.message });
     }

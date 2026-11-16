@@ -3,6 +3,21 @@
 ## Tổng quan
 Hệ thống theo dõi xe buýt và quản trị lịch trình cho trường học. Backend mô phỏng và phát trạng thái realtime qua WebSocket, frontend hiển thị bản đồ, quản trị tuyến, tài xế, học sinh và lịch trình. Hỗ trợ lưu lịch sử vị trí (tùy chọn) để phát lại hành trình.
 
+## Triển khai Cloud (Production)
+Hệ thống đã được deploy hoàn chỉnh trên kiến trúc Cloud:
+- **Frontend (Vercel):** [https://bustracking-pied.vercel.app](https://bustracking-pied.vercel.app) *(hoặc [https://bustracking-git-main-school-bus.vercel.app](https://bustracking-git-main-school-bus.vercel.app))*
+- **Backend API & WebSocket (Render):** [https://bustracking-w7as.onrender.com](https://bustracking-w7as.onrender.com)
+- **Health Check API:** [https://bustracking-w7as.onrender.com/api/health](https://bustracking-w7as.onrender.com/api/health)
+- **Database (TiDB Cloud - MySQL 8 Compatible):** Cluster `school-bus-db` (AWS Tokyo `ap-northeast-1`, kết nối SSL TLSv1.2). Script khởi tạo: [`database/cloud_init.sql`](database/cloud_init.sql)
+- **State Cache / Trip Simulation (Redis Cloud):** Kết nối qua biến môi trường `REDIS_URL` trên Render (dùng cho lưu trạng thái mô phỏng chuyến đi realtime).
+
+> **Lưu ý khi sử dụng bản Cloud:**
+> - **Render Free Tier:** Server Backend sẽ tự ngủ sau ~15 phút không có truy cập; lần mở đầu tiên có thể mất 30–50 giây để khởi động lại (Cold Start).
+> - **Tài khoản đăng nhập mặc định (đã mã hóa Bcrypt):**
+>   - **Admin:** `admin` / `admin123`
+>   - **Tài xế (Driver):** `driver1` / `driver123` (hoặc `driver2`, `driver3`)
+>   - **Phụ huynh (Parent):** `pa1` / `parent123` (từ `pa1` đến `pa10`)
+
 ## Đóng góp của nhánh `kim-vinh` (Từ đầu dự án đến nay)
 Trong suốt quá trình phát triển dự án, nhánh `kim-vinh` đã đảm nhiệm và hoàn thành các chức năng cốt lõi sau:
 

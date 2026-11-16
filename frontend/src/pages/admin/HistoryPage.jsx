@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { MapContainer, TileLayer, Polyline, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import { applyLeafletDefaultIcon, MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM } from "../../utils/mapDefaults.js";
+import { applyLeafletDefaultIcon, MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM, MAP_TILE_URL, MAP_TILE_ATTRIBUTION } from "../../utils/mapDefaults.js";
 import { schedulesService } from "../../services/schedulesService.js";
 import trackingService from "../../services/trackingService.js";
 import Header from "../../components/admin/Header.jsx";
@@ -181,8 +181,8 @@ export default function HistoryPage() {
             <div className="h-[70vh]">
               <MapContainer center={mapCenter} zoom={MAP_DEFAULT_ZOOM} style={{ height: "100%", width: "100%" }}>
                 <TileLayer
-                  attribution='&copy; OpenStreetMap'
-                  url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution={MAP_TILE_ATTRIBUTION}
+                  url={MAP_TILE_URL}
                 />
                 {polylinePositions.length > 1 && (
                   <Polyline positions={polylinePositions} pathOptions={{ color: "#2563eb", weight: 4 }} />

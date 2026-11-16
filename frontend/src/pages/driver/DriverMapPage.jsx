@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import BusRouteLayer from "../../components/map/BusRouteLayer.jsx";
-import { applyLeafletDefaultIcon } from "../../utils/mapDefaults.js";
+import { applyLeafletDefaultIcon, MAP_TILE_URL, MAP_TILE_ATTRIBUTION } from "../../utils/mapDefaults.js";
 import DriverHeader from "../../components/driver/DriverHeader.jsx";
 import AlertsContainer from "../../components/driver/AlertsContainer.jsx";
 import TripStatusPanel from "../../components/driver/TripStatusPanel.jsx";
@@ -591,8 +591,8 @@ const estimatedTime = nextStop
             scrollWheelZoom
           >
             <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-              url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution={MAP_TILE_ATTRIBUTION}
+              url={MAP_TILE_URL}
             />
 
             {stops.map((s, i) => (
