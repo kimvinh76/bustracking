@@ -6,6 +6,7 @@ import cors from 'cors';
 import http from 'http';
 import process from 'process';
 import pool from './config/db.js';
+import { corsOriginValidator } from './config/cors.js';
 import busRoutes from './routes/BusesRoutes.js';
 import routeRoutes from './routes/routeRoutes.js';
 import stopsRoutes from './routes/stopsRoutes.js';
@@ -30,10 +31,8 @@ const PORT = process.env.BACKEND_PORT || 5000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors({
-    origin: [
-        process.env.FRONTEND_URL || 'http://localhost:5173',
-    
-    ]
+    origin: corsOriginValidator,
+    credentials: true
 }));
 
 
