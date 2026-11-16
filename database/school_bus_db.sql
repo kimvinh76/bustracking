@@ -415,20 +415,20 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `username`, `email`, `password`, `role`, `created_at`, `updated_at`) VALUES
-(1, 'admin', 'admin@school.com', 'admin123', 'admin', '2025-10-20 13:44:19', '2025-11-24 05:28:15'),
-(2, 'driver1', 'driver1@school.com', 'driver123', 'driver', '2025-10-20 13:44:19', '2025-11-24 11:42:11'),
-(3, 'driver2', 'driver2@school.com', 'driver123', 'driver', '2025-10-20 13:44:19', '2025-11-24 11:42:11'),
-(7, 'driver3', 'driver3@school.com', 'driver123', 'driver', '2025-10-20 13:44:19', '2025-11-24 11:42:11'),
-(24, 'pa1', 'pa1@gmail.com', 'parent123', 'parent', '2025-11-12 04:54:45', '2025-11-24 05:28:16'),
-(25, 'pa2', 'pa2@gmail.com', 'parent123', 'parent', '2025-11-12 04:55:01', '2025-11-24 05:28:16'),
-(26, 'pa3', 'pa3@gmail.com', 'parent123', 'parent', '2025-11-12 05:03:23', '2025-11-24 05:28:16'),
-(27, 'pa4', 'pa4@gmail.com', 'parent123', 'parent', '2025-11-12 05:03:42', '2025-11-24 05:28:16'),
-(28, 'pa5', 'pa5@gmail.com', 'parent123', 'parent', '2025-11-12 05:04:00', '2025-11-24 05:28:16'),
-(29, 'pa6', 'pa6@gmail.com', 'parent123', 'parent', '2025-11-12 05:04:14', '2025-11-24 05:28:16'),
-(30, 'pa10', 'pa10@gmail.com', 'parent123', 'parent', '2025-11-12 05:04:40', '2025-11-24 05:28:16'),
-(31, 'pa9', 'pa9@gmail.com', 'parent123', 'parent', '2025-11-12 05:04:55', '2025-11-24 05:28:16'),
-(32, 'pa7', 'pa7@gmail.com', 'parent123', 'parent', '2025-11-12 05:05:08', '2025-11-24 05:28:16'),
-(33, 'pa8', 'pa8@gmail.com', 'parent123', 'parent', '2025-11-12 05:05:21', '2025-11-24 12:41:52');
+(1, 'admin', 'admin@school.com', '$2a$10$XmbXi18nOj/DfQwt1fcMo.K4nP/OMAmZwfU564D93NMjL5vdIpgC.', 'admin', '2025-10-20 13:44:19', '2025-11-24 05:28:15'),
+(2, 'driver1', 'driver1@school.com', '$2a$10$PmnlX1T865c7EtYmZhDROuhzkwU8qk2xcDprLRi5pCo2/nighuZya', 'driver', '2025-10-20 13:44:19', '2025-11-24 11:42:11'),
+(3, 'driver2', 'driver2@school.com', '$2a$10$PmnlX1T865c7EtYmZhDROuhzkwU8qk2xcDprLRi5pCo2/nighuZya', 'driver', '2025-10-20 13:44:19', '2025-11-24 11:42:11'),
+(7, 'driver3', 'driver3@school.com', '$2a$10$PmnlX1T865c7EtYmZhDROuhzkwU8qk2xcDprLRi5pCo2/nighuZya', 'driver', '2025-10-20 13:44:19', '2025-11-24 11:42:11'),
+(24, 'pa1', 'pa1@gmail.com', '$2a$10$DIePYzTOuAu2uFstj90wuOLodjioJ.IxJj2n/C0rIh4gYgS/xP4Eq', 'parent', '2025-11-12 04:54:45', '2025-11-24 05:28:16'),
+(25, 'pa2', 'pa2@gmail.com', '$2a$10$DIePYzTOuAu2uFstj90wuOLodjioJ.IxJj2n/C0rIh4gYgS/xP4Eq', 'parent', '2025-11-12 04:55:01', '2025-11-24 05:28:16'),
+(26, 'pa3', 'pa3@gmail.com', '$2a$10$DIePYzTOuAu2uFstj90wuOLodjioJ.IxJj2n/C0rIh4gYgS/xP4Eq', 'parent', '2025-11-12 05:03:23', '2025-11-24 05:28:16'),
+(27, 'pa4', 'pa4@gmail.com', '$2a$10$DIePYzTOuAu2uFstj90wuOLodjioJ.IxJj2n/C0rIh4gYgS/xP4Eq', 'parent', '2025-11-12 05:03:42', '2025-11-24 05:28:16'),
+(28, 'pa5', 'pa5@gmail.com', '$2a$10$DIePYzTOuAu2uFstj90wuOLodjioJ.IxJj2n/C0rIh4gYgS/xP4Eq', 'parent', '2025-11-12 05:04:00', '2025-11-24 05:28:16'),
+(29, 'pa6', 'pa6@gmail.com', '$2a$10$DIePYzTOuAu2uFstj90wuOLodjioJ.IxJj2n/C0rIh4gYgS/xP4Eq', 'parent', '2025-11-12 05:04:14', '2025-11-24 05:28:16'),
+(30, 'pa10', 'pa10@gmail.com', '$2a$10$DIePYzTOuAu2uFstj90wuOLodjioJ.IxJj2n/C0rIh4gYgS/xP4Eq', 'parent', '2025-11-12 05:04:40', '2025-11-24 05:28:16'),
+(31, 'pa9', 'pa9@gmail.com', '$2a$10$DIePYzTOuAu2uFstj90wuOLodjioJ.IxJj2n/C0rIh4gYgS/xP4Eq', 'parent', '2025-11-12 05:04:55', '2025-11-24 05:28:16'),
+(32, 'pa7', 'pa7@gmail.com', '$2a$10$DIePYzTOuAu2uFstj90wuOLodjioJ.IxJj2n/C0rIh4gYgS/xP4Eq', 'parent', '2025-11-12 05:05:08', '2025-11-24 05:28:16'),
+(33, 'pa8', 'pa8@gmail.com', '$2a$10$DIePYzTOuAu2uFstj90wuOLodjioJ.IxJj2n/C0rIh4gYgS/xP4Eq', 'parent', '2025-11-12 05:05:21', '2025-11-24 12:41:52');
 
 --
 -- Chỉ mục cho các bảng đã đổ

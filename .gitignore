@@ -27,3 +27,6 @@ backend/.env
 
 # Antigravity IDE agent rules
 .agents/
+
+# Local test folder (do not push)
+tests/
