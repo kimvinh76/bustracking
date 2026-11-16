@@ -87,21 +87,23 @@ class RouteModel {
   static async getPickupDropInfo(id) {
     console.log(' MODEL: Lấy điểm đón/trả của tuyến ID:', id);
     
-    // Điểm đầu (stop_order = 1)
+    // Điểm đầu (trạm có stop_order nhỏ nhất)
     const [pickupStop] = await pool.execute(`
       SELECT s.id, s.name, s.address, rs.stop_order
       FROM route_stops rs
       INNER JOIN stops s ON rs.stop_id = s.id  
-      WHERE rs.route_id = ? AND rs.stop_order = 1
+      WHERE rs.route_id = ?
+      ORDER BY rs.stop_order ASC
       LIMIT 1
     `, [id]);
     
-    // Điểm cuối (stop_order = 99)
+    // Điểm cuối (trạm có stop_order lớn nhất)
     const [dropoffStop] = await pool.execute(`
       SELECT s.id, s.name, s.address, rs.stop_order
       FROM route_stops rs
       INNER JOIN stops s ON rs.stop_id = s.id  
-      WHERE rs.route_id = ? AND rs.stop_order = 99
+      WHERE rs.route_id = ?
+      ORDER BY rs.stop_order DESC
       LIMIT 1
     `, [id]);
 

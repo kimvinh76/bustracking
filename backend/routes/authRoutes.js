@@ -4,7 +4,6 @@ import jwt from 'jsonwebtoken';
 import AuthService from '../services/authService.js';
 import DriverModel from '../models/Driver.js';
 import ParentModel from '../models/Parent.js';
-import pool from '../config/db.js';
 
 const router = express.Router();
 

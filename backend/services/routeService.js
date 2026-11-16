@@ -232,8 +232,8 @@ class RouteService {
     // 3. Lưu vào DB
     await RouteModel.updateStopsBulk(routeId, stopsArray);
 
-    // 4. Tính lại quãng đường
-    this.recalculateRouteDistance(routeId).catch(err => console.error("Lỗi tự tính lại khoảng cách:", err));
+    // 4. Tính lại quãng đường đồng bộ để FE nhận ngay giá trị mới
+    await this.recalculateRouteDistance(routeId).catch(err => console.error("Lỗi tự tính lại khoảng cách:", err));
 
     return { message: 'Cập nhật danh sách trạm thành công' };
   }

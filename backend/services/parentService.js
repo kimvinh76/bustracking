@@ -3,6 +3,7 @@
 
 import ParentModel from '../models/Parent.js';
 import UserModel from '../models/User.js';
+import bcrypt from 'bcryptjs';
 
 class ParentService {
   /**
@@ -107,7 +108,7 @@ class ParentService {
       console.log(' SERVICE: Tạo user account cho phụ huynh');
       const username = `parent_${phone}`;
       const email = parentData.email || `${username}@schoolbus.com`;
-      const defaultPassword = "parent123"; // TODO: Hash password
+      const defaultPassword = bcrypt.hashSync("parent123", 10);
       
       try {
         const existingUser = await UserModel.findByEmail(email);

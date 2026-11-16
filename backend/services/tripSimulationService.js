@@ -22,7 +22,10 @@ class TripSimulationService {
   async restoreActiveTrips() {
     // Khôi phục các checkpoint từ Redis khi server khởi động lại.
     try {
-      if (!redisClient.isOpen) await redisClient.connect();
+      const ready = typeof redisClient.ensureConnected === 'function'
+        ? await redisClient.ensureConnected()
+        : Boolean(redisClient.isReady);
+      if (!ready) return;
 
       const keys = await redisClient.keys('trip_simulation:*');
       for (const key of keys) {
@@ -378,7 +381,7 @@ class TripSimulationService {
     this.trips.delete(trip.tripId);
     if (Number.isFinite(tripIdNum)) {
       try {
-        if (!redisClient.isOpen) await redisClient.connect();
+        if (!redisClient.isReady) return;
         await redisClient.del(`trip_simulation:${tripIdNum}`);
       } catch (error) {
         console.warn('Trip simulation cleanup failed:', error?.message || error);
@@ -398,20 +401,21 @@ class TripSimulationService {
     const currentPos = trip.currentPosition || trip.coords[trip.segmentIndex] || trip.coords[0];
     // Ghi checkpoint vào Redis
     try {
-      if (!redisClient.isOpen) await redisClient.connect();
-      const payload = {
-        trip_id: tripIdNum,
-        route_id: routeIdNum,
-        status,
-        current_stop_index: trip.currentStopIndex,
-        current_lat: currentPos?.lat ?? null,
-        current_lng: currentPos?.lng ?? null,
-        segment_index: trip.segmentIndex,
-        segment_elapsed_ms: trip.segmentElapsedMs,
-        pending_stop_indices: trip.pendingStopIndices || [],
-        speed_mps: trip.speedMetersPerSec
-      };
-      await redisClient.set(`trip_simulation:${tripIdNum}`, JSON.stringify(payload));
+      if (redisClient.isReady) {
+        const payload = {
+          trip_id: tripIdNum,
+          route_id: routeIdNum,
+          status,
+          current_stop_index: trip.currentStopIndex,
+          current_lat: currentPos?.lat ?? null,
+          current_lng: currentPos?.lng ?? null,
+          segment_index: trip.segmentIndex,
+          segment_elapsed_ms: trip.segmentElapsedMs,
+          pending_stop_indices: trip.pendingStopIndices || [],
+          speed_mps: trip.speedMetersPerSec
+        };
+        await redisClient.set(`trip_simulation:${tripIdNum}`, JSON.stringify(payload));
+      }
 
       // Optionally persist a history point to `bus_locations` (throttled)
       if (this.historyEnabled) {

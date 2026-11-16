@@ -21,18 +21,26 @@ class BusLocation {
     return { id: result.insertId, bus_id, driver_id, schedule_id, latitude, longitude };
   }
 
+  static _normalizeLimit(limit, fallback = 200) {
+    const parsed = Number.parseInt(limit, 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+    return Math.min(parsed, 1000);
+  }
+
   static async findByBus(bus_id, limit = 200) {
+    const lim = this._normalizeLimit(limit);
     const [rows] = await pool.execute(
-      `SELECT * FROM bus_locations WHERE bus_id = ? ORDER BY timestamp DESC LIMIT ?`,
-      [bus_id, limit]
+      `SELECT * FROM bus_locations WHERE bus_id = ? ORDER BY timestamp DESC LIMIT ${lim}`,
+      [bus_id]
     );
     return rows;
   }
 
   static async findBySchedule(schedule_id, limit = 200) {
+    const lim = this._normalizeLimit(limit);
     const [rows] = await pool.execute(
-      `SELECT * FROM bus_locations WHERE schedule_id = ? ORDER BY timestamp DESC LIMIT ?`,
-      [schedule_id, limit]
+      `SELECT * FROM bus_locations WHERE schedule_id = ? ORDER BY timestamp DESC LIMIT ${lim}`,
+      [schedule_id]
     );
     return rows;
   }

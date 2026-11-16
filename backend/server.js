@@ -2,10 +2,12 @@
 
 import 'dotenv/config';
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import cors from 'cors';
 import http from 'http';
 import process from 'process';
 import pool from './config/db.js';
+import redisClient from './config/redis.js';
 import { corsOriginValidator } from './config/cors.js';
 import busRoutes from './routes/BusesRoutes.js';
 import routeRoutes from './routes/routeRoutes.js';
@@ -23,10 +25,33 @@ import trackingRoutes from './routes/trackingRoutes.js';
 import busTrackingSocket from './websocket/busTrackingSocket.js';
 
 const app = express();
+app.set('trust proxy', 1);
 const server = http.createServer(app);
-const PORT = process.env.BACKEND_PORT || 5000;
+const PORT = process.env.PORT || process.env.BACKEND_PORT || 5000;
 
+const healthLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 120,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, message: 'Too many health check requests, please try again later.' }
+});
 
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 1000,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, message: 'Too many requests, please try again later.' }
+});
+
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, message: 'Quá nhiều lần thử đăng nhập, vui lòng thử lại sau.' }
+});
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -37,11 +62,28 @@ app.use(cors({
 
 
 // check health
-app.get('/api/health', async (req, res) => {
+app.get('/api/health', healthLimiter, async (req, res) => {
     try {
         const connection = await pool.getConnection();
         connection.release();
-        res.json({ success: true, message: 'Server and database are healthy', timestamp: new Date().toISOString() });
+
+        let redisStatus = 'disconnected';
+        try {
+            if (redisClient.isReady) {
+                const pong = await redisClient.ping();
+                if (pong === 'PONG') redisStatus = 'connected';
+            }
+        } catch {
+            redisStatus = 'disconnected';
+        }
+
+        res.json({
+            success: true,
+            message: 'Server and database are healthy',
+            database: 'connected',
+            redis: redisStatus,
+            timestamp: new Date().toISOString()
+        });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Database connection failed', error: error.message });
     }
@@ -50,8 +92,11 @@ app.get('/api/health', async (req, res) => {
 // Import authMiddleware
 import authMiddleware from './middlewares/authMiddleware.js';
 
+// Rate limit API endpoints
+app.use('/api', apiLimiter);
+
 // API Routes
-app.use("/api/auth", authRoutes); // Auth route must be public
+app.use("/api/auth", authLimiter, authRoutes); // Auth route must be public
 
 // Apply authMiddleware to all routes below
 app.use(authMiddleware);
@@ -81,4 +126,11 @@ app.use('*', (req, res) => {
 busTrackingSocket.init(server);
 
 // Start server
-server.listen(PORT);
+server.on('error', (error) => {
+    console.error('Server failed to start:', error?.message || error);
+    process.exit(1);
+});
+
+server.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+});
