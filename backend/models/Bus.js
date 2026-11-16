@@ -79,11 +79,11 @@ class BusModel {
    * @returns {Promise<Object|null>} Xe bus đã cập nhật
    */
   static async update(id, busData) {
-    const { bus_number, license_plate, status } = busData;
+    const { bus_number, license_plate, status = null } = busData;
     
     const [result] = await pool.execute(
-      'UPDATE buses SET bus_number = ?, license_plate = ?, status = ? WHERE id = ?',
-      [bus_number, license_plate, status, id]
+      'UPDATE buses SET bus_number = ?, license_plate = ?, status = COALESCE(?, status) WHERE id = ?',
+      [bus_number ?? null, license_plate ?? null, status ?? null, id]
     );
 
     if (result.affectedRows === 0) {

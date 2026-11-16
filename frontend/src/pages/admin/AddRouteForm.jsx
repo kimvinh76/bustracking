@@ -24,11 +24,14 @@ export default function AddRouteForm({
   useEffect(() => {
     if (visible) {
       if (mode === "edit" && initialData) {
+        const safeStatus = ["active", "inactive"].includes(initialData.status)
+          ? initialData.status
+          : "inactive";
         setFormData({
           route_name: initialData.route_name || "",
           shift_type: initialData.shift_type || "morning",
           distance: initialData.distance || 0,
-          status: initialData.status || "active",
+          status: safeStatus,
         });
       } else {
         setFormData({
@@ -64,11 +67,16 @@ export default function AddRouteForm({
     }
 
     setIsSubmitting(true);
+    setErrors((prev) => ({ ...prev, submit: "" }));
 
     try {
       await onSubmit(formData);
     } catch (error) {
       console.error("Form submission error:", error);
+      setErrors((prev) => ({
+        ...prev,
+        submit: error?.message || "Thao tác thất bại. Vui lòng thử lại.",
+      }));
     } finally {
       setIsSubmitting(false);
     }
@@ -82,6 +90,11 @@ export default function AddRouteForm({
   return (
     <Modal isOpen={visible} onClose={onCancel} title={resolvedTitle} size="md">
       <form className="space-y-4" onSubmit={handleSubmit}>
+        {errors.submit && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {errors.submit}
+          </div>
+        )}
         <FormInput
           label="Tên tuyến đường"
           name="name"
@@ -130,7 +143,6 @@ export default function AddRouteForm({
           onChange={(e) => setFormData({ ...formData, status: e.target.value })}
           options={[
             { value: "active", label: "Đang hoạt động" },
-            { value: "maintenance", label: "Đang bảo trì" },
             { value: "inactive", label: "Không hoạt động" },
           ]}
           required

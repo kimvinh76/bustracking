@@ -491,14 +491,22 @@ export default function RouteBuilder() {
       const payload = { stops: buildStopsSavePayload(safeSelectedStops) };
       const saved = await apiClient.put(`/routes/${id}/stops`, payload);
 
-      const newDistance = Number(saved?.distance ?? previewMetrics.distanceKm ?? 0);
+      const newDistance = Number(saved?.distance ?? saved?.calculated_distance ?? previewMetrics.distanceKm ?? 0);
+      const affectedStudents = Number(saved?.affectedStudentsCount || 0);
       setRoute((prev) => (prev ? { ...prev, distance: newDistance } : prev));
       setHasChanges(false);
       boxDialog('success');
-      setStatusBanner({
-        type: 'success',
-        text: `Đã lưu ${safeSelectedStops.length} trạm dừng · Quãng đường cập nhật: ${newDistance.toFixed(2)} km.`,
-      });
+      setStatusBanner(
+        affectedStudents > 0
+          ? {
+              type: 'info',
+              text: `Đã lưu ${safeSelectedStops.length} trạm (${newDistance.toFixed(2)} km). Lưu ý: có ${affectedStudents} học sinh đang đăng ký trạm vừa bỏ khỏi tuyến, vui lòng cập nhật lại điểm đón/trả trong mục Học sinh.`,
+            }
+          : {
+              type: 'success',
+              text: `Đã lưu ${safeSelectedStops.length} trạm dừng · Quãng đường cập nhật: ${newDistance.toFixed(2)} km.`,
+            }
+      );
     } catch (error) {
       console.error('Save route stops error:', error);
       boxDialog('error');
@@ -773,7 +781,7 @@ export default function RouteBuilder() {
       {/* Khu vực Bản đồ + Bảng điều khiển */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1">
         {/* Bản đồ bên trái */}
-        <div className="lg:col-span-7 xl:col-span-8 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden relative min-h-[520px] lg:min-h-[640px]">
+        <div className="lg:col-span-7 xl:col-span-8 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden relative h-[520px] lg:h-[640px]">
           {stopForm && (
             <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[500] bg-[#FC791A] text-white px-4 py-2 rounded-full shadow-lg text-xs sm:text-sm font-semibold flex items-center gap-2">
               <MapPin size={16} />
@@ -793,7 +801,7 @@ export default function RouteBuilder() {
           <MapContainer
             center={MAP_DEFAULT_CENTER}
             zoom={13}
-            style={{ height: '100%', width: '100%', minHeight: '520px' }}
+            style={{ height: '100%', width: '100%' }}
           >
             <TileLayer attribution={MAP_TILE_ATTRIBUTION} url={MAP_TILE_URL} />
 

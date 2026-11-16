@@ -59,23 +59,21 @@ export default function RoutePage() {
   // Tạo route mới -> chuyển thẳng sang màn hình Xếp Trạm để chọn trạm và tính khoảng cách
   const handleCreateRoute = async (routeData) => {
     try {
+      setError(null);
       const created = await apiClient.post("/routes", routeData);
       if (created) {
         const mapped = { ...created, name: created.route_name || created.name };
         setRoutes((prev) => [...prev, mapped]);
         setIsOpenFormAdd(false);
-        boxDialog(
-          "success",
-          "Đã tạo tuyến đường",
-          "Hãy chọn các điểm dừng trên bản đồ để tính khoảng cách thực tế."
-        );
+        boxDialog("success");
         if (created.id) {
           navigate(`/admin/routes/${created.id}/builder`);
         }
       }
     } catch (error) {
       console.error("Lỗi khi tạo route:", error);
-      boxDialog("error", "Không thể tạo tuyến", error?.message || "Vui lòng thử lại.");
+      setError(error?.message || "Không thể tạo tuyến đường. Vui lòng thử lại.");
+      boxDialog("error");
       throw error;
     }
   };
@@ -83,6 +81,7 @@ export default function RoutePage() {
   // Cập nhật route hiện có
   const handleUpdateRoute = async (routeData) => {
     try {
+      setError(null);
       const updated = await apiClient.put(
         `/routes/${selectedRouteForEdit.id}`,
         routeData
@@ -98,6 +97,7 @@ export default function RoutePage() {
       }
     } catch (error) {
       console.error("Lỗi khi cập nhật route:", error);
+      setError(error?.message || "Không thể cập nhật tuyến đường. Vui lòng thử lại.");
       boxDialog("error");
       throw error; // Re-throw để form biết có lỗi
     }
@@ -221,7 +221,6 @@ export default function RoutePage() {
       onChange: setStatusFilter,
       options: [
         { value: "active", label: "Đang hoạt động" },
-        { value: "maintenance", label: "Đang bảo trì" },
         { value: "inactive", label: "Không hoạt động" },
       ],
       minWidth: "130px",

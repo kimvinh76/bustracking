@@ -58,7 +58,9 @@ router.post('/', async (req, res) => {
     } catch (error) {
         console.error(' Lỗi:', error.message);
         const statusCode = error.message.includes('Không tìm thấy') || 
-                           error.message.includes('đã tồn tại') ? 400 : 500;
+                           error.message.includes('đã tồn tại') ||
+                           error.message.includes('Không thể xếp lịch') ||
+                           error.message.includes('Thiếu thông tin') ? 400 : 500;
         res.status(statusCode).json({
             success: false,
             message: error.message

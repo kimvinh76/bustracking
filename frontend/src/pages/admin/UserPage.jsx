@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import Header from "../../components/admin/Header";
 import UserTable from "../../components/admin/User/UserTable";
 import UserForm from "../../components/admin/User/UserForm";
 import apiClient from "../../services/api";
@@ -71,15 +72,10 @@ function UserPage() {
     };
 
     return (
-        <div className="h-full bg-gray-50">
-            <div className="p-6 h-full">
-                <header className="flex items-center justify-between mb-6">
-                    <h1 className="text-3xl font-bold text-gray-800">Quản lý Tài Khoản</h1>
-                    <div className="space-x-2">
-                        {/* Có thể thêm nút thao tác ở đây nếu cần */}
-                    </div>
-                </header>
+        <div className="min-h-screen bg-gray-100 p-4 sm:p-6 space-y-6">
+            <Header title="QUẢN LÝ TÀI KHOẢN" />
 
+            <div>
                 {error && (
                     <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
                         Lỗi khi tải: {error}

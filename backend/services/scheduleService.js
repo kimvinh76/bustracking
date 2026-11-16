@@ -159,6 +159,39 @@ class ScheduleService {
     return schedules;
   }
 
+  static async validateScheduleResources({ route_id, bus_id, driver_id }, existingSchedule = null) {
+    const [route, bus, driver] = await Promise.all([
+      RouteModel.findById(route_id),
+      BusModel.findById(bus_id),
+      DriverModel.findById(driver_id),
+    ]);
+
+    if (!route) throw new Error('Không tìm thấy tuyến đường');
+    if (!bus) throw new Error('Không tìm thấy xe bus');
+    if (!driver) throw new Error('Không tìm thấy tài xế');
+
+    if (
+      route.status !== 'active' &&
+      (!existingSchedule || Number(route_id) !== Number(existingSchedule.route_id))
+    ) {
+      throw new Error('Không thể xếp lịch cho tuyến đường đang ngừng hoạt động');
+    }
+
+    if (
+      bus.status !== 'active' &&
+      (!existingSchedule || Number(bus_id) !== Number(existingSchedule.bus_id))
+    ) {
+      throw new Error('Không thể xếp lịch cho xe buýt đang bảo trì hoặc ngừng hoạt động');
+    }
+
+    if (
+      driver.status !== 'active' &&
+      (!existingSchedule || Number(driver_id) !== Number(existingSchedule.driver_id))
+    ) {
+      throw new Error('Không thể xếp lịch cho tài xế đang ngừng hoạt động');
+    }
+  }
+
   /**
    * Tạo lịch trình mới
    */
@@ -170,8 +203,7 @@ class ScheduleService {
         throw new Error('Thiếu thông tin bắt buộc: route_id, driver_id, bus_id, date');
     }
 
-    // Kiểm tra xem bus hoặc driver có bận không (tùy chọn)
-    // await DriverModel.checkAvailability(scheduleData.driver_id, scheduleData.date, ...);
+    await this.validateScheduleResources(scheduleData);
 
     const newSchedule = await ScheduleModel.create(scheduleData);
     return newSchedule;
@@ -245,7 +277,7 @@ class ScheduleService {
     console.log(' SERVICE: Dữ liệu nhận được:', JSON.stringify(scheduleData, null, 2));
     
     // 1. Kiểm tra tồn tại
-    await this.getScheduleById(id);
+    const existingSchedule = await this.getScheduleById(id);
 
     // 2. Validation
     const { 
@@ -265,16 +297,8 @@ class ScheduleService {
       throw new Error('Thiếu thông tin: scheduled_start_time, scheduled_end_time');
     }
 
-    // 3. Kiểm tra route, bus, driver tồn tại
-    const [routeExists, busExists, driverExists] = await Promise.all([
-      RouteModel.exists(route_id),
-      BusModel.exists(bus_id),
-      DriverModel.exists(driver_id)
-    ]);
-
-    if (!routeExists) throw new Error('Không tìm thấy tuyến đường');
-    if (!busExists) throw new Error('Không tìm thấy xe bus');
-    if (!driverExists) throw new Error('Không tìm thấy tài xế');
+    // 3. Kiểm tra route, bus, driver tồn tại và đang hoạt động
+    await this.validateScheduleResources({ route_id, bus_id, driver_id }, existingSchedule);
 
     // 4. Kiểm tra trùng lịch trình (loại trừ chính nó)
     const duplicate = await ScheduleModel.findDuplicate({

@@ -111,7 +111,13 @@ router.post("/", async (req, res) => {
     });
   } catch (error) {
     console.error(' Lỗi khi tạo tuyến đường:', error.message);
-    const statusCode = error.message.includes('Thiếu thông tin') || error.message.includes('đã tồn tại') ? 400 : 500;
+    const statusCode =
+      error.message.includes('Thiếu') ||
+      error.message.includes('đã tồn tại') ||
+      error.message.includes('chỉ chấp nhận') ||
+      error.message.includes('Sai thông tin')
+        ? 400
+        : 500;
     res.status(statusCode).json({ success: false, message: error.message });
   }
 }); 
@@ -133,8 +139,14 @@ router.put("/:id", async (req, res) => {
     });
   } catch (error) {
     console.error(' Lỗi khi cập nhật tuyến đường:', error.message);
-    const statusCode = error.message.includes('Không tìm thấy') ? 404 :
-                       error.message.includes('Thiếu thông tin') || error.message.includes('đã tồn tại') ? 400 : 500;
+    const statusCode = error.message.includes('Không tìm thấy')
+      ? 404
+      : error.message.includes('Thiếu') ||
+          error.message.includes('đã tồn tại') ||
+          error.message.includes('chỉ chấp nhận') ||
+          error.message.includes('Sai thông tin')
+        ? 400
+        : 500;
     res.status(statusCode).json({ success: false, message: error.message });
   }
 });
@@ -211,7 +223,10 @@ router.put('/:id/stops', async (req, res) => {
     res.status(200).json({
       success: true,
       message: result.message,
-      data: result.route,
+      data: {
+        ...result.route,
+        affectedStudentsCount: result.affectedStudentsCount || 0,
+      },
       distance: result.distance,
     });
   } catch (error) {

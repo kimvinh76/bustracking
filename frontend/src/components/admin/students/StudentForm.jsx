@@ -5,6 +5,7 @@ import Button from '../../common/Button';
 import { parentsService } from '../../../services/parentsService';
 import { classesService } from '../../../services/classesService';
 import { routesService } from '../../../services/routesService';
+import { isSchoolStop } from '../../../utils/routeStopHelpers';
 
 const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
   
@@ -287,7 +288,7 @@ const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
           value={formData.morning_route_id}
           onChange={handleChange}
           error={errors.morning_route_id}
-          options={[{ value: '', label: 'Không đi / Chọn tuyến đi' }, ...(morningRoutes || []).map(r => ({ value: r.id, label: r.route_name || r.name || `Tuyến ${r.id}` }))]}
+          options={[{ value: '', label: 'Không đi / Chọn tuyến đi' }, ...(morningRoutes || []).map(r => ({ value: r.id, label: `${r.route_name || r.name || `Tuyến ${r.id}`}${r.status === 'inactive' ? ' (Không hoạt động)' : ''}` }))]}
           readOnly={isReadOnly}
         />
 
@@ -301,7 +302,7 @@ const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
           options={[
             { value: '', label: 'Chọn điểm đón' }, 
             ...(morningRouteStops || [])
-              .filter(s => s.stop_order !== 0 && s.stop_order !== 99)
+              .filter(s => s.stop_order !== 99 && !isSchoolStop(s))
               .map(s => ({ 
                 value: s.stop_id, 
                 label: `${s.name} - ${s.address}` 
@@ -318,7 +319,7 @@ const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
           value={formData.afternoon_route_id}
           onChange={handleChange}
           error={errors.afternoon_route_id}
-          options={[{ value: '', label: 'Không đi / Chọn tuyến về' }, ...(afternoonRoutes || []).map(r => ({ value: r.id, label: r.route_name || r.name || `Tuyến ${r.id}` }))]}
+          options={[{ value: '', label: 'Không đi / Chọn tuyến về' }, ...(afternoonRoutes || []).map(r => ({ value: r.id, label: `${r.route_name || r.name || `Tuyến ${r.id}`}${r.status === 'inactive' ? ' (Không hoạt động)' : ''}` }))]}
           readOnly={isReadOnly}
         />
 
@@ -332,7 +333,7 @@ const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
           options={[
             { value: '', label: 'Chọn điểm trả' },
             ...(afternoonRouteStops || [])
-              .filter(s => s.stop_order !== 0 && s.stop_order !== 99)
+              .filter(s => s.stop_order !== 0 && !isSchoolStop(s))
               .map(s => ({ 
                 value: s.stop_id, 
                 label: `${s.name} - ${s.address}` 

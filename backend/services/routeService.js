@@ -196,6 +196,10 @@ class RouteService {
     if (!shift_type || !['morning', 'afternoon'].includes(shift_type)) {
       throw new Error('Thiếu hoặc sai thông tin phân ca (shift_type)');
     }
+    const normalizedStatus = status || 'active';
+    if (!['active', 'inactive'].includes(normalizedStatus)) {
+      throw new Error('Trạng thái tuyến chỉ chấp nhận Đang hoạt động (active) hoặc Không hoạt động (inactive)');
+    }
 
     console.log(' SERVICE: Validation passed');
 
@@ -245,17 +249,23 @@ class RouteService {
       throw new Error('Sai thông tin phân ca (shift_type)');
     }
 
+    const normalizedStatus = status || 'active';
+    if (!['active', 'inactive'].includes(normalizedStatus)) {
+      throw new Error('Trạng thái tuyến chỉ chấp nhận Đang hoạt động (active) hoặc Không hoạt động (inactive)');
+    }
+
     // 3. Kiểm tra trùng tên (loại trừ chính nó)
     const existingRoute = await RouteModel.findByName(route_name);
     if (existingRoute && existingRoute.id !== parseInt(id)) {
       throw new Error('Tên tuyến đường đã tồn tại');
     }
 
-    // 5. Format dữ liệu
+    // 5. Format dữ liệu (dùng null thay undefined để mysql2 execute an toàn)
     const formattedData = {
       route_name: route_name.trim(),
-      shift_type: shift_type || undefined,
-      status: status || 'active'
+      shift_type: shift_type || null,
+      distance: null,
+      status: normalizedStatus,
     };
 
     // 6. Cập nhật
@@ -348,6 +358,8 @@ class RouteService {
 
     // 2. Chuẩn hóa & validate danh sách trạm (đầu = 0, giữa = 1..n-2, cuối = 99)
     const normalizedStops = normalizeRouteStopsPayload(stopsArray);
+    const keepStopIds = normalizedStops.map((s) => s.stop_id);
+    const affectedStudentsCount = await RouteModel.countSubscribersOutsideStops(routeId, keepStopIds);
 
     // 3. Lưu vào DB
     await RouteModel.updateStopsBulk(routeId, normalizedStops);
@@ -359,6 +371,7 @@ class RouteService {
       message: `Cập nhật ${normalizedStops.length} trạm và tính khoảng cách (${updatedRoute.calculated_distance} km) thành công`,
       route: updatedRoute,
       distance: updatedRoute.calculated_distance,
+      affectedStudentsCount,
     };
   }
 
