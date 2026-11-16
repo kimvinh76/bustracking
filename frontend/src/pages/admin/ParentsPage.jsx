@@ -3,7 +3,6 @@ import ParentTable from '../../components/admin/parents/ParentTable';
 import ParentForm from '../../components/admin/parents/ParentForm';
 import Modal from '../../components/UI/Modal';
 import ConfirmDialog from '../../components/UI/ConfirmDialog';
-import Pagination from '../../components/UI/Pagination';
 import { parentsService } from '../../services/parentsService';
 import Header from '../../components/admin/Header';
 
@@ -15,8 +14,6 @@ const ParentsPage = () => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [selectedParent, setSelectedParent] = useState(null);
   const [formMode, setFormMode] = useState('add'); // 'add', 'edit', 'view'
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(5);
 
   useEffect(() => {
     fetchParents();

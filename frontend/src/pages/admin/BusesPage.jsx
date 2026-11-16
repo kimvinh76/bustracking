@@ -92,7 +92,7 @@ export default function BusesPage() {
     {
       key: "status",
       header: "Trạng thái",
-      render: (value, item) => {
+      render: (value) => {
         const normalizedStatus = value?.toString().toLowerCase().trim();
 
         return (
@@ -172,12 +172,9 @@ export default function BusesPage() {
         title="Thêm xe"
         onSubmit={async (busData) => {
           try {
-            const response = await axios.post(
-              "http://localhost:5000/api/buses",
-              busData
-            );
-            if (response.data.success) {
-              setBuses((prev) => [...prev, response.data.data]);
+            const createdBus = await apiClient.post("/buses", busData);
+            if (createdBus) {
+              setBuses((prev) => [...prev, createdBus]);
               boxDialog("success");
               setIsCreateOpen(false);
             } else {
@@ -203,30 +200,23 @@ export default function BusesPage() {
         title="Chỉnh sửa xe"
         onSubmit={async (busData) => {
           try {
-            const response = await axios.put(
-              `http://localhost:5000/api/buses/${selectedBus.id}`,
+            const updatedBus = await apiClient.put(
+              `/buses/${selectedBus.id}`,
               busData
             );
-            if (response.data.success) {
+            if (updatedBus) {
               setBuses((prev) =>
-                prev.map((b) =>
-                  b.id === selectedBus.id ? response.data.data : b
-                )
+                prev.map((b) => (b.id === selectedBus.id ? updatedBus : b))
               );
               boxDialog("success");
               setIsEditOpen(false);
               setSelectedBus(null);
             } else {
-              alert(
-                "Lỗi: " + (response.data.message || "Không thể cập nhật xe")
-              );
+              alert("Lỗi: Không thể cập nhật xe");
             }
           } catch (error) {
             console.error("Lỗi khi cập nhật xe:", error);
-            const errorMessage =
-              error.response?.data?.message ||
-              error.message ||
-              "Lỗi khi cập nhật xe!";
+            const errorMessage = error?.message || "Lỗi khi cập nhật xe!";
             alert("Lỗi: " + errorMessage);
             throw error; // Re-throw để form biết có lỗi
           }

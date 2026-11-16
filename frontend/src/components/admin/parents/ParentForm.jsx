@@ -52,8 +52,7 @@ const ParentForm = ({ parent, mode, onSubmit, onCancel }) => {
           });
           
           setChildrenDetails(Array.from(childMap.values()));
-        } catch (error) {
-
+        } catch {
           setChildrenDetails([]);
         } finally {
           setChildrenLoading(false);

@@ -7,7 +7,6 @@ export default function TripStatusPanel({
   nextStop,
   remainingDistance,
   estimatedTime,
-  getRemainingStudents,
 }) {
   return (
     <div className="absolute bottom-6 left-6 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl p-4 z-50 min-w-80 border border-gray-200">

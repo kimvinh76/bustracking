@@ -9,7 +9,6 @@ import { schedulesService } from '../../services/schedulesService';
 const SchedulesPage = () => {
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
@@ -27,9 +26,9 @@ const SchedulesPage = () => {
       setLoading(true);
       const data = await schedulesService.getAllSchedules();
       setSchedules(data);
-      setError(null);
     } catch (err) {
-      setError('Lỗi khi tải danh sách lịch trình: ' + err.message);
+      setErrorDetails({ title: 'Lỗi tải dữ liệu', message: 'Lỗi khi tải danh sách lịch trình: ' + err.message });
+      setShowErrorModal(true);
       console.error('Error fetching schedules:', err);
     } finally {
       setLoading(false);
@@ -54,7 +53,8 @@ const SchedulesPage = () => {
       setSelectedSchedule(fullSchedule); // Dùng đối tượng đầy đủ
       setShowForm(true);
     } catch (err) {
-      setError('Lỗi khi tải chi tiết lịch trình: ' + err.message);
+      setErrorDetails({ title: 'Lỗi tải chi tiết', message: 'Lỗi khi tải chi tiết lịch trình: ' + err.message });
+      setShowErrorModal(true);
     } finally {
       setLoading(false);
     }
@@ -72,7 +72,8 @@ const SchedulesPage = () => {
       setSelectedSchedule(fullSchedule); // Dùng đối tượng đầy đủ
       setShowForm(true);
     } catch (err) {
-      setError('Lỗi khi tải chi tiết lịch trình: ' + err.message);
+      setErrorDetails({ title: 'Lỗi tải chi tiết', message: 'Lỗi khi tải chi tiết lịch trình: ' + err.message });
+      setShowErrorModal(true);
     } finally {
       setLoading(false);
     }
@@ -92,7 +93,8 @@ const SchedulesPage = () => {
       setSelectedSchedule(null);
       setShowConfirm(false);
     } catch (err) {
-      setError('Lỗi khi xóa lịch trình: ' + err.message);
+      setErrorDetails({ title: 'Không thể xóa lịch trình', message: 'Lỗi khi xóa lịch trình: ' + err.message });
+      setShowErrorModal(true);
       console.error('Error deleting schedule:', err);
     }
   };
@@ -109,7 +111,6 @@ const SchedulesPage = () => {
       await fetchSchedules();
       setShowForm(false);
       setSelectedSchedule(null);
-      setError(null);
     } catch (err) {
       console.error('Error saving schedule:', err);
       // Luôn hiển thị modal lỗi có nội dung thân thiện khi thêm/sửa
@@ -117,7 +118,6 @@ const SchedulesPage = () => {
       const rawMessage = resp.data?.details || resp.data?.message || err.message || '';
       const title = resp.status === 409 ? 'Xung đột lịch trình' : 'Không thể lưu lịch trình';
       const message = mapErrorToNaturalMessage(rawMessage);
-      setError(null); // không hiển thị banner
       setErrorDetails({ title, message });
       setShowErrorModal(true);
     }
@@ -216,49 +216,6 @@ function mapErrorToNaturalMessage(rawMessage = '') {
     return 'Dữ liệu nhập chưa hợp lệ. Kiểm tra lại các trường bắt buộc và định dạng thời gian.';
   }
   return rawMessage; // fallback hiển thị nguyên bản
-}
-
-// Gợi ý xử lý thêm dựa trên loại xung đột
-function renderConflictHints(rawMessage, schedule) {
-  if (!rawMessage) return null;
-  const msg = rawMessage.toUpperCase();
-  const baseClass = 'text-xs text-gray-600 bg-gray-50 rounded p-3 border border-gray-200';
-  if (msg.includes('DRIVER_CONFLICT')) {
-    return (
-      <div className={baseClass}>
-        <p className="font-medium text-gray-700 mb-1">Gợi ý khắc phục:</p>
-        <ul className="list-disc ml-4 space-y-1">
-          <li>Kiểm tra danh sách lịch trình hiện tại của tài xế trong khoảng thời gian này.</li>
-          <li>Chọn một tài xế khác chưa có lịch.</li>
-          <li>Điều chỉnh giờ bắt đầu / kết thúc để tránh trùng lặp.</li>
-        </ul>
-      </div>
-    );
-  }
-  if (msg.includes('BUS_CONFLICT')) {
-    return (
-      <div className={baseClass}>
-        <p className="font-medium text-gray-700 mb-1">Gợi ý khắc phục:</p>
-        <ul className="list-disc ml-4 space-y-1">
-          <li>Chọn một xe buýt khác còn trống.</li>
-          <li>Kiểm tra lại lịch trình đã gán cho xe để tránh trùng giờ.</li>
-          <li>Điều chỉnh thời gian hoặc tách ca nếu cần.</li>
-        </ul>
-      </div>
-    );
-  }
-  if (msg.includes('ROUTE_CONFLICT')) {
-    return (
-      <div className={baseClass}>
-        <p className="font-medium text-gray-700 mb-1">Gợi ý khắc phục:</p>
-        <ul className="list-disc ml-4 space-y-1">
-          <li>Chọn tuyến đường khác chưa được sử dụng trong khoảng thời gian này.</li>
-         
-        </ul>
-      </div>
-    );
-  }
-  return null;
 }
 
 export default SchedulesPage;

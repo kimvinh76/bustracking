@@ -219,7 +219,8 @@ router.get('/:driverId/:id', async (req, res) => {
         });
     } catch (error) {
         console.error(' Lỗi khi lấy chi tiết lịch làm việc:', error.message);
-        res.status(500).json({
+        const statusCode = error.message.includes('Không tìm thấy') ? 404 : 500;
+        res.status(statusCode).json({
             success: false,
             message: error.message
         });

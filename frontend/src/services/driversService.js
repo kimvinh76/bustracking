@@ -30,35 +30,20 @@ export const driversService = {
 
     // Lấy thông tin chi tiết đầy đủ của tài xế
     getDriverDetails: async (id) => {
-        try {
-            const response = await apiClient.get(`${ENDPOINT}/${id}/details`);
-            return response || null;
-        } catch (error) {
-          
-            throw error;
-        }
+        const response = await apiClient.get(`${ENDPOINT}/${id}/details`);
+        return response || null;
     },
 
     // Tạo tài xế mới
     createDriver: async (driverData) => {
-        try {
-            const response = await apiClient.post(ENDPOINT, driverData);
-            return response || null;
-        } catch (error) {
-     
-            throw error;
-        }
+        const response = await apiClient.post(ENDPOINT, driverData);
+        return response || null;
     },
 
     // Cập nhật tài xế
     updateDriver: async (id, driverData) => {
-        try {
-            const response = await apiClient.put(`${ENDPOINT}/${id}`, driverData);
-            return response || null;
-        } catch (error) {
-           
-            throw error;
-        }
+        const response = await apiClient.put(`${ENDPOINT}/${id}`, driverData);
+        return response || null;
     },
 
     // Xóa tài xế

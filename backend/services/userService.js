@@ -2,6 +2,7 @@
 // Business logic layer cho User
 
 import UserModel from '../models/User.js';
+import bcrypt from 'bcryptjs';
 
 class UserService {
   /**
@@ -113,9 +114,8 @@ class UserService {
     
     console.log(' SERVICE: Username hợp lệ');
 
-    // 7. TODO: Hash password
-    // const hashedPassword = await bcrypt.hash(password, 10);
-    const hashedPassword = password; // Tạm thời chưa hash
+    // 7. Hash password
+    const hashedPassword = bcrypt.hashSync(password, 10);
 
     // 8. Format dữ liệu
     const formattedData = {
@@ -200,20 +200,19 @@ class UserService {
       throw new Error('Không tìm thấy người dùng');
     }
 
-    // 2. TODO: Verify old password
-    // const isMatch = await bcrypt.compare(oldPassword, user.password);
-    // if (!isMatch) {
-    //   throw new Error('Mật khẩu cũ không đúng');
-    // }
+    // 2. Verify old password
+    const isMatch = bcrypt.compareSync(oldPassword, user.password);
+    if (!isMatch) {
+      throw new Error('Mật khẩu cũ không đúng');
+    }
 
     // 3. Validate new password length
     if (newPassword.length < 6) {
       throw new Error('Mật khẩu mới phải có ít nhất 6 ký tự');
     }
 
-    // 4. TODO: Hash new password
-    // const hashedPassword = await bcrypt.hash(newPassword, 10);
-    const hashedPassword = newPassword; // Tạm thời chưa hash
+    // 4. Hash new password
+    const hashedPassword = bcrypt.hashSync(newPassword, 10);
 
     // 5. Cập nhật password
     const updated = await UserModel.updatePassword(id, hashedPassword);

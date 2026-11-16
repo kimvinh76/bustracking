@@ -133,9 +133,4 @@ export const routesService = {
     }
 };
 
-// Helper: Validate
-function toRad(degrees) {
-    return degrees * (Math.PI / 180);
-}
-
 export default routesService;

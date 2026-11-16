@@ -41,7 +41,8 @@ router.get("/:id", async (req, res) => {
     });
   } catch (error) {
     console.error(' Lỗi khi lấy 1 tuyến đường:', error.message);
-    res.status(500).json({ success: false, message: error.message });
+    const statusCode = error.message.includes('Không tìm thấy') ? 404 : 500;
+    res.status(statusCode).json({ success: false, message: error.message });
   }
 });
 

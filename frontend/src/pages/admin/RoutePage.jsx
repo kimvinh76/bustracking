@@ -7,7 +7,6 @@ import Table from "../../components/common/Table";
 import ConfirmDialog from "../../components/UI/ConfirmDialog";
 import apiClient from "../../services/api";
 import boxDialog from "../../components/UI/BoxDialog";
-import axios from "axios";
 import AddRouteForm from "./AddRouteForm";
 
 export default function RoutePage() {
@@ -60,43 +59,39 @@ export default function RoutePage() {
   // Tạo route mới
   const handleCreateRoute = async (routeData) => {
     try {
-      console.log("RoutePage: ", routeData);
-      const response = await axios.post(
-        "http://localhost:5000/api/routes",
-        routeData
-      );
-      console.log("Response từ server:", response);
-      if (response.data.success) {
-        setRoutes((prev) => [...prev, response.data.data]);
+      const created = await apiClient.post("/routes", routeData);
+      if (created) {
+        const mapped = { ...created, name: created.route_name || created.name };
+        setRoutes((prev) => [...prev, mapped]);
         boxDialog("success");
         setIsOpenFormAdd(false);
       }
     } catch (error) {
-      console.error("Lỗi khi tạo route:", error.response);
+      console.error("Lỗi khi tạo route:", error);
       boxDialog("error");
+      throw error;
     }
   };
 
   // Cập nhật route hiện có
   const handleUpdateRoute = async (routeData) => {
     try {
-      const response = await axios.put(
-        `http://localhost:5000/api/routes/${selectedRouteForEdit.id}`,
+      const updated = await apiClient.put(
+        `/routes/${selectedRouteForEdit.id}`,
         routeData
       );
-      if (response.data.success) {
+      if (updated) {
+        const mapped = { ...updated, name: updated.route_name || updated.name };
         setRoutes((prev) =>
-          prev.map((r) =>
-            r.id === selectedRouteForEdit.id ? response.data.data : r
-          )
+          prev.map((r) => (r.id === selectedRouteForEdit.id ? mapped : r))
         );
-        boxDialog( "success");
+        boxDialog("success");
         setIsEditOpen(false);
         setSelectedRouteForEdit(null);
       }
     } catch (error) {
-      console.error("Lỗi khi cập nhật route:", error.response);
-      boxDialog( "error");
+      console.error("Lỗi khi cập nhật route:", error);
+      boxDialog("error");
       throw error; // Re-throw để form biết có lỗi
     }
   };
@@ -158,7 +153,7 @@ export default function RoutePage() {
     {
       key: "status",
       header: "Trạng thái",
-      render: (value, item) => {
+      render: (value) => {
         const normalizedStatus = value?.toString().toLowerCase().trim();
 
         return (

@@ -75,7 +75,7 @@ export default function ParentOverviewPage() {
         });
 
         setSchedules(filtered);
-      } catch (err) {
+      } catch {
         setSchedules([]);
       } finally {
         setLoading(false);

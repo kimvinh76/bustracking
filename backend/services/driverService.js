@@ -4,6 +4,7 @@
 import DriverModel from '../models/Driver.js';
 import UserModel from '../models/User.js';
 import pool from '../config/db.js';
+import bcrypt from 'bcryptjs';
 
 class DriverService {
   /**
@@ -94,7 +95,7 @@ class DriverService {
     console.log(' SERVICE: Tạo user account cho tài xế');
     const username = `driver_${license_number}`;
     const email = `${username}@schoolbus.com`;
-    const defaultPassword = "driver123"; // TODO: Hash password
+    const defaultPassword = bcrypt.hashSync("driver123", 10);
     
     let user_id = null;
     const connection = await pool.getConnection();
