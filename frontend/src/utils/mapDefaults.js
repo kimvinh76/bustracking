@@ -5,9 +5,9 @@ import iconShadow from "leaflet/dist/images/marker-shadow.png";
 export const MAP_DEFAULT_CENTER = [10.76, 106.68];
 export const MAP_DEFAULT_ZOOM = 16;
 export const MAP_TILE_URL =
-  "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
+  "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 export const MAP_TILE_ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
 let defaultIconApplied = false;
 

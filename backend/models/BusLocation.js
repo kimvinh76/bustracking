@@ -30,7 +30,7 @@ class BusLocation {
   static async findByBus(bus_id, limit = 200) {
     const lim = this._normalizeLimit(limit);
     const [rows] = await pool.execute(
-      `SELECT * FROM bus_locations WHERE bus_id = ? ORDER BY timestamp DESC LIMIT ${lim}`,
+      `SELECT * FROM bus_locations WHERE bus_id = ? ORDER BY timestamp DESC, id DESC LIMIT ${lim}`,
       [bus_id]
     );
     return rows;
@@ -39,7 +39,7 @@ class BusLocation {
   static async findBySchedule(schedule_id, limit = 200) {
     const lim = this._normalizeLimit(limit);
     const [rows] = await pool.execute(
-      `SELECT * FROM bus_locations WHERE schedule_id = ? ORDER BY timestamp DESC LIMIT ${lim}`,
+      `SELECT * FROM bus_locations WHERE schedule_id = ? ORDER BY timestamp DESC, id DESC LIMIT ${lim}`,
       [schedule_id]
     );
     return rows;

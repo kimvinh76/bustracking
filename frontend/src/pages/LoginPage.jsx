@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { API_BASE_URL } from '../config/env';
 
 export default function LoginPage() {
     const [username, setUsername] = useState('');
@@ -21,7 +22,6 @@ export default function LoginPage() {
         }
 
         try {
-            const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
             const response = await axios.post(`${API_BASE_URL}/auth/login`, {
                 username,
                 password,

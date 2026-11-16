@@ -12,11 +12,10 @@ class TripSimulationService {
     this.emitStatus = emitStatus;
     this.trips = new Map();
     this.persistIntervalMs = 5000;
-    // Optional: enable writing history points into `bus_locations` to keep
-    // a replayable trail. Controlled by env ENABLE_BUS_LOCATION_HISTORY=1
-    // and BUS_LOCATION_HISTORY_INTERVAL_MS (ms)
-    this.historyEnabled = process.env.ENABLE_BUS_LOCATION_HISTORY === '1';
-    this.historyIntervalMs = Number(process.env.BUS_LOCATION_HISTORY_INTERVAL_MS) || 30_000;
+    // Record history points into `bus_locations` by default so /admin/history
+    // has real GPS trails for every trip (disable via ENABLE_BUS_LOCATION_HISTORY=0).
+    this.historyEnabled = process.env.ENABLE_BUS_LOCATION_HISTORY !== '0';
+    this.historyIntervalMs = Number(process.env.BUS_LOCATION_HISTORY_INTERVAL_MS) || 5_000;
   }
 
   async restoreActiveTrips() {
@@ -117,6 +116,7 @@ class TripSimulationService {
     this._stopTimer(trip);
 
     const lastPos = trip.coords[trip.coords.length - 1];
+    trip.currentPosition = lastPos;
     this.emitStatus(tripId, {
       isRunning: false,
       driverStatus: 'completed',
@@ -360,9 +360,39 @@ class TripSimulationService {
   }
 
   async _finalizeTrip(trip) {
-    // Khi chuyến hoàn thành: cập nhật trạng thái schedule và xóa checkpoint.
+    // Khi chuyến hoàn thành: ghi điểm cuối, cập nhật trạng thái schedule và xóa checkpoint.
+    const lastPos = trip.currentPosition || trip.coords?.[trip.coords.length - 1];
+    await this._recordHistoryPoint(trip, lastPos, true);
     await this._markScheduleCompleted(trip.tripId);
     await this._clearSimulation(trip);
+  }
+
+  async _recordHistoryPoint(trip, pos, force = false) {
+    if (!this.historyEnabled || !trip?.busId || !trip?.driverId) return;
+    const lat = Number(pos?.lat);
+    const lng = Number(pos?.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    const now = Date.now();
+    if (!force && trip.lastHistoryAt && now - trip.lastHistoryAt < this.historyIntervalMs) {
+      return;
+    }
+
+    const tripIdNum = Number(trip.tripId);
+    const scheduleId = trip.scheduleId || (Number.isFinite(tripIdNum) ? tripIdNum : null);
+    trip.lastHistoryAt = now;
+
+    try {
+      await BusLocation.create({
+        bus_id: trip.busId,
+        driver_id: trip.driverId,
+        schedule_id: scheduleId,
+        latitude: lat,
+        longitude: lng
+      });
+    } catch (err) {
+      console.warn('BusLocation persist failed:', err?.message || err);
+    }
   }
 
   async _markScheduleCompleted(tripId) {
@@ -417,25 +447,8 @@ class TripSimulationService {
         await redisClient.set(`trip_simulation:${tripIdNum}`, JSON.stringify(payload));
       }
 
-      // Optionally persist a history point to `bus_locations` (throttled)
-      if (this.historyEnabled) {
-        if (!trip.lastHistoryAt || now - trip.lastHistoryAt >= this.historyIntervalMs) {
-          trip.lastHistoryAt = now;
-          try {
-            if (trip.busId && trip.driverId) {
-              await BusLocation.create({
-                bus_id: trip.busId,
-                driver_id: trip.driverId,
-                schedule_id: trip.scheduleId || tripIdNum,
-                latitude: currentPos?.lat ?? null,
-                longitude: currentPos?.lng ?? null
-              });
-            }
-          } catch (err) {
-            console.warn('BusLocation persist failed:', err?.message || err);
-          }
-        }
-      }
+      // Persist throttled history point to `bus_locations`
+      await this._recordHistoryPoint(trip, currentPos, force);
     } catch (error) {
       console.warn('Trip persist failed:', error?.message || error);
     }
