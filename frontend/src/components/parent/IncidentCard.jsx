@@ -57,7 +57,7 @@ export default function IncidentCard({ incident }) {
           {/* Footer: Route + Time */}
           <div className="flex items-center justify-between text-xs text-gray-500">
             <span>Tuyến: {incident.route_name || `Route ${incident.route_id}`}</span>
-            <span>{formatDateTimeVi(incident.created_at)}</span>
+            <span>{formatDateTimeVi(incident.created_at_ms || incident.created_at)}</span>
           </div>
         </div>
       </div>

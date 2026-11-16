@@ -132,10 +132,13 @@ class StudentService {
       throw new Error('Tên và lớp học là bắt buộc');
     }
 
-    // Kiểm tra học sinh có tồn tại
-    const exists = await StudentModel.exists(id);
-    if (!exists) {
+    // Kiểm tra học sinh có tồn tại và giữ cố định phụ huynh đã gán trước đó
+    const existingStudent = await StudentModel.findById(id);
+    if (!existingStudent) {
       throw new Error('Không tìm thấy học sinh để cập nhật');
+    }
+    if (existingStudent.parent_id) {
+      studentData.parent_id = existingStudent.parent_id;
     }
 
     // Kiểm tra lớp học

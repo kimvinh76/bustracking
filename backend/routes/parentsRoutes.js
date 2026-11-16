@@ -62,7 +62,13 @@ router.post('/', async (req, res) => {
     res.status(201).json({ success: true, message: 'Thêm phụ huynh thành công', data: parent });
   } catch (err) {
     console.error(' Lỗi khi thêm phụ huynh:', err.message);
-    const statusCode = err.message.includes('Thiếu thông tin') || err.message.includes('đã tồn tại') ? 400 : 500;
+    const statusCode =
+      err.message.includes('Thiếu') ||
+      err.message.includes('đã tồn tại') ||
+      err.message.includes('đã được sử dụng') ||
+      err.message.includes('không hợp lệ')
+        ? 400
+        : 500;
     res.status(statusCode).json({ success: false, message: err.message });
   }
 });
@@ -78,8 +84,14 @@ router.put('/:id', async (req, res) => {
     res.json({ success: true, message: 'Cập nhật phụ huynh thành công', data: parent });
   } catch (err) {
     console.error(' Lỗi khi cập nhật phụ huynh:', err.message);
-    const statusCode = err.message.includes('Không tìm thấy') ? 404 : 
-                       err.message.includes('Thiếu thông tin') || err.message.includes('đã tồn tại') ? 400 : 500;
+    const statusCode = err.message.includes('Không tìm thấy')
+      ? 404
+      : err.message.includes('Thiếu') ||
+          err.message.includes('đã tồn tại') ||
+          err.message.includes('đã được sử dụng') ||
+          err.message.includes('không hợp lệ')
+        ? 400
+        : 500;
     res.status(statusCode).json({ success: false, message: err.message });
   }
 });

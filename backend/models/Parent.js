@@ -181,13 +181,17 @@ class ParentModel {
    * @returns {Promise<Object>} Phụ huynh sau khi cập nhật
    */
   static async update(id, parentData) {
-    const { name, phone, address, relationship, user_id } = parentData;
+    const { name, phone, address = null, relationship = null, user_id = null } = parentData;
     
     console.log(' MODEL: Cập nhật phụ huynh ID:', id);
     
     await pool.execute(
-      'UPDATE parents SET name = ?, phone = ?, address = ?, relationship = ?, user_id = ? WHERE id = ?',
-      [name, phone, address || null, relationship, user_id || null, id]
+      `UPDATE parents
+       SET name = ?, phone = ?, address = ?,
+           relationship = COALESCE(?, relationship),
+           user_id = COALESCE(?, user_id)
+       WHERE id = ?`,
+      [name ?? null, phone ?? null, address ?? null, relationship ?? null, user_id ?? null, id]
     );
     
     console.log(' MODEL: Cập nhật thành công');

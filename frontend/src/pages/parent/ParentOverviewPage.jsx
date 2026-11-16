@@ -13,6 +13,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { studentsService } from '../../services/studentsService';
 import { schedulesService } from '../../services/schedulesService';
+import { formatDateVi, formatTimeShortVi } from '../../utils/dateFormat';
 
 import { StudentInfoCard } from '../../components/parent';
 
@@ -119,20 +120,34 @@ export default function ParentOverviewPage() {
                 </tr>
               </thead>
               <tbody className="text-gray-800">
-                {schedules.map((s) => (
-                  <tr key={s.id} className="border-b last:border-b-0">
-                    <td className="py-2 pr-4 whitespace-nowrap">{s.date || 'N/A'}</td>
-                    <td className="py-2 pr-4 whitespace-nowrap">
-                      {s.route_name || (s.route_id ? `Tuyến ${s.route_id}` : 'N/A')}
-                    </td>
-                    <td className="py-2 pr-4 whitespace-nowrap">
-                      {(s.start_time || 'N/A') + ' - ' + (s.end_time || 'N/A')}
-                    </td>
-                    <td className="py-2 pr-4 whitespace-nowrap">{s.license_plate || s.bus_number || 'N/A'}</td>
-                    <td className="py-2 pr-4 whitespace-nowrap">{s.driver_name || 'N/A'}</td>
-                    <td className="py-2 pr-4 whitespace-nowrap">{s.status || 'N/A'}</td>
-                  </tr>
-                ))}
+                {schedules.map((s) => {
+                  const statusMeta =
+                    s.status === 'completed'
+                      ? { label: 'Hoàn thành', cls: 'bg-green-100 text-green-700' }
+                      : s.status === 'in_progress'
+                        ? { label: 'Đang chạy', cls: 'bg-blue-100 text-blue-700' }
+                        : s.status === 'cancelled'
+                          ? { label: 'Đã hủy', cls: 'bg-red-100 text-red-700' }
+                          : { label: 'Chưa bắt đầu', cls: 'bg-slate-100 text-slate-700' };
+                  return (
+                    <tr key={s.id} className="border-b last:border-b-0">
+                      <td className="py-2 pr-4 whitespace-nowrap">{formatDateVi(s.date, undefined, 'N/A')}</td>
+                      <td className="py-2 pr-4 whitespace-nowrap">
+                        {s.route_name || (s.route_id ? `Tuyến ${s.route_id}` : 'N/A')}
+                      </td>
+                      <td className="py-2 pr-4 whitespace-nowrap">
+                        {`${formatTimeShortVi(s.start_time, '--:--')} - ${formatTimeShortVi(s.end_time, '--:--')}`}
+                      </td>
+                      <td className="py-2 pr-4 whitespace-nowrap">{s.license_plate || s.bus_number || 'N/A'}</td>
+                      <td className="py-2 pr-4 whitespace-nowrap">{s.driver_name || 'N/A'}</td>
+                      <td className="py-2 pr-4 whitespace-nowrap">
+                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${statusMeta.cls}`}>
+                          {statusMeta.label}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

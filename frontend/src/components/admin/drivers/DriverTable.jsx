@@ -30,7 +30,7 @@ const DriverTable = ({ drivers = [], loading = false, onAdd, onEdit, onView, onD
     const matchesSearch = 
       driver.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       driver.license_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      driver.phone.includes(searchTerm) ||
+      driver.phone?.includes(searchTerm) ||
       driver.phone?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = !statusFilter || driver.status === statusFilter;

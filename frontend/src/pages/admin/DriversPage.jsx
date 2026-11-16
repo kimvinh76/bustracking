@@ -5,6 +5,7 @@ import Modal from '../../components/UI/Modal';
 import ConfirmDialog from '../../components/UI/ConfirmDialog';
 import { driversService } from '../../services/driversService';
 import Header from '../../components/admin/Header';
+import boxDialog from '../../components/UI/BoxDialog';
 
 const DriversPage = () => {
   const [drivers, setDrivers] = useState([]);
@@ -73,10 +74,14 @@ const DriversPage = () => {
       await driversService.deleteDriver(selectedDriver.id);
       await fetchDrivers(); // Reload list
       setSelectedDriver(null);
-      setShowConfirm(false);
+      setError(null);
+      boxDialog('success');
     } catch (err) {
-      setError('Lỗi khi xóa tài xế: ' + err.message);
+      setError('Lỗi khi xóa tài xế: ' + (err?.message || ''));
+      boxDialog('error');
       console.error('Error deleting driver:', err);
+    } finally {
+      setShowConfirm(false);
     }
   };
 
@@ -91,9 +96,12 @@ const DriversPage = () => {
       setShowForm(false);
       setSelectedDriver(null);
       setError(null);
+      boxDialog('success');
     } catch (err) {
-      setError('Lỗi khi lưu tài xế: ' + err.message);
+      setError('Lỗi khi lưu tài xế: ' + (err?.message || ''));
+      boxDialog('error');
       console.error('Error saving driver:', err);
+      throw err;
     }
   };
 

@@ -85,8 +85,11 @@ const DriverForm = ({ driver, mode, onSubmit, onCancel }) => {
 
     if (validateForm()) {
       setLoading(true);
+      setErrors(prev => ({ ...prev, submit: '' }));
       try {
         await onSubmit(formData);
+      } catch (err) {
+        setErrors(prev => ({ ...prev, submit: err?.message || 'Không thể lưu tài xế. Vui lòng thử lại.' }));
       } finally {
         setLoading(false);
       }
@@ -97,6 +100,11 @@ const DriverForm = ({ driver, mode, onSubmit, onCancel }) => {
 
   return (
     <form onSubmit={handleSubmit}>
+      {errors.submit && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {errors.submit}
+        </div>
+      )}
       <div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
           <FormInput

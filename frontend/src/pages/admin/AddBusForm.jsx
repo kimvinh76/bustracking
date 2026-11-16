@@ -62,6 +62,7 @@ export default function AddBusForm({ visible, onCancel, title, onSubmit, mode = 
     }
 
     setIsSubmitting(true);
+    setErrors((prev) => ({ ...prev, submit: "" }));
     
     try {
       await onSubmit(formData);
@@ -74,6 +75,10 @@ export default function AddBusForm({ visible, onCancel, title, onSubmit, mode = 
       setErrors({});
     } catch (error) {
       console.error('Form submission error:', error);
+      setErrors((prev) => ({
+        ...prev,
+        submit: error?.message || "Thao tác thất bại. Vui lòng thử lại.",
+      }));
     } finally {
       setIsSubmitting(false);
     }
@@ -89,6 +94,11 @@ export default function AddBusForm({ visible, onCancel, title, onSubmit, mode = 
       size="md"
     >
       <form className="space-y-4" onSubmit={handleSubmit}>
+        {errors.submit && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {errors.submit}
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormInput
             label="Mã xe"

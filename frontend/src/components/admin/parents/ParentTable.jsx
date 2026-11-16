@@ -1,11 +1,15 @@
 import { useState } from 'react';
+import PropTypes from 'prop-types';
 import Table from '../../common/Table';
 
 const ParentTable = ({ parents = [], loading = false, onAdd, onEdit, onView, onDelete }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [relationshipFilter, setRelationshipFilter] = useState('');
 
-  // Loading state
+  const uniqueRelationships = [
+    ...new Set(parents.map((p) => p.relationship).filter(Boolean)),
+  ].sort();
+
   if (loading) {
     return (
       <div className="mx-8">
@@ -24,98 +28,89 @@ const ParentTable = ({ parents = [], loading = false, onAdd, onEdit, onView, onD
     );
   }
 
-  // Filter parents
-  const filteredParents = parents.filter(parent => {
-    const matchesSearch = 
-      parent.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      parent.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  const filteredParents = parents.filter((parent) => {
+    const q = searchTerm.toLowerCase();
+    const matchesSearch =
+      parent.name?.toLowerCase().includes(q) ||
+      parent.email?.toLowerCase().includes(q) ||
+      parent.username?.toLowerCase().includes(q) ||
       parent.phone?.includes(searchTerm);
-    
-    const matchesStatus = !statusFilter || parent.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
+
+    const matchesRelationship =
+      !relationshipFilter || parent.relationship === relationshipFilter;
+
+    return matchesSearch && matchesRelationship;
   });
 
   const columns = [
-    { 
-      key: 'name', 
-      header: 'Họ tên' 
+    {
+      key: 'name',
+      header: 'Họ tên',
     },
-    { 
-      key: 'email', 
+    {
+      key: 'relationship',
+      header: 'Quan hệ',
+      render: (value) => value || <span className="text-slate-400 italic">Chưa rõ</span>,
+    },
+    {
+      key: 'username',
+      header: 'Tài khoản',
+      render: (value) =>
+        value ? (
+          <span className="inline-block rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+            {value}
+          </span>
+        ) : (
+          <span className="inline-block rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-500">
+            Chưa có TK
+          </span>
+        ),
+    },
+    {
+      key: 'email',
       header: 'Email',
       render: (value) => (
-        <div style={{ maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {value || 'Chưa có'}
+        <div style={{ maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {value && value !== 'Chưa có' ? value : 'Chưa có'}
         </div>
-      )
+      ),
     },
-    { 
-      key: 'phone', 
-      header: 'Số điện thoại' 
+    {
+      key: 'phone',
+      header: 'Số điện thoại',
     },
-    { 
-      key: 'address', 
+    {
+      key: 'address',
       header: 'Địa chỉ',
       render: (value) => (
         <div style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {value}
+          {value || '--'}
         </div>
-      )
+      ),
     },
-    { 
-      key: 'children_count', 
+    {
+      key: 'children_count',
       header: 'Con em',
       render: (value, row) => {
         const childrenCount = (value ?? row?.children_count) || 0;
-        
         if (childrenCount === 0) {
-          return <span style={{ color: '#64748b', fontStyle: 'italic' }}>Chưa có</span>;
+          return <span className="text-slate-400 italic">Chưa có</span>;
         }
-        
         return (
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center',
-            gap: '8px'
-          }}>
-            <span style={{ 
-              fontSize: '14px', 
-              color: '#3b82f6', 
-              fontWeight: '500' 
-            }}>
-              {childrenCount} con
-            </span>
-          </div>
+          <span className="text-sm font-medium text-blue-600">{childrenCount} con</span>
         );
-      }
+      },
     },
-    { 
-      key: 'status', 
-      header: 'Trạng thái',
-      render: (value) => (
-        <span className={`inline-block rounded-full px-3 py-1 text-xs font-medium ${
-          value === 'active' 
-            ? 'bg-green-100 text-green-700' 
-            : 'bg-slate-200 text-slate-600'
-        }`}>
-          {value === 'active' ? 'Hoạt động' : 'Không hoạt động'}
-        </span>
-      )
-    }
   ];
 
   const filters = [
     {
-      placeholder: 'Tất cả trạng thái',
-      value: statusFilter,
-      onChange: setStatusFilter,
-      options: [
-        { value: 'active', label: 'Hoạt động' },
-        { value: 'inactive', label: 'Không hoạt động' }
-      ],
-      minWidth: '130px'
-    }
+      placeholder: 'Tất cả quan hệ',
+      value: relationshipFilter,
+      onChange: setRelationshipFilter,
+      options: uniqueRelationships.map((rel) => ({ value: rel, label: rel })),
+      minWidth: '140px',
+    },
   ];
 
   return (
@@ -131,9 +126,22 @@ const ParentTable = ({ parents = [], loading = false, onAdd, onEdit, onView, onD
       onDelete={onDelete}
       addButtonText="Thêm phụ huynh"
       filters={filters}
-      emptyMessage={searchTerm || statusFilter ? 'Không tìm thấy phụ huynh nào phù hợp' : 'Chưa có phụ huynh nào'}
+      emptyMessage={
+        searchTerm || relationshipFilter
+          ? 'Không tìm thấy phụ huynh nào phù hợp'
+          : 'Chưa có phụ huynh nào'
+      }
     />
   );
+};
+
+ParentTable.propTypes = {
+  parents: PropTypes.array.isRequired,
+  loading: PropTypes.bool,
+  onAdd: PropTypes.func.isRequired,
+  onEdit: PropTypes.func.isRequired,
+  onView: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired,
 };
 
 export default ParentTable;

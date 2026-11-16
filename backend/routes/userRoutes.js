@@ -44,8 +44,16 @@ router.post("/", async (req, res) => {
         res.json(newUser);
     } catch (err) {
         console.error(' Lỗi khi tạo user:', err.message);
-        const statusCode = err.message.includes('Thiếu thông tin') || err.message.includes('đã tồn tại') ? 400 : 500;
-        res.status(statusCode).json({ message: err.message });
+        const msg = String(err?.message || '');
+        const statusCode =
+            msg.includes('Thiếu') ||
+            msg.includes('đã tồn tại') ||
+            msg.includes('đã được sử dụng') ||
+            msg.includes('không hợp lệ') ||
+            msg.includes('ít nhất')
+                ? 400
+                : 500;
+        res.status(statusCode).json({ message: msg });
     }
 });
 
@@ -60,9 +68,17 @@ router.put("/:id", async (req, res) => {
         res.json(updatedUser);
     } catch (err) {
         console.error(' Lỗi khi cập nhật user:', err.message);
-        const statusCode = err.message.includes('Không tìm thấy') ? 404 :
-                           err.message.includes('đã tồn tại') ? 400 : 500;
-        res.status(statusCode).json({ message: err.message });
+        const msg = String(err?.message || '');
+        const statusCode = msg.includes('Không tìm thấy')
+            ? 404
+            : msg.includes('Thiếu') ||
+                msg.includes('đã tồn tại') ||
+                msg.includes('đã được sử dụng') ||
+                msg.includes('không hợp lệ') ||
+                msg.includes('ít nhất')
+                ? 400
+                : 500;
+        res.status(statusCode).json({ message: msg });
     }
 });
 

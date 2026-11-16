@@ -18,6 +18,7 @@ import { schedulesService } from '../../services/schedulesService';
 import { incidentsService } from '../../services/incidentsService';
 import { routesService } from '../../services/routesService';
 import busTrackingService from '../../services/busTrackingService';
+import { parseSafeDate } from '../../utils/dateFormat';
 
 // Components
 import {
@@ -241,11 +242,14 @@ export default function ParentPage() {
         const response = await incidentsService.getIncidentsByRoute(routeId);
         const incidentsData = response?.incidents || response || [];
         
-        // Lọc sự cố trong 30 phút gần nhất
+        // Lọc sự cố trong 30 phút gần nhất (ưu tiên epoch ms từ SQL để tránh lệch UTC/VN)
         const recentIncidents = incidentsData.filter(incident => {
-          const incidentTime = new Date(incident.created_at);
-          const minutesDiff = (Date.now() - incidentTime) / (1000 * 60);
-          return minutesDiff <= 30;
+          const incidentMs =
+            Number(incident.created_at_ms) ||
+            parseSafeDate(incident.created_at)?.getTime();
+          if (!Number.isFinite(incidentMs)) return false;
+          const minutesDiff = (Date.now() - incidentMs) / (1000 * 60);
+          return minutesDiff >= -5 && minutesDiff <= 30;
         });
         
         setIncidents(recentIncidents);

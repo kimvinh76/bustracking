@@ -13,6 +13,7 @@ export default function IncidentReportModal({
 }) {
   const [severity, setSeverity] = React.useState('medium');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [errorMsg, setErrorMsg] = React.useState('');
   
   if (!isOpen) return null;
 
@@ -34,14 +35,16 @@ export default function IncidentReportModal({
   const handleQuickSelect = (option) => {
     onIncidentTextChange(option.value);
     setSeverity(option.severity);
+    setErrorMsg('');
   };
 
   const handleSubmit = async () => {
     if (!incidentText.trim()) {
-      alert('Vui lòng mô tả sự cố');
+      setErrorMsg('Vui lòng mô tả sự cố trước khi gửi.');
       return;
     }
 
+    setErrorMsg('');
     setIsSubmitting(true);
     try {
       const incidentData = {
@@ -55,21 +58,17 @@ export default function IncidentReportModal({
         severity
       };
 
-      console.log('Gửi dữ liệu:', incidentData);
       const result = await incidentsService.createIncident(incidentData);
-      console.log('Nhận response:', result);
       
       if (result && result.success) {
-        onSubmit(result.incident); // Pass back the created incident
+        onSubmit(result.incident);
         onClose();
-        alert(' Báo cáo sự cố đã được gửi thành công!');
       } else {
-        console.error('Response không có success:', result);
         throw new Error(result?.message || 'Không thể gửi báo cáo');
       }
     } catch (error) {
       console.error('Lỗi gửi báo cáo sự cố:', error);
-      alert('Lỗi gửi báo cáo: ' + (error.message || 'Vui lòng thử lại'));
+      setErrorMsg('Lỗi gửi báo cáo: ' + (error?.message || 'Vui lòng thử lại'));
     } finally {
       setIsSubmitting(false);
     }
@@ -131,9 +130,18 @@ export default function IncidentReportModal({
           </div>
         </div>
 
+        {errorMsg && (
+          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+            {errorMsg}
+          </div>
+        )}
+
         <textarea
           value={incidentText}
-          onChange={(e) => onIncidentTextChange(e.target.value)}
+          onChange={(e) => {
+            onIncidentTextChange(e.target.value);
+            if (errorMsg) setErrorMsg('');
+          }}
           placeholder="Mô tả chi tiết tình huống sự cố (vị trí, mức độ nghiêm trọng...)"
           className="w-full p-3 border border-gray-300 rounded-lg resize-none h-24 mb-4 focus:ring-2 focus:ring-red-500 focus:border-red-500"
         />

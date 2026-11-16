@@ -1,24 +1,31 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Header from "../../components/admin/Header";
 import UserTable from "../../components/admin/User/UserTable";
 import UserForm from "../../components/admin/User/UserForm";
+import Modal from "../../components/UI/Modal";
+import ConfirmDialog from "../../components/UI/ConfirmDialog";
+import boxDialog from "../../components/UI/BoxDialog";
 import apiClient from "../../services/api";
 
 function UserPage() {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+
     const [isFormOpen, setIsFormOpen] = useState(false);
-    const [editingUser, setEditingUser] = useState(null);
+    const [formMode, setFormMode] = useState("add"); // 'add' | 'edit' | 'view'
+    const [selectedUser, setSelectedUser] = useState(null);
+
+    const [userToDelete, setUserToDelete] = useState(null);
 
     const fetchUsers = async () => {
         setLoading(true);
         setError(null);
         try {
             const data = await apiClient.get("/users");
-            setUsers(data);
+            setUsers(Array.isArray(data) ? data : []);
         } catch (err) {
-            setError(err.message || 'Lỗi khi tải danh sách users');
+            setError(err?.message || "Lỗi khi tải danh sách tài khoản");
         } finally {
             setLoading(false);
         }
@@ -29,87 +36,125 @@ function UserPage() {
     }, []);
 
     const handleCreate = () => {
-        setEditingUser(null);
+        setFormMode("add");
+        setSelectedUser(null);
+        setIsFormOpen(true);
+    };
+
+    const handleView = (user) => {
+        setFormMode("view");
+        setSelectedUser(user);
         setIsFormOpen(true);
     };
 
     const handleEdit = (user) => {
-        setEditingUser(user);
+        setFormMode("edit");
+        setSelectedUser(user);
         setIsFormOpen(true);
     };
 
-    const handleDelete = async (user) => {
-        if (!window.confirm(`Xác nhận xóa user "${user.username}"?`)) return;
+    const handleDeleteRequest = (user) => {
+        setUserToDelete(user);
+    };
+
+    const confirmDelete = async () => {
+        if (!userToDelete) return;
         try {
-            await apiClient.delete(`/users/${user.id}`);
-            setUsers((prev) => prev.filter((u) => u.id !== user.id));
+            await apiClient.delete(`/users/${userToDelete.id}`);
+            setUsers((prev) => prev.filter((u) => u.id !== userToDelete.id));
+            setError(null);
+            boxDialog("success");
         } catch (err) {
-            console.error('Delete error:', err);
-            alert("Xóa thất bại: " + (err.message || err.toString()));
+            console.error("Delete error:", err);
+            setError("Xóa tài khoản thất bại: " + (err?.message || "Vui lòng thử lại."));
+            boxDialog("error");
+        } finally {
+            setUserToDelete(null);
         }
     };
 
     const handleFormSubmit = async (formData) => {
         try {
-            const isEdit = Boolean(formData.id);
-            
+            const isEdit = formMode === "edit" && Boolean(formData.id);
             if (isEdit) {
-                // Update existing user
                 const updated = await apiClient.put(`/users/${formData.id}`, formData);
                 setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
             } else {
-                // Create new user
                 const created = await apiClient.post("/users", formData);
                 setUsers((prev) => [created, ...prev]);
             }
-            
             setIsFormOpen(false);
-            setEditingUser(null);
+            setSelectedUser(null);
+            setError(null);
+            boxDialog("success");
         } catch (err) {
-            console.error('Form submit error:', err);
-            alert("Lưu thất bại: " + (err.message || err.toString()));
+            console.error("Form submit error:", err);
+            boxDialog("error");
+            throw err;
         }
     };
+
+    const modalTitle =
+        formMode === "edit"
+            ? "Chỉnh sửa tài khoản"
+            : formMode === "view"
+                ? "Chi tiết tài khoản"
+                : "Thêm tài khoản mới";
 
     return (
         <div className="min-h-screen bg-gray-100 p-4 sm:p-6 space-y-6">
             <Header title="QUẢN LÝ TÀI KHOẢN" />
 
-            <div>
-                {error && (
-                    <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-                        Lỗi khi tải: {error}
-                    </div>
-                )}
-
-                <div className="bg-white shadow-xl rounded-lg h-[calc(100vh-180px)] flex flex-col">
-                    <div className="flex-1 overflow-hidden">
-                        <UserTable
-                            users={users}
-                            loading={loading}
-                            onEdit={handleEdit}
-                            onDelete={handleDelete}
-                            onView={(user) =>
-                                alert(`Username: ${user.username}\nEmail: ${user.email}\nRole: ${user.role}`)
-                            }
-                            onAdd={handleCreate}
-                        />
-                    </div>
+            {error && (
+                <div className="flex items-center justify-between p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                    <span>{error}</span>
+                    <button
+                        type="button"
+                        onClick={() => setError(null)}
+                        className="text-xs font-semibold underline cursor-pointer"
+                    >
+                        Đóng
+                    </button>
                 </div>
+            )}
 
-                {isFormOpen && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                        <div className="bg-white shadow-2xl rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-                            <UserForm
-                                user={editingUser}
-                                mode={editingUser ? 'edit' : 'create'}
-                                onCancel={() => setIsFormOpen(false)}
-                                onSubmit={handleFormSubmit}
-                            />
-                        </div>
-                    </div>
-                )}
-            </div>
+            <UserTable
+                users={users}
+                loading={loading}
+                onAdd={handleCreate}
+                onView={handleView}
+                onEdit={handleEdit}
+                onDelete={handleDeleteRequest}
+            />
+
+            <Modal
+                isOpen={isFormOpen}
+                onClose={() => setIsFormOpen(false)}
+                title={modalTitle}
+                size="md"
+            >
+                <UserForm
+                    user={selectedUser}
+                    mode={formMode}
+                    onCancel={() => setIsFormOpen(false)}
+                    onSubmit={handleFormSubmit}
+                    onSwitchToEdit={
+                        formMode === "view" && selectedUser
+                            ? () => setFormMode("edit")
+                            : undefined
+                    }
+                />
+            </Modal>
+
+            <ConfirmDialog
+                isOpen={Boolean(userToDelete)}
+                onClose={() => setUserToDelete(null)}
+                onConfirm={confirmDelete}
+                title="Xác nhận xóa tài khoản"
+                message={`Bạn có chắc muốn xóa tài khoản "${userToDelete?.username}"? Hành động này không thể hoàn tác.`}
+                confirmText="Xóa"
+                cancelText="Hủy"
+            />
         </div>
     );
 }

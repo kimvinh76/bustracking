@@ -20,8 +20,10 @@ const ParentForm = ({ parent, mode, onSubmit, onCancel }) => {
 
   useEffect(() => {
     if (parent) {
+      const normalizedEmail =
+        parent.email && parent.email !== 'Chưa có' ? parent.email : '';
       setFormData({
-        name: parent.name || '', username: parent.username || '', email: parent.email || '',
+        name: parent.name || '', username: parent.username || '', email: normalizedEmail,
         phone: parent.phone || '', relationship: parent.relationship || '', address: parent.address || ''
       });
     }
@@ -113,8 +115,11 @@ const ParentForm = ({ parent, mode, onSubmit, onCancel }) => {
 
     if (validateForm()) {
       setLoading(true);
+      setErrors(prev => ({ ...prev, submit: '' }));
       try {
         await onSubmit(formData);
+      } catch (err) {
+        setErrors(prev => ({ ...prev, submit: err?.message || 'Không thể lưu phụ huynh. Vui lòng thử lại.' }));
       } finally {
         setLoading(false);
       }
@@ -142,6 +147,11 @@ const ParentForm = ({ parent, mode, onSubmit, onCancel }) => {
 
   return (
     <form onSubmit={handleSubmit}>
+      {errors.submit && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {errors.submit}
+        </div>
+      )}
       {formFields.map(field => (
         <FormInput
           key={field.name}
