@@ -33,8 +33,7 @@ const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
         setParents(parentsData || []);
         setClasses(classesData || []);
         setAllRoutes(routesData || []);
-      } catch (error) {
-       
+      } catch {
         setParents([]);
         setClasses([]);
         setAllRoutes([]);
@@ -61,8 +60,7 @@ const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
       try {
         const stops = await routesService.getRouteStops(routeId);
         setStops(stops || []);
-      } catch (err) {
-      
+      } catch {
         setStops([]);
       }
     };
@@ -123,8 +121,7 @@ const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
     try {
       const stops = await routesService.getRouteStops(routeId);
       setStops(stops || []);
-    } catch (err) {
-     
+    } catch {
       setStops([]);
     }
   };
@@ -190,11 +187,14 @@ const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
           });
         }
         
-        const {
-          morning_route_id, morning_pickup_stop_id,
-          afternoon_route_id, afternoon_dropoff_stop_id,
-          ...restData
-        } = formData;
+        const restData = {
+          name: formData.name,
+          grade: formData.grade,
+          class: formData.class,
+          parent_id: formData.parent_id,
+          phone: formData.phone,
+          address: formData.address,
+        };
 
         await onSubmit({ ...restData, subscriptions });
       } finally {

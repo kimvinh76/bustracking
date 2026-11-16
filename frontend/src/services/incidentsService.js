@@ -64,6 +64,6 @@ export const incidentsService = {
       status,
       admin_notes: adminNotes
     });
-    return response.data;
+    return response;
   }
 };

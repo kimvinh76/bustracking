@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import {
@@ -22,6 +22,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { ArrowLeft, Save, MapPin, GripVertical, Trash2 } from 'lucide-react';
 
 import apiClient from '../../services/api';
+import { MAP_TILE_URL, MAP_TILE_ATTRIBUTION } from '../../utils/mapDefaults.js';
 import Header from '../../components/admin/Header';
 import Button from '../../components/common/Button';
 import boxDialog from '../../components/UI/BoxDialog';
@@ -111,14 +112,17 @@ function SortableStopItem({ id, stop, index, onRemove, isFixed }) {
   );
 }
 
-// Map center updater
-function ChangeView({ center, zoom }) {
+// Map center & bounds updater
+function ChangeView({ center, zoom, routePositions }) {
   const map = useMap();
   useEffect(() => {
-    if (center && center[0]) {
+    map.invalidateSize();
+    if (routePositions && routePositions.length >= 2) {
+      map.fitBounds(routePositions, { padding: [40, 40] });
+    } else if (center && center[0]) {
       map.setView(center, zoom);
     }
-  }, [center, zoom, map]);
+  }, [center, zoom, map, routePositions]);
   return null;
 }
 
@@ -295,10 +299,26 @@ export default function RouteBuilder() {
         <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative z-0">
           <MapContainer center={mapCenter} zoom={13} style={{ height: '100%', width: '100%' }}>
             <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution={MAP_TILE_ATTRIBUTION}
+              url={MAP_TILE_URL}
             />
-            <ChangeView center={mapCenter} zoom={13} />
+            <ChangeView
+              center={mapCenter}
+              zoom={13}
+              routePositions={safeSelectedStops
+                .filter((s) => s.latitude != null && s.longitude != null)
+                .map((s) => [parseFloat(s.latitude), parseFloat(s.longitude)])}
+            />
+
+            {/* Vẽ đường nối thứ tự lộ trình hiện tại */}
+            {safeSelectedStops.length >= 2 && (
+              <Polyline
+                positions={safeSelectedStops
+                  .filter((s) => s.latitude != null && s.longitude != null)
+                  .map((s) => [parseFloat(s.latitude), parseFloat(s.longitude)])}
+                pathOptions={{ color: '#2563eb', weight: 4, opacity: 0.85, dashArray: '8 6' }}
+              />
+            )}
             
             {allStops.map((stop) => {
               const isSchool = isSchoolStop(stop);

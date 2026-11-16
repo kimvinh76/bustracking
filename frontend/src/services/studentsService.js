@@ -56,13 +56,8 @@ export const studentsService = {
 
     // Cập nhật học sinh
     updateStudent: async (id, studentData) => {
-        try {
-            const response = await apiClient.put(`${ENDPOINT}/${id}`, studentData);
-            return response; 
-        } catch (error) {
-        
-            throw error;
-        }
+        const response = await apiClient.put(`${ENDPOINT}/${id}`, studentData);
+        return response;
     },
 
     // Xóa học sinh

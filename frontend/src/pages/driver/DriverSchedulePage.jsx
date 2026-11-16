@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { schedulesService } from "../../services/schedulesService";
+import { driversService } from "../../services/driversService";
 import Header from "../../components/admin/Header";
 import { FiCalendar, FiAlertTriangle } from 'react-icons/fi';
 import { FaBus, FaRocket } from 'react-icons/fa';
@@ -33,11 +34,7 @@ export default function DriverSchedulePage() {
   const navigate = useNavigate();
 
 
-  useEffect(() => {
-    fetchSchedules();
-  }, [selectedDate, timeFilter]);
-
-  const fetchSchedules = async () => {
+  const fetchSchedules = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -61,7 +58,11 @@ export default function DriverSchedulePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedDate, timeFilter]);
+
+  useEffect(() => {
+    fetchSchedules();
+  }, [fetchSchedules]);
 
 
 
@@ -75,12 +76,11 @@ export default function DriverSchedulePage() {
         if (driverId) {
           // Gọi API để lấy thông tin driver chi tiết từ database
           try {
-            const driverResponse = await fetch(`http://localhost:5000/api/drivers/${driverId}`);
-            const driverData = await driverResponse.json();
-            
-            if (driverData.success) {
+            const driverData = await driversService.getDriverById(driverId);
+
+            if (driverData?.name) {
               setCurrentDriver({
-                name: driverData.data.name || 'Tài xế',
+                name: driverData.name,
                 driverCode: `TX${driverId.toString().padStart(3, '0')}`
               });
             } else {
@@ -99,7 +99,7 @@ export default function DriverSchedulePage() {
         } else {
           setCurrentDriver({ name: 'Không xác định', driverCode: 'TX???' });
         }
-      } catch (error) {
+      } catch {
         setCurrentDriver({ name: 'Lỗi tải thông tin', driverCode: 'TX???' });
       }
     };

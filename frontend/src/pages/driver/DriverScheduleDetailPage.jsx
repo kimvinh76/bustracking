@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { schedulesService } from "../../services/schedulesService";
 import Header from "../../components/admin/Header";
@@ -27,25 +27,12 @@ export default function DriverScheduleDetailPage() {
   const [stops, setStops] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [updating, setUpdating] = useState(false);
   const [showStudentsModal, setShowStudentsModal] = useState(false);
   const [showStopsModal, setShowStopsModal] = useState(false);
   const [currentDriverName, setCurrentDriverName] = useState("Tài xế");
 
 
-  useEffect(() => {
-    fetchScheduleDetail();
-    fetchScheduleStops();
-    // Load current logged-in user's display name (simple, from sessionStorage)
-    try {
-      const user = JSON.parse(sessionStorage.getItem('user')) || null;
-      if (user) setCurrentDriverName(user.username || user.name || 'Tài xế');
-    } catch (_) {
-      // ignore
-    }
-  }, [id]);
-
-  const fetchScheduleDetail = async () => {
+  const fetchScheduleDetail = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -112,9 +99,9 @@ export default function DriverScheduleDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
-  const fetchScheduleStops = async () => {
+  const fetchScheduleStops = useCallback(async () => {
     try {
       console.log(' [DEBUG] Bắt đầu tải điểm dừng, scheduleId:', id);
 
@@ -168,7 +155,19 @@ export default function DriverScheduleDetailPage() {
       });
       setStops([]);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    fetchScheduleDetail();
+    fetchScheduleStops();
+    // Load current logged-in user's display name (simple, from sessionStorage)
+    try {
+      const user = JSON.parse(sessionStorage.getItem('user')) || null;
+      if (user) setCurrentDriverName(user.username || user.name || 'Tài xế');
+    } catch {
+      // ignore
+    }
+  }, [fetchScheduleDetail, fetchScheduleStops]);
 
 
   if (loading) {

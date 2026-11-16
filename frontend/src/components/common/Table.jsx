@@ -106,7 +106,7 @@ const Table = ({
                         if (rendered !== null && typeof rendered === 'object' && !React.isValidElement(rendered)) {
                           try {
                             return JSON.stringify(rendered);
-                          } catch (e) {
+                          } catch {
                             return String(rendered);
                           }
                         }

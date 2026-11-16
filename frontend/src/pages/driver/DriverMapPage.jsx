@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import BusRouteLayer from "../../components/map/BusRouteLayer.jsx";
-import { applyLeafletDefaultIcon } from "../../utils/mapDefaults.js";
+import { applyLeafletDefaultIcon, MAP_TILE_URL, MAP_TILE_ATTRIBUTION } from "../../utils/mapDefaults.js";
 import DriverHeader from "../../components/driver/DriverHeader.jsx";
 import AlertsContainer from "../../components/driver/AlertsContainer.jsx";
 import TripStatusPanel from "../../components/driver/TripStatusPanel.jsx";
@@ -46,10 +46,20 @@ export default function DriverMapPage() {
   const busPosRef = useRef(null);
   const lastPausedIdxRef = useRef(null);
   const completedHandledRef = useRef(false);
+  const stopsRef = useRef([]);
+  const routeIdRef = useRef(null);
 
   // Data from API
   const [schedule, setSchedule] = useState(null);
   const [stops, setStops] = useState([]);
+
+  useEffect(() => {
+    stopsRef.current = stops;
+  }, [stops]);
+
+  useEffect(() => {
+    routeIdRef.current = schedule?.routeId ?? null;
+  }, [schedule?.routeId]);
 
  
   const currentStop = stops[stopIdx];
@@ -96,7 +106,7 @@ const estimatedTime = nextStop
   
   // Ghi lại trạng thái chuyến đang chạy vào sessionStorage để sidebar "Bắt đầu chuyến"
   // có thể đưa tài xế quay lại đúng chuyến chưa kết thúc.
-  const updateActiveTripSession = (newStatus) => {
+  const updateActiveTripSession = useCallback((newStatus) => {
     if (!scheduleId) return;
     if (newStatus === "cleared") {
       sessionStorage.removeItem("driverActiveTrip");
@@ -109,19 +119,16 @@ const estimatedTime = nextStop
       updatedAt: new Date().toISOString(),
     };
     sessionStorage.setItem("driverActiveTrip", JSON.stringify(payload));
-  }; 
+  }, [scheduleId]);
  
 
   // Khởi tạo WebSocket connection
   useEffect(() => {
-    let hasConnected = false;
-
     try {
         // Lấy đúng tripId (scheduleId) để join room
         if (scheduleId) {
             // Kết nối WebSocket với vai trò driver và tripId cụ thể
             busTrackingService.connect('driver', scheduleId);
-            hasConnected = true;
         }
     } catch (error) {
        console.warn(' WebSocket not available; realtime tracking disabled:', error);
@@ -134,7 +141,6 @@ const estimatedTime = nextStop
          hoặc để service tự quản lý (singleton).
          Ở đây ta giữ kết nối để không phải reconnect liên tục.
       */
-     // if (hasConnected) busTrackingService.disconnect(); 
     };
   }, [scheduleId]);
 
@@ -181,7 +187,7 @@ const estimatedTime = nextStop
         if (lastPausedIdxRef.current !== serverStopIndex) {
           lastPausedIdxRef.current = serverStopIndex;
           setShowStudents(true);
-          pushNotice("warning", ` Đã đến điểm dừng: ${stops[serverStopIndex]?.name || "N/A"}`);
+          pushNotice("warning", ` Đã đến điểm dừng: ${stopsRef.current[serverStopIndex]?.name || "N/A"}`);
         }
       } else {
         setPausedWpIdx(null);
@@ -201,9 +207,10 @@ const estimatedTime = nextStop
             });
         }
 
-        if (schedule?.routeId) {
+        const currentRouteId = routeIdRef.current;
+        if (currentRouteId) {
           routesService
-            .recalculateRouteDistance(schedule.routeId)
+            .recalculateRouteDistance(currentRouteId)
             .catch((err) => {
               console.error(" Không thể tính lại quãng đường tuyến:", err);
             });
@@ -215,7 +222,7 @@ const estimatedTime = nextStop
     return () => {
       busTrackingService.off('bus_status_update', handleStatusUpdate);
     };
-  }, [scheduleId]);
+  }, [scheduleId, updateActiveTripSession]);
 
   // Khi người dùng vào /driver/map (không có scheduleId):
   // - Nếu có chuyến đang chạy trong sessionStorage → tự điều hướng tới /driver/map/:scheduleId đó
@@ -591,8 +598,8 @@ const estimatedTime = nextStop
             scrollWheelZoom
           >
             <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-              url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution={MAP_TILE_ATTRIBUTION}
+              url={MAP_TILE_URL}
             />
 
             {stops.map((s, i) => (

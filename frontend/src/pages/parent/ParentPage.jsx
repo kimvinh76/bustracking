@@ -66,15 +66,15 @@ export default function ParentPage() {
   const  normalizeStatus = (status) => String(status || '').trim().toLowerCase();
 
   // Kiểm tra schedule có thuộc các tuyến được gán cho phụ huynh không
-  const isAssignedRouteSchedule = (schedule) => {
+  const isAssignedRouteSchedule = useCallback((schedule) => {
     const rid = toNumber(schedule?.route_id);
     return rid != null && assignedRouteIds.includes(rid);
-  };
+  }, [assignedRouteIds]);
 
   // Cập nhật UI theo schedule đang chạy 
   // - Chỉ set routeId/busInfo khi schedule.status === in_progress
   // - Clear tuyến cũ ngay khi đổi tuyến
-  const applyActiveScheduleToUI = (schedule) => {
+  const applyActiveScheduleToUI = useCallback((schedule) => {
     const rid = toNumber(schedule?.route_id);
     const sid = toNumber(schedule?.id);
     if (rid == null || sid == null) return;
@@ -89,7 +89,7 @@ export default function ParentPage() {
       driverPhone: schedule?.driver_phone || null,
       scheduleId: schedule?.id
     });
-  };
+  }, []);
 
   //  (strict realtime): nếu không có chuyến đang chạy thì không vẽ tuyến/businfo.
   // Hàm này reset các state liên quan đến chuyến đi.
@@ -202,7 +202,7 @@ export default function ParentPage() {
     checkInProgress();
     const interval = setInterval(checkInProgress, 8000);
     return () => clearInterval(interval);
-  }, [assignedRouteIds, activeTripId]);
+  }, [assignedRouteIds, activeTripId, isAssignedRouteSchedule, applyActiveScheduleToUI]);
 
   /**
    * Load route stops khi có routeId

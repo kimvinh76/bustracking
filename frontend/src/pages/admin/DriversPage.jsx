@@ -27,7 +27,7 @@ const DriversPage = () => {
       setDrivers(data);
       setError(null);
     } catch (err) {
-
+      setError('Lỗi khi tải danh sách tài xế: ' + (err?.message || ''));
     } finally {
       setLoading(false);
     }
