@@ -195,61 +195,38 @@ class ScheduleService {
         return { ...schedule, stops: [] };
     }
 
-    // 3. Tính toán thời gian cho từng stop bằng OSRM
+    // 3. Tính toán thời gian & khoảng cách cộng dồn cho từng stop trong 1 lần gọi OSRM
     const startTime = schedule.scheduled_start_time;
-    let currentDistance = 0; // Tích lũy khoảng cách (nếu lấy được từ osrm) cho frontend hiển thị logic cũ? 
-                             // OSRM trả về duration(s) và distance(m) nếu config, nhưng hàm getEtaOSRM hiện tại chỉ returns duration.
-                             // Ta sẽ giữ logic distance 0 hoặc gọi thêm nếu cần, nhưng user chỉ yêu cầu dùng hàm ETA có sẵn.
-    
+    const segmentMetrics = await RouteService.getSegmentMetrics(stops);
+
+    let accumulatedKm = 0;
     let accumulatedMinutes = 0;
     const stopsWithTime = [];
 
-    // Duyệt tuần tự để tính thời gian cộng dồn (async/await trong loop)
     for (let i = 0; i < stops.length; i++) {
-        const stop = stops[i];
-        let time = startTime;
+      const stop = stops[i];
+      let time = startTime;
 
-        if (i === 0) {
-           // Điểm đầu: distance = 0, time = start_time
-           stopsWithTime.push({
-             ...stop, 
-             time, 
-             distanceFromStart: 0,
-             // Chuẩn hóa field cho frontend
-             lat: parseFloat(stop.latitude),
-             lng: parseFloat(stop.longitude),
-             order: stop.stop_order
-           });
-        } else {
-            const prevStop = stops[i - 1];
-            
-            // Gọi OSRM từ RouteService để lấy thời gian di chuyển thực tế (giây)
-            // Lưu ý: Hàm này có thể throw hoặc return 0 nếu lỗi
-            const durationSeconds = await RouteService.getEtaOSRM(
-                parseFloat(prevStop.latitude), 
-                parseFloat(prevStop.longitude),
-                parseFloat(stop.latitude), 
-                parseFloat(stop.longitude)
-            );
+      if (i > 0) {
+        const leg = segmentMetrics[i - 1] || { distanceKm: 0, durationSeconds: 0 };
+        accumulatedKm += Number(leg.distanceKm || 0);
 
-            // Thời gian dừng đón trả khách (ví dụ 2 phút)
-            const stopDurationMinutes = 2;
-            const travelMinutes = durationSeconds / 60;
+        const stopDurationMinutes = 2;
+        const travelMinutes = Number(leg.durationSeconds || 0) / 60;
+        accumulatedMinutes += travelMinutes + stopDurationMinutes;
+        const roundedMinutes = Math.ceil(accumulatedMinutes);
 
-            accumulatedMinutes += travelMinutes + stopDurationMinutes;
-            const roundedMinutes = Math.ceil(accumulatedMinutes);
-            
-            time = addMinutesToTime(startTime, roundedMinutes);
+        time = addMinutesToTime(startTime, roundedMinutes);
+      }
 
-            stopsWithTime.push({
-                ...stop,
-                time,
-                distanceFromStart: 0, // Hiện tại getEtaOSRM chưa trả distance, để tạm 0 hoặc sửa getEtaOSRM sau
-                lat: parseFloat(stop.latitude),
-                lng: parseFloat(stop.longitude),
-                order: stop.stop_order
-            });
-        }
+      stopsWithTime.push({
+        ...stop,
+        time,
+        distanceFromStart: Number(accumulatedKm.toFixed(2)),
+        lat: parseFloat(stop.latitude),
+        lng: parseFloat(stop.longitude),
+        order: stop.stop_order,
+      });
     }
 
     return {

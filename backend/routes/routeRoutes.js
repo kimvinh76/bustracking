@@ -177,6 +177,24 @@ router.put('/:id/recalculate-distance', async (req, res) => {
   }
 });
 
+// POST /api/routes/preview-distance - Xem trước lộ trình & quãng đường (OSRM) trước khi lưu
+router.post('/preview-distance', async (req, res) => {
+  try {
+    const { stops } = req.body || {};
+    if (!Array.isArray(stops)) {
+      return res.status(400).json({ success: false, message: 'Danh sách trạm không hợp lệ' });
+    }
+    const preview = await RouteService.previewRouteMetrics(stops);
+    res.status(200).json({
+      success: true,
+      data: preview,
+    });
+  } catch (error) {
+    console.error(' Lỗi khi tính trước quãng đường:', error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // PUT /api/routes/:id/stops - Cập nhật danh sách trạm hàng loạt
 router.put('/:id/stops', async (req, res) => {
   console.log(` PUT /api/routes/${req.params.id}/stops - Cập nhật hàng loạt trạm`);
@@ -192,11 +210,20 @@ router.put('/:id/stops', async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: result.message
+      message: result.message,
+      data: result.route,
+      distance: result.distance,
     });
   } catch (error) {
     console.error(' Lỗi khi cập nhật danh sách trạm:', error.message);
-    const statusCode = error.message.includes('không hợp lệ') ? 400 : 500;
+    const statusCode =
+      error.message.includes('không hợp lệ') ||
+      error.message.includes('trùng') ||
+      error.message.includes('vượt quá')
+        ? 400
+        : error.message.includes('Không tìm thấy')
+          ? 404
+          : 500;
     res.status(statusCode).json({ success: false, message: error.message });
   }
 });

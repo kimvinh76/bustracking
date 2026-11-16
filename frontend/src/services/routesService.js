@@ -86,6 +86,24 @@ export const routesService = {
         }
     },
 
+    // Xem trước lộ trình đường bộ & tổng quãng đường trước khi lưu
+    previewRouteDistance: async (stops, signal) => {
+        try {
+            const response = await apiClient.post(
+                `${ENDPOINT}/preview-distance`,
+                { stops },
+                signal ? { signal } : undefined
+            );
+            return response;
+        } catch (error) {
+            if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+                throw error;
+            }
+            console.error(' Error previewing route distance:', error);
+            throw error;
+        }
+    },
+
     // Transform stops từ DB sang format cho map
     transformStopsForMap: (stops) => {
         if (!Array.isArray(stops)) return [];

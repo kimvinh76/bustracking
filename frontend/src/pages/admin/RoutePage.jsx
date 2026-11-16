@@ -56,19 +56,26 @@ export default function RoutePage() {
     fetchRoutes();
   }, []);
 
-  // Tạo route mới
+  // Tạo route mới -> chuyển thẳng sang màn hình Xếp Trạm để chọn trạm và tính khoảng cách
   const handleCreateRoute = async (routeData) => {
     try {
       const created = await apiClient.post("/routes", routeData);
       if (created) {
         const mapped = { ...created, name: created.route_name || created.name };
         setRoutes((prev) => [...prev, mapped]);
-        boxDialog("success");
         setIsOpenFormAdd(false);
+        boxDialog(
+          "success",
+          "Đã tạo tuyến đường",
+          "Hãy chọn các điểm dừng trên bản đồ để tính khoảng cách thực tế."
+        );
+        if (created.id) {
+          navigate(`/admin/routes/${created.id}/builder`);
+        }
       }
     } catch (error) {
       console.error("Lỗi khi tạo route:", error);
-      boxDialog("error");
+      boxDialog("error", "Không thể tạo tuyến", error?.message || "Vui lòng thử lại.");
       throw error;
     }
   };
@@ -147,8 +154,34 @@ export default function RoutePage() {
       header: "Tên tuyến đường",
     },
     {
+      key: "shift_type",
+      header: "Ca chạy",
+      render: (value) => (
+        <span
+          className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
+            value === "afternoon"
+              ? "bg-orange-100 text-orange-700"
+              : "bg-sky-100 text-sky-700"
+          }`}
+        >
+          {value === "afternoon" ? "Ca Chiều" : "Ca Sáng"}
+        </span>
+      ),
+    },
+    {
       key: "distance",
       header: "Khoảng cách",
+      render: (value) => {
+        const km = Number(value);
+        if (!Number.isFinite(km) || km <= 0) {
+          return (
+            <span className="inline-block rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
+              0 km (Chưa xếp trạm)
+            </span>
+          );
+        }
+        return <span className="font-semibold text-gray-800">{km.toFixed(2)} km</span>;
+      },
     },
     {
       key: "status",

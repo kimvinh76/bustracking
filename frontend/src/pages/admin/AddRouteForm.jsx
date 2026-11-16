@@ -77,7 +77,7 @@ export default function AddRouteForm({
   const resolvedTitle =
     title ||
     (mode === "edit" ? "Chỉnh sửa tuyến đường" : "Thêm tuyến đường mới");
-  const submitButtonText = mode === "edit" ? "Cập nhật" : "Thêm tuyến đường";
+  const submitButtonText = mode === "edit" ? "Cập nhật" : "Tạo & Chọn trạm trên bản đồ";
 
   return (
     <Modal isOpen={visible} onClose={onCancel} title={resolvedTitle} size="md">
@@ -107,18 +107,20 @@ export default function AddRouteForm({
           required
         />
 
-        <FormInput
-          label="Khoảng cách (km)"
-          name="distance"
-          value={formData.distance}
-          onChange={(e) =>
-            setFormData({ ...formData, distance: e.target.value })
-          }
-          placeholder={mode === "add" ? "Hệ thống tự động tính khi thêm trạm" : `${formData.distance} km (Tự động tính)`}
-          error={errors.distance}
-          readOnly
-          disabled
-        />
+        {mode === "edit" ? (
+          <FormInput
+            label="Khoảng cách (km)"
+            name="distance"
+            value={formData.distance ? `${Number(formData.distance).toFixed(2)} km` : "0 km"}
+            onChange={() => {}}
+            readOnly
+            disabled
+          />
+        ) : (
+          <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-xs text-blue-800">
+            Quãng đường (km) và thời gian dự kiến sẽ được hệ thống <b>tự động đo theo đường thực tế</b> ngay sau khi bạn chọn các điểm dừng ở bước tiếp theo.
+          </div>
+        )}
 
         <FormInput
           label="Trạng thái"
