@@ -5,6 +5,7 @@ import { driversService } from "../../services/driversService";
 import Header from "../../components/admin/Header";
 import { FiCalendar, FiAlertTriangle } from 'react-icons/fi';
 import { FaBus, FaRocket } from 'react-icons/fa';
+import { formatTimeShortVi } from "../../utils/dateFormat";
 
 
 const getCurrentDriverId = async () => {
@@ -238,19 +239,7 @@ export default function DriverSchedulePage() {
                         <div className="font-medium text-slate-900">{schedule.time} (DK)</div>
                         {(schedule.actual_start_time || schedule.actual_end_time) && (
                           <div className="text-sm font-medium text-green-700 mt-1">
-                            {(() => {
-                              const renderTime = (t) => {
-                                if (!t) return '--:--';
-                                try {
-                                  const d = new Date(t);
-                                  if (!isNaN(d.getTime())) return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-                                  return String(t).substring(11, 16);
-                                } catch { return '--:--'; }
-                              };
-                              const start = renderTime(schedule.actual_start_time);
-                              const end = renderTime(schedule.actual_end_time);
-                              return `${start} - ${end} (TT)`;
-                            })()}
+                            {`${formatTimeShortVi(schedule.actual_start_time)} - ${formatTimeShortVi(schedule.actual_end_time)} (TT)`}
                           </div>
                         )}
                       </td>

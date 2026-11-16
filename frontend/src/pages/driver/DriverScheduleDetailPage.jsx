@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { schedulesService } from "../../services/schedulesService";
 import Header from "../../components/admin/Header";
 import { FiCalendar, FiUsers, FiPhone, FiX, FiMapPin } from 'react-icons/fi';
+import { formatTimeShortVi } from "../../utils/dateFormat";
 
 // Lấy driver ID từ sessionStorage (đã có sau khi login)
 const getCurrentDriverId = async () => {
@@ -304,16 +305,8 @@ export default function DriverScheduleDetailPage() {
                 <span className="text-slate-600 font-medium min-w-[120px]">Giờ thực tế:</span>
                 <span className="font-bold text-lg text-green-700">
                   {(() => {
-                    const renderTime = (t) => {
-                      if (!t) return '--:--';
-                      try {
-                        const d = new Date(t);
-                        if (!isNaN(d.getTime())) return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-                        return String(t).substring(11, 16);
-                      } catch { return '--:--'; }
-                    };
-                    const start = renderTime(schedule.actual_start_time);
-                    const end = renderTime(schedule.actual_end_time);
+                    const start = formatTimeShortVi(schedule.actual_start_time);
+                    const end = formatTimeShortVi(schedule.actual_end_time);
                     if (start === '--:--' && end === '--:--') return 'Chưa chạy';
                     return `${start} – ${end}`;
                   })()}

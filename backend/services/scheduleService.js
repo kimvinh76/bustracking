@@ -5,6 +5,11 @@ import RouteModel from '../models/Route.js';
 import BusModel from '../models/Bus.js';
 import DriverModel from '../models/Driver.js';
 import RouteService from './routeService.js';
+import {
+  toVietnamMySqlDateTime,
+  getVietnamDateString,
+  normalizeVietnamMySqlDateTime,
+} from '../utils/dateTime.js';
 
 // Helper: Add minutes to time string "HH:mm:ss"
 const addMinutesToTime = (timeStr, minutesToAdd) => {
@@ -20,15 +25,7 @@ const addMinutesToTime = (timeStr, minutesToAdd) => {
 class ScheduleService {
 
   static toMySqlDateTime(date) {
-    const d = date instanceof Date ? date : new Date(date);
-    if (Number.isNaN(d.getTime())) return null;
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const hours = String(d.getHours()).padStart(2, '0');
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    const seconds = String(d.getSeconds()).padStart(2, '0');
-    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    return toVietnamMySqlDateTime(date);
   }
 
   static async resetStaleInProgressIfNeeded() {
@@ -361,19 +358,14 @@ class ScheduleService {
     if (status === 'in_progress') {
       const allowPast = String(process.env.ALLOW_START_PAST_SCHEDULE ?? 'false').toLowerCase() !== 'false';
       if (!allowPast) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const scheduleDateRaw = String(schedule?.date || '').trim();
-        // Expecting YYYY-MM-DD. Convert to local midnight for comparison.
-        const scheduleDate = new Date(`${scheduleDateRaw}T00:00:00`);
-        if (Number.isNaN(scheduleDate.getTime())) {
+        const todayStr = getVietnamDateString();
+        const scheduleDateRaw = String(schedule?.date || '').trim().slice(0, 10);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(scheduleDateRaw)) {
           throw new Error('Ngày lịch trình không hợp lệ');
         }
-        scheduleDate.setHours(0, 0, 0, 0);
 
-        // Block only past dates; allow today and future for demo.
-        if (scheduleDate < today) {
+        // So sánh theo ngày Việt Nam (YYYY-MM-DD), tránh lệch UTC trên server cloud.
+        if (scheduleDateRaw < todayStr) {
           throw new Error('Không thể bắt đầu chuyến cho lịch của ngày trước ngày hiện tại');
         }
       }
@@ -381,23 +373,14 @@ class ScheduleService {
 
     let finalActualEnd = null;
     let finalActualStart = null;
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-    const currentDateTimeStr = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    const currentDateTimeStr = toVietnamMySqlDateTime();
 
     if (status === 'completed') {
-      if (actualEndTime) {
-        finalActualEnd = actualEndTime;
-      } else {
-        finalActualEnd = currentDateTimeStr;
-      }
+      finalActualEnd = actualEndTime
+        ? (normalizeVietnamMySqlDateTime(actualEndTime) || currentDateTimeStr)
+        : currentDateTimeStr;
     } else if (status === 'in_progress') {
-        finalActualStart = currentDateTimeStr;
+      finalActualStart = currentDateTimeStr;
     }
 
     const updated = await ScheduleModel.updateStatus(id, status, notes, finalActualEnd, finalActualStart);

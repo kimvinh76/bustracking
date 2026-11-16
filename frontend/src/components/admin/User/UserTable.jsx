@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
 import Table from '../../common/Table';
+import { formatDateTimeVi } from '../../../utils/dateFormat';
 
 const UserTable = ({ users = [], loading = false, onAdd, onEdit, onView, onDelete }) => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -39,8 +40,8 @@ const UserTable = ({ users = [], loading = false, onAdd, onEdit, onView, onDelet
         { key: 'username', header: 'Username' },
         { key: 'email', header: 'Email' },
         { key: 'role', header: 'Role' },
-        { key: 'created_at', header: 'Ngày tạo', render: val => new Date(val).toLocaleString() },
-        { key: 'updated_at', header: 'Cập nhật', render: val => new Date(val).toLocaleString() },
+        { key: 'created_at', header: 'Ngày tạo', render: val => formatDateTimeVi(val) },
+        { key: 'updated_at', header: 'Cập nhật', render: val => formatDateTimeVi(val) },
     ];
 
     const filters = [

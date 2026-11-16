@@ -1,5 +1,6 @@
 // Component hiển thị chi tiết một sự cố
 import { Car, AlertTriangle, Users, PhoneCall, Info } from 'lucide-react';
+import { formatDateTimeVi } from '../../utils/dateFormat';
 
 // Map loại sự cố sang tiếng Việt
 const INCIDENT_TYPE_LABELS = {
@@ -56,7 +57,7 @@ export default function IncidentCard({ incident }) {
           {/* Footer: Route + Time */}
           <div className="flex items-center justify-between text-xs text-gray-500">
             <span>Tuyến: {incident.route_name || `Route ${incident.route_id}`}</span>
-            <span>{new Date(incident.created_at).toLocaleString('vi-VN')}</span>
+            <span>{formatDateTimeVi(incident.created_at)}</span>
           </div>
         </div>
       </div>

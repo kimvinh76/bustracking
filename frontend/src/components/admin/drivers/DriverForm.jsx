@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import FormInput from '../../common/FormInput';
 import Button from '../../common/Button';
+import { formatDateVi } from '../../../utils/dateFormat';
 
 
 const DriverForm = ({ driver, mode, onSubmit, onCancel }) => {
@@ -172,7 +173,7 @@ const DriverForm = ({ driver, mode, onSubmit, onCancel }) => {
                 >
                   {[...new Set(driver.schedules.map(s => s.date))].sort().reverse().map(date => {
                     const count = driver.schedules.filter(s => s.date === date).length;
-                    const formatDate = new Date(date).toLocaleDateString('vi-VN', { 
+                    const formatDate = formatDateVi(date, { 
                       weekday: 'short', 
                       day: '2-digit', 
                       month: '2-digit', 

@@ -4,6 +4,7 @@ import "leaflet/dist/leaflet.css";
 import BusRouteLayer from "../../components/map/BusRouteLayer.jsx";
 import { mergeBusStatus, INITIAL_BUS_STATUS, isTripActiveOnMap, isPreTripOnMap } from "../../utils/mergeBusStatus.js";
 import { applyLeafletDefaultIcon, MAP_TILE_URL, MAP_TILE_ATTRIBUTION } from "../../utils/mapDefaults.js";
+import { formatTimeFullVi } from "../../utils/dateFormat.js";
 import busTrackingService from "../../services/busTrackingService.js";
 import { schedulesService } from "../../services/schedulesService.js";
 import { routesService } from "../../services/routesService.js";
@@ -213,7 +214,7 @@ export default function MapPage() {
               </div>
               <p className="text-sm mb-1">{alert.description}</p>
               <p className="text-xs opacity-75">
-                {alert.route} | {new Date(alert.timestamp).toLocaleTimeString('vi-VN')}
+                {alert.route} | {formatTimeFullVi(alert.timestamp)}
               </p>
             </div>
           ))}
