@@ -30,8 +30,15 @@ export function isValidLatLng(lat, lng) {
 export function isSchoolStop(stop) {
   if (!stop) return false;
   const id = Number(stop.stop_id ?? stop.id);
+  // Trạm trường mặc định: id 43 = Trường Đại học Sài Gòn (273 An Dương Vương, Q.5)
   if (id === 43) return true;
-  return /nguy[eễ]n\s*du/i.test(String(stop.name || ''));
+  // Chỉ khớp "Trường (Đại học) Sài Gòn", tránh nhầm với "Cầu Sài Gòn"
+  const plainName = String(stop.name || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/gi, 'd')
+    .toLowerCase();
+  return /truong\s+(dai\s+hoc\s+)?sai\s*gon/.test(plainName);
 }
 
 export function haversineKm(lat1, lng1, lat2, lng2) {

@@ -2,8 +2,8 @@ import L from "leaflet";
 import iconUrl from "leaflet/dist/images/marker-icon.png";
 import iconShadow from "leaflet/dist/images/marker-shadow.png";
 
-// Tọa độ Trường THCS Nguyễn Du (139 Nguyễn Du, P. Bến Thành, Q.1, TP.HCM)
-export const MAP_DEFAULT_CENTER = [10.772805, 106.693965];
+// Tọa độ Trường Đại học Sài Gòn (273 An Dương Vương, P.3, Q.5, TP.HCM)
+export const MAP_DEFAULT_CENTER = [10.760618, 106.682049];
 export const MAP_DEFAULT_ZOOM = 15;
 
 export const MAP_TILE_LAYERS = {
