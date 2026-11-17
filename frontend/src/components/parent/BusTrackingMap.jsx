@@ -1,7 +1,8 @@
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import { MapContainer, Marker, Popup, useMap } from "react-leaflet";
+import BaseTileLayer from "../map/BaseTileLayer";
 import BusRouteLayer from "../map/BusRouteLayer";
 import RouteStopMarker from "../map/RouteStopMarker";
-import { applyLeafletDefaultIcon, MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM, MAP_TILE_URL, MAP_TILE_ATTRIBUTION } from "../../utils/mapDefaults";
+import { applyLeafletDefaultIcon, MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM } from "../../utils/mapDefaults";
 import { isTripActiveOnMap, isPreTripOnMap, normalizeDriverStatus } from "../../utils/mergeBusStatus";
 
 applyLeafletDefaultIcon();
@@ -42,7 +43,7 @@ export default function BusTrackingMap({ stops, busStatus }) {
 
       <div className="w-full h-[500px] relative rounded-lg overflow-hidden border">
         <MapContainer center={mapCenter} zoom={MAP_DEFAULT_ZOOM} style={{ height: "100%", width: "100%" }}>
-          <TileLayer attribution={MAP_TILE_ATTRIBUTION} url={MAP_TILE_URL} />
+          <BaseTileLayer />
 
           {stops.length > 0 && (
             <BusRouteLayer

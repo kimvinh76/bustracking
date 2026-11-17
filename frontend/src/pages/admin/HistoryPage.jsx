@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   MapContainer,
-  TileLayer,
   Polyline,
   Marker,
   Popup,
   useMap,
 } from "react-leaflet";
+import BaseTileLayer from "../../components/map/BaseTileLayer";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import {
@@ -31,8 +31,6 @@ import routesService from "../../services/routesService";
 import {
   MAP_DEFAULT_CENTER,
   MAP_DEFAULT_ZOOM,
-  MAP_TILE_URL,
-  MAP_TILE_ATTRIBUTION,
   applyLeafletDefaultIcon,
 } from "../../utils/mapDefaults";
 
@@ -744,7 +742,7 @@ export default function HistoryPage() {
               zoom={MAP_DEFAULT_ZOOM}
               style={{ height: "100%", width: "100%" }}
             >
-              <TileLayer url={MAP_TILE_URL} attribution={MAP_TILE_ATTRIBUTION} />
+              <BaseTileLayer />
 
               <HistoryMapController
                 allCoordinates={mapFitCoords}

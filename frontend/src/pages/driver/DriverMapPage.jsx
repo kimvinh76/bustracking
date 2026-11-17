@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { MapContainer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import BaseTileLayer from "../../components/map/BaseTileLayer.jsx";
 import BusRouteLayer from "../../components/map/BusRouteLayer.jsx";
-import { applyLeafletDefaultIcon, MAP_TILE_URL, MAP_TILE_ATTRIBUTION } from "../../utils/mapDefaults.js";
+import { applyLeafletDefaultIcon, MAP_DEFAULT_CENTER } from "../../utils/mapDefaults.js";
 import DriverHeader from "../../components/driver/DriverHeader.jsx";
 import AlertsContainer from "../../components/driver/AlertsContainer.jsx";
 import TripStatusPanel from "../../components/driver/TripStatusPanel.jsx";
@@ -591,16 +592,13 @@ const estimatedTime = nextStop
         <div className="absolute inset-0 z-0">
           <MapContainer
             center={
-              stops.length ? [stops[0].lat, stops[0].lng] : [10.76, 106.68]
+              stops.length ? [stops[0].lat, stops[0].lng] : MAP_DEFAULT_CENTER
             }
             zoom={16}
             style={{ height: "100%", width: "100%" }}
             scrollWheelZoom
           >
-            <TileLayer
-              attribution={MAP_TILE_ATTRIBUTION}
-              url={MAP_TILE_URL}
-            />
+            <BaseTileLayer />
 
             {stops.map((s, i) => (
               <Marker key={s.id} position={[s.lat, s.lng]}>

@@ -9,6 +9,7 @@ export default function BusRouteLayer({
   currentPosition = null,
   routeColor = "#2563eb",
   busEmoji = "🚍",
+  showBusMarker = true,
 }) {
   const map = useMap();
   const markerRef = useRef(null);
@@ -103,7 +104,7 @@ export default function BusRouteLayer({
       }
     });
 
-    if (!markerRef.current) {
+    if (showBusMarker && !markerRef.current) {
       markerRef.current = L.marker(latLngWaypoints[0], {
         icon: L.divIcon({
           html: `<div style='font-size:24px'>${busEmoji}</div>`,
@@ -112,11 +113,11 @@ export default function BusRouteLayer({
         }),
       }).addTo(map);
     }
-  }, [map, waypoints, isVisible, routeColor, busEmoji, cleanup]);
+  }, [map, waypoints, isVisible, routeColor, busEmoji, showBusMarker, cleanup]);
 
   // Tạo marker nếu route effect chưa chạy nhưng đã có vị trí WS
   useEffect(() => {
-    if (!map || !isVisible || markerRef.current || !currentPosition) return;
+    if (!map || !isVisible || !showBusMarker || markerRef.current || !currentPosition) return;
     markerRef.current = L.marker([currentPosition.lat, currentPosition.lng], {
       icon: L.divIcon({
         html: `<div style='font-size:24px'>${busEmoji}</div>`,
@@ -124,7 +125,7 @@ export default function BusRouteLayer({
         className: "bus-route-layer-icon",
       }),
     }).addTo(map);
-  }, [map, isVisible, currentPosition, busEmoji]);
+  }, [map, isVisible, showBusMarker, currentPosition, busEmoji]);
 
   useEffect(() => {
     if (markerRef.current && currentPosition && isVisible) {

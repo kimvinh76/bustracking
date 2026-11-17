@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import { MapContainer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import {
@@ -40,12 +40,14 @@ import {
 import apiClient from '../../services/api';
 import routesService from '../../services/routesService';
 import stopsService from '../../services/stopsService';
+import BaseTileLayer from '../../components/map/BaseTileLayer.jsx';
+import MapLayerToggle from '../../components/map/MapLayerToggle.jsx';
 import {
   MAP_DEFAULT_CENTER,
-  MAP_TILE_URL,
-  MAP_TILE_ATTRIBUTION,
   applyLeafletDefaultIcon,
+  getStopCircleIcon,
 } from '../../utils/mapDefaults.js';
+import { searchRealPlaces, reverseGeocodeLocation } from '../../utils/geocoding.js';
 import {
   normalizeStop,
   isValidLatLng,
@@ -60,22 +62,8 @@ import boxDialog from '../../components/UI/BoxDialog';
 
 applyLeafletDefaultIcon();
 
-const markerIconCache = new Map();
-function getNumberedMarkerIcon(label, bgColor, size = 30) {
-  const key = `${label}-${bgColor}-${size}`;
-  if (markerIconCache.has(key)) return markerIconCache.get(key);
-  const icon = L.divIcon({
-    className: '',
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-    html: `<div style="width:${size}px;height:${size}px;border-radius:9999px;background:${bgColor};color:#ffffff;border:2px solid #ffffff;box-shadow:0 2px 8px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:${size >= 30 ? 12 : 10}px;font-weight:700;">${label}</div>`,
-  });
-  markerIconCache.set(key, icon);
-  return icon;
-}
-
-const unselectedStopIcon = getNumberedMarkerIcon('+', '#64748b', 24);
-const draftPinIcon = getNumberedMarkerIcon('📍', '#f97316', 32);
+const unselectedStopIcon = getStopCircleIcon('+', '#64748b', 24);
+const draftPinIcon = getStopCircleIcon('📍', '#f97316', 32);
 
 function SortableStopItem({
   stop,
@@ -191,7 +179,13 @@ function SortableStopItem({
   );
 }
 
-function BuilderMapController({ routePositions, fitTrigger, pickerActive, onPickLocation }) {
+function BuilderMapController({
+  routePositions,
+  fitTrigger,
+  pickerActive,
+  focusCoords,
+  onPickLocation,
+}) {
   const map = useMap();
   const lastTriggerRef = useRef(-1);
 
@@ -211,6 +205,12 @@ function BuilderMapController({ routePositions, fitTrigger, pickerActive, onPick
       map.fitBounds(bounds, { padding: [45, 45], maxZoom: 16, animate: true });
     }
   }, [map, routePositions, fitTrigger]);
+
+  useEffect(() => {
+    if (focusCoords && focusCoords.length === 2) {
+      map.flyTo(focusCoords, 16, { animate: true });
+    }
+  }, [map, focusCoords]);
 
   useEffect(() => {
     const container = map.getContainer();
@@ -266,10 +266,17 @@ export default function RouteBuilder() {
   });
   const [calculatingPreview, setCalculatingPreview] = useState(false);
 
-  // Stop editor (tạo mới hoặc chỉnh tọa độ trực tiếp trên map)
+  // Stop editor (tạo mới hoặc chỉnh tọa độ trực tiếp trên map + tìm địa điểm thật)
+  const [tileLayerKey, setTileLayerKey] = useState('google');
   const [stopForm, setStopForm] = useState(null);
   const [savingStop, setSavingStop] = useState(false);
   const [stopToDelete, setStopToDelete] = useState(null);
+  const [placeQuery, setPlaceQuery] = useState('');
+  const [placeResults, setPlaceResults] = useState([]);
+  const [searchingPlaces, setSearchingPlaces] = useState(false);
+  const [reverseHint, setReverseHint] = useState(null);
+  const [focusCoords, setFocusCoords] = useState(null);
+  const geocodeAbortRef = useRef(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -519,10 +526,19 @@ export default function RouteBuilder() {
     }
   };
 
+  const resetGeocodeHelpers = () => {
+    geocodeAbortRef.current?.abort();
+    setPlaceQuery('');
+    setPlaceResults([]);
+    setReverseHint(null);
+  };
+
   // Mở form thêm/sửa trạm + kích hoạt chọn vị trí trực tiếp trên bản đồ
   const openCreateStopForm = () => {
     const centerLat = safeSelectedStops[0]?.latitude ?? MAP_DEFAULT_CENTER[0];
     const centerLng = safeSelectedStops[0]?.longitude ?? MAP_DEFAULT_CENTER[1];
+    resetGeocodeHelpers();
+    setFocusCoords(null);
     setStopForm({
       ...INITIAL_STOP_FORM,
       latitude: String(centerLat.toFixed(6)),
@@ -534,6 +550,12 @@ export default function RouteBuilder() {
 
   const openEditStopForm = (stop) => {
     const norm = normalizeStop(stop);
+    resetGeocodeHelpers();
+    setFocusCoords(
+      isValidLatLng(norm.latitude, norm.longitude)
+        ? [norm.latitude, norm.longitude]
+        : null
+    );
     setStopForm({
       id: norm.stop_id,
       name: norm.name,
@@ -545,11 +567,60 @@ export default function RouteBuilder() {
     setActiveTab('library');
   };
 
-  const handleMapPickLocation = useCallback((lat, lng) => {
+  const handleMapPickLocation = useCallback(async (lat, lng) => {
     setStopForm((prev) =>
       prev ? { ...prev, latitude: String(lat), longitude: String(lng) } : prev
     );
+    setPlaceResults([]);
+
+    geocodeAbortRef.current?.abort();
+    const controller = new AbortController();
+    geocodeAbortRef.current = controller;
+
+    const hint = await reverseGeocodeLocation(lat, lng, controller.signal);
+    if (controller.signal.aborted || !hint) return;
+    setReverseHint(hint);
+    setStopForm((prev) => {
+      if (!prev || prev.id || prev.address.trim()) return prev;
+      return { ...prev, address: hint.address };
+    });
   }, []);
+
+  const handleSearchPlaces = async () => {
+    if (placeQuery.trim().length < 2) return;
+    geocodeAbortRef.current?.abort();
+    const controller = new AbortController();
+    geocodeAbortRef.current = controller;
+
+    try {
+      setSearchingPlaces(true);
+      const results = await searchRealPlaces(placeQuery, controller.signal);
+      if (!controller.signal.aborted) {
+        setPlaceResults(results);
+      }
+    } finally {
+      if (!controller.signal.aborted) {
+        setSearchingPlaces(false);
+      }
+    }
+  };
+
+  const handleSelectPlaceResult = (place) => {
+    setStopForm((prev) =>
+      prev
+        ? {
+            ...prev,
+            name: place.name,
+            address: place.address,
+            latitude: String(place.latitude),
+            longitude: String(place.longitude),
+          }
+        : prev
+    );
+    setFocusCoords([place.latitude, place.longitude]);
+    setPlaceResults([]);
+    setReverseHint(null);
+  };
 
   const handleSaveStopForm = async (e) => {
     e.preventDefault();
@@ -789,26 +860,30 @@ export default function RouteBuilder() {
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={() => setFitTrigger((v) => v + 1)}
-            className="absolute top-3 right-3 z-[500] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/95 hover:bg-white shadow border border-gray-200 text-xs font-semibold text-[#174D2C] cursor-pointer"
-          >
-            <Maximize2 size={14} />
-            Toàn tuyến
-          </button>
+          <div className="absolute top-3 right-3 z-[500] flex items-center gap-2">
+            <MapLayerToggle value={tileLayerKey} onChange={setTileLayerKey} />
+            <button
+              type="button"
+              onClick={() => setFitTrigger((v) => v + 1)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/95 hover:bg-white shadow border border-gray-200 text-xs font-semibold text-[#174D2C] cursor-pointer"
+            >
+              <Maximize2 size={14} />
+              Toàn tuyến
+            </button>
+          </div>
 
           <MapContainer
             center={MAP_DEFAULT_CENTER}
             zoom={13}
             style={{ height: '100%', width: '100%' }}
           >
-            <TileLayer attribution={MAP_TILE_ATTRIBUTION} url={MAP_TILE_URL} />
+            <BaseTileLayer layerKey={tileLayerKey} />
 
             <BuilderMapController
               routePositions={routePositionsForFit}
               fitTrigger={fitTrigger}
               pickerActive={Boolean(stopForm)}
+              focusCoords={focusCoords}
               onPickLocation={handleMapPickLocation}
             />
 
@@ -839,9 +914,9 @@ export default function RouteBuilder() {
                 const isLast =
                   safeSelectedStops.length > 1 && selectedIdx === safeSelectedStops.length - 1;
                 const bgColor = isFirst ? '#16a34a' : isLast ? '#dc2626' : '#2563eb';
-                icon = getNumberedMarkerIcon(selectedIdx + 1, bgColor, 30);
+                icon = getStopCircleIcon(selectedIdx + 1, bgColor, 30);
               } else if (isSchoolStop(stop)) {
-                icon = getNumberedMarkerIcon('T', '#991b1b', 26);
+                icon = getStopCircleIcon('T', '#991b1b', 26);
               }
 
               return (
@@ -925,12 +1000,84 @@ export default function RouteBuilder() {
                 </span>
                 <button
                   type="button"
-                  onClick={() => setStopForm(null)}
+                  onClick={() => {
+                    resetGeocodeHelpers();
+                    setStopForm(null);
+                  }}
                   className="text-xs text-gray-600 hover:text-gray-900 cursor-pointer"
                 >
                   Đóng
                 </button>
               </div>
+
+              {/* Ô tìm địa điểm thực tế để điền chuẩn tên & tọa độ */}
+              <div className="space-y-1.5">
+                <div className="flex gap-1.5">
+                  <input
+                    type="text"
+                    placeholder="Tìm địa điểm thật (VD: Lotte Mart Gò Vấp, Chợ Bến Thành...)"
+                    value={placeQuery}
+                    onChange={(e) => setPlaceQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSearchPlaces();
+                      }
+                    }}
+                    className="flex-1 px-2.5 py-1.5 text-xs border border-amber-300 rounded-lg bg-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSearchPlaces}
+                    disabled={searchingPlaces || placeQuery.trim().length < 2}
+                    className="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50 shrink-0 cursor-pointer"
+                  >
+                    {searchingPlaces ? 'Đang tìm...' : 'Tìm'}
+                  </button>
+                </div>
+
+                {placeResults.length > 0 && (
+                  <div className="max-h-36 overflow-y-auto rounded-lg border border-amber-200 bg-white divide-y divide-gray-100 shadow-sm">
+                    {placeResults.map((place) => (
+                      <button
+                        key={place.id}
+                        type="button"
+                        onClick={() => handleSelectPlaceResult(place)}
+                        className="w-full text-left px-2.5 py-1.5 hover:bg-amber-50 transition cursor-pointer"
+                      >
+                        <div className="text-xs font-semibold text-gray-800 truncate">
+                          {place.name}
+                        </div>
+                        <div className="text-[11px] text-gray-500 truncate">
+                          {place.address} ({place.latitude.toFixed(5)}, {place.longitude.toFixed(5)})
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {reverseHint && (
+                  <div className="flex items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-[11px] text-blue-900">
+                    <span className="truncate">
+                      Gợi ý vị trí chấm: <strong>{reverseHint.name}</strong> — {reverseHint.address}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setStopForm((prev) =>
+                          prev
+                            ? { ...prev, name: reverseHint.name, address: reverseHint.address }
+                            : prev
+                        )
+                      }
+                      className="shrink-0 font-semibold text-blue-700 hover:underline cursor-pointer"
+                    >
+                      Áp dụng
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <input
                 type="text"
                 required
