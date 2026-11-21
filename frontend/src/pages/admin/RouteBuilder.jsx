@@ -245,7 +245,7 @@ export default function RouteBuilder() {
   const [route, setRoute] = useState(null);
   const [allStops, setAllStops] = useState([]);
   const [selectedStops, setSelectedStops] = useState([]);
-  const [lockSchool, setLockSchool] = useState(true);
+  const [lockSchool, setLockSchool] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -423,7 +423,7 @@ export default function RouteBuilder() {
       if (isStopLockedAtTerminal(stop, index, safeSelectedStops.length)) {
         setStatusBanner({
           type: 'info',
-          text: 'Trạm Trường đang được khóa cố định. Bỏ chọn mục "Khóa trạm trường" nếu muốn gỡ.',
+          text: 'Trạm Trường đang được ghim theo ca. Mở tab "Lộ trình tuyến" và bỏ chọn mục giữ Trạm Trường nếu muốn gỡ hoặc đổi chỗ.',
         });
         return;
       }

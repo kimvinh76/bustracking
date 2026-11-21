@@ -120,7 +120,7 @@ CREATE TABLE `routes` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
-INSERT INTO `routes` VALUES (1,'Tuyến Quận 1 - Sáng',5.14,'active','2025-10-20 13:44:19','morning'),(2,'Tuyến Gò Vấp - Sáng',17.28,'active','2025-10-20 13:44:19','morning'),(3,'Tuyến Thủ Đức - Chiều',21.46,'active','2025-10-20 13:44:19','afternoon'),(4,'Tuyến Gò Vấp - Chiều',14.94,'active','2025-10-24 11:28:48','afternoon'),(5,'Tuyến Quận 1 - Chiều',7.16,'active','2025-10-24 12:19:25','afternoon'),(6,'Tuyến Thủ Đức - Sáng',18.66,'active','2025-10-24 12:19:25','morning');
+INSERT INTO `routes` VALUES (1,'Tuyến 01: Trung tâm Q.1 – ĐH Sài Gòn (Sáng)',5.14,'active','2025-10-20 13:44:19','morning'),(2,'Tuyến 02: Gò Vấp – Phú Nhuận – ĐH Sài Gòn (Sáng)',17.28,'active','2025-10-20 13:44:19','morning'),(3,'Tuyến 03: ĐH Sài Gòn – Hàng Xanh – Thủ Đức (Chiều)',21.46,'active','2025-10-20 13:44:19','afternoon'),(4,'Tuyến 04: ĐH Sài Gòn – Phú Nhuận – Gò Vấp (Chiều)',14.94,'active','2025-10-24 11:28:48','afternoon'),(5,'Tuyến 05: ĐH Sài Gòn – Trung tâm Q.1 (Chiều)',7.16,'active','2025-10-24 12:19:25','afternoon'),(6,'Tuyến 06: Thủ Đức – Hàng Xanh – ĐH Sài Gòn (Sáng)',18.66,'active','2025-10-24 12:19:25','morning');
 DROP TABLE IF EXISTS `drivers`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
