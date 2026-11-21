@@ -5,7 +5,6 @@ import { MapContainer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import BaseTileLayer from "../../components/map/BaseTileLayer.jsx";
-import MapLayerToggle from "../../components/map/MapLayerToggle.jsx";
 import BusRouteLayer from "../../components/map/BusRouteLayer.jsx";
 import {
   mergeBusStatus,
@@ -70,9 +69,9 @@ AdminMapController.propTypes = {
 };
 
 export default function MapPage() {
-  const [tileLayerKey, setTileLayerKey] = useState("google");
   const [busStatus, setBusStatus] = useState(INITIAL_BUS_STATUS);
   const [incidentAlerts, setIncidentAlerts] = useState([]);
+  const seenIncidentKeysRef = useRef(new Set());
   const [activeSchedules, setActiveSchedules] = useState([]);
   const [selectedScheduleId, setSelectedScheduleId] = useState(null);
   const [routeStops, setRouteStops] = useState([]);
@@ -204,14 +203,20 @@ export default function MapPage() {
       }
 
       if (status.incidentAlert) {
-        const alertId = status.incidentAlert.id ?? Date.now();
-        setIncidentAlerts((prev) => [
-          { ...status.incidentAlert, id: alertId },
-          ...prev.slice(0, 4),
-        ]);
-        setTimeout(() => {
-          setIncidentAlerts((prev) => prev.filter((a) => a.id !== alertId));
-        }, 10000);
+        const alertKey = String(
+          status.incidentAlert.id ??
+            `${status.incidentAlert.description || ""}-${status.incidentAlert.timestamp || ""}`
+        );
+        if (!seenIncidentKeysRef.current.has(alertKey)) {
+          seenIncidentKeysRef.current.add(alertKey);
+          setIncidentAlerts((prev) => [
+            { ...status.incidentAlert, id: alertKey },
+            ...prev.slice(0, 4),
+          ]);
+          setTimeout(() => {
+            setIncidentAlerts((prev) => prev.filter((a) => a.id !== alertKey));
+          }, 10000);
+        }
       }
 
       setBusStatus((prev) => mergeBusStatus(prev, status));
@@ -372,19 +377,29 @@ export default function MapPage() {
           </div>
         </div>
 
-        {/* Incident Alerts cho Admin */}
+        {/* Incident Alerts cho Admin — z-[1200] để luôn nổi trên Leaflet panes (z 400–1000) */}
         {incidentAlerts.length > 0 && (
-          <div className="fixed top-20 right-4 z-50 space-y-2">
+          <div className="fixed top-20 right-6 z-[1200] space-y-2 pointer-events-auto">
             {incidentAlerts.map((alert) => (
               <div
                 key={alert.id}
-                className="bg-red-100 border border-red-300 text-red-800 p-4 rounded-lg shadow-lg max-w-sm animate-slide-in"
+                className="bg-red-50 border border-red-300 text-red-900 p-4 rounded-xl shadow-xl max-w-sm animate-slide-in"
               >
-                <div className="flex items-center gap-2 mb-1">
-                  <h4 className="font-semibold">Cảnh báo sự cố!</h4>
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <h4 className="font-semibold text-red-800">⚠️ Cảnh báo sự cố!</h4>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setIncidentAlerts((prev) => prev.filter((a) => a.id !== alert.id))
+                    }
+                    className="text-red-500 hover:text-red-800 text-sm font-bold leading-none px-1 cursor-pointer"
+                    aria-label="Đóng thông báo"
+                  >
+                    ✕
+                  </button>
                 </div>
                 <p className="text-sm mb-1">{alert.description}</p>
-                <p className="text-xs opacity-75">
+                <p className="text-xs text-red-700/80">
                   {alert.route} | {formatTimeFullVi(alert.timestamp)}
                 </p>
               </div>
@@ -393,20 +408,14 @@ export default function MapPage() {
         )}
 
         <div className="flex-1 min-h-[420px] rounded-xl overflow-hidden shadow-md border border-gray-300 relative bg-white">
-          {/* Thanh thông báo trạng thái & đổi lớp bản đồ */}
+          {/* Thanh thông báo trạng thái khi chưa có chuyến chạy */}
           {!isLiveMode && (
-            <div className="absolute top-3 left-14 z-[500] bg-white/95 backdrop-blur px-3.5 py-1.5 rounded-full shadow border border-gray-200 text-xs sm:text-sm text-gray-700 font-medium max-w-[calc(100%-14rem)] truncate">
+            <div className="absolute top-3 left-14 z-[500] bg-white/95 backdrop-blur px-3.5 py-1.5 rounded-full shadow border border-gray-200 text-xs sm:text-sm text-gray-700 font-medium max-w-[calc(100%-5rem)] truncate">
               {previewRouteObj
                 ? `Xem trước lộ trình: ${previewRouteObj.route_name} (${displayedStops.length} trạm)`
                 : `Chưa có chuyến xe đang chạy · Đang hiển thị ${validLibraryStops.length} trạm dừng`}
             </div>
           )}
-
-          <MapLayerToggle
-            value={tileLayerKey}
-            onChange={setTileLayerKey}
-            className="absolute top-3 right-3 z-[500]"
-          />
 
           <MapContainer
             center={schoolCenter}
@@ -414,7 +423,7 @@ export default function MapPage() {
             style={{ height: "100%", width: "100%" }}
             scrollWheelZoom
           >
-            <BaseTileLayer layerKey={tileLayerKey} />
+            <BaseTileLayer />
 
             <AdminMapController
               coords={fitCoords}

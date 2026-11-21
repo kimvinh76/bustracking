@@ -76,7 +76,7 @@ const ParentForm = ({ parent, mode, onSubmit, onCancel }) => {
       newErrors.phone = 'Số điện thoại không hợp lệ';
     }
     
-    if (formData.email) {
+    if (mode === 'add' && formData.email) {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
         newErrors.email = 'Email không hợp lệ';
       }
@@ -131,8 +131,19 @@ const ParentForm = ({ parent, mode, onSubmit, onCancel }) => {
 
   const formFields = [
     { name: 'name', label: 'Họ và tên', placeholder: 'Nhập họ và tên', required: true },
-    { name: 'username', label: 'Username', placeholder: 'Tên đăng nhập (3-30 ký tự)' },
-    { name: 'email', label: 'Email', type: 'email', placeholder: 'Nhập địa chỉ email' },
+    {
+      name: 'username',
+      label: mode === 'edit' ? 'Username (Quản lý tại mục Tài khoản)' : 'Username',
+      placeholder: mode === 'edit' ? 'Chưa liên kết tài khoản' : 'Tên đăng nhập (3-30 ký tự)',
+      readOnly: isReadOnly || mode === 'edit',
+    },
+    {
+      name: 'email',
+      label: mode === 'edit' ? 'Email (Quản lý tại mục Tài khoản)' : 'Email',
+      type: 'email',
+      placeholder: mode === 'edit' ? 'Chưa có' : 'Nhập địa chỉ email',
+      readOnly: isReadOnly || mode === 'edit',
+    },
     { name: 'phone', label: 'Số điện thoại', type: 'tel', placeholder: 'Nhập số điện thoại', required: true },
     { 
       name: 'relationship', label: 'Quan hệ', type: 'select', placeholder: 'Chọn mối quan hệ',
@@ -159,7 +170,7 @@ const ParentForm = ({ parent, mode, onSubmit, onCancel }) => {
           value={formData[field.name]}
           onChange={handleChange}
           error={errors[field.name]}
-          readOnly={isReadOnly}
+          readOnly={field.readOnly ?? isReadOnly}
         />
       ))}
 

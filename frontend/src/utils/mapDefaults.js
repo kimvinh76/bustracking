@@ -2,8 +2,8 @@ import L from "leaflet";
 import iconUrl from "leaflet/dist/images/marker-icon.png";
 import iconShadow from "leaflet/dist/images/marker-shadow.png";
 
-// Tọa độ Trường Đại học Sài Gòn (273 An Dương Vương, P.3, Q.5, TP.HCM)
-export const MAP_DEFAULT_CENTER = [10.760618, 106.682049];
+// Tọa độ cổng chính Trường Đại học Sài Gòn (273 An Dương Vương, P.3, Q.5, TP.HCM)
+export const MAP_DEFAULT_CENTER = [10.760652, 106.682035];
 export const MAP_DEFAULT_ZOOM = 15;
 
 export const MAP_TILE_LAYERS = {
@@ -14,12 +14,12 @@ export const MAP_TILE_LAYERS = {
     subdomains: ["0", "1", "2", "3"],
     attribution: "&copy; Google Maps",
   },
-  carto: {
-    id: "carto",
-    label: "Bản đồ sáng",
-    url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-    subdomains: ["a", "b", "c", "d"],
-    attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
+  osm_de: {
+    id: "osm_de",
+    label: "OpenStreetMap",
+    url: "https://tile.openstreetmap.de/{z}/{x}/{y}.png",
+    subdomains: [],
+    attribution: "&copy; OpenStreetMap contributors",
   },
 };
 

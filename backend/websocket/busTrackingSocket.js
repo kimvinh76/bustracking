@@ -95,12 +95,20 @@ class BusTrackingSocket {
   }
 
   _mergeAndBroadcast(roomId, patch) {
-    // Hợp nhất patch (ví dụ alert) với trạng thái hiện tại rồi broadcast
+    // Tách các cảnh báo tức thời (one-shot) để chỉ phát 1 lần, không lưu dính vào tripStatuses
+    // tránh lặp lại thông báo mỗi nhịp cập nhật GPS.
     const current = this.tripStatuses.get(roomId) || this.getInitialStatus(roomId);
-    const newStatus = { ...current, ...patch, lastUpdate: new Date() };
-    this.tripStatuses.set(roomId, newStatus);
-    this.io?.to(roomId).emit('bus_status_update', newStatus);
-    return newStatus;
+    const { incidentAlert, studentPickupAlert, ...persistentPatch } = patch || {};
+    const persistentState = { ...current, ...persistentPatch, lastUpdate: new Date() };
+    this.tripStatuses.set(roomId, persistentState);
+
+    const payload = {
+      ...persistentState,
+      ...(incidentAlert ? { incidentAlert } : {}),
+      ...(studentPickupAlert ? { studentPickupAlert } : {}),
+    };
+    this.io?.to(roomId).emit('bus_status_update', payload);
+    return payload;
   }
 
   updateBusStatus(tripId, status) {

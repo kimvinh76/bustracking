@@ -67,7 +67,7 @@ export default function DriverScheduleDetailPage() {
         date: scheduleData.date || new Date().toISOString().split('T')[0],
         start_point: scheduleData.startPoint || scheduleData.start_point || 'Không xác định',
         end_point: scheduleData.endPoint || scheduleData.end_point || 'Không xác định',
-        max_capacity: scheduleData.maxCapacity || scheduleData.max_capacity || 30,
+        max_capacity: scheduleData.capacity || scheduleData.maxCapacity || scheduleData.max_capacity || 30,
         // Giữ nguyên các field khác
         students: scheduleData.students || [],
       };

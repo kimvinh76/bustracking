@@ -101,6 +101,17 @@ const ScheduleForm = ({ schedule, mode, onSubmit, onCancel }) => {
       newVal = value ? String(value) : '';
     }
 
+    if (name === 'route_id') {
+      const pickedRoute = routes.find((r) => String(r.id) === String(newVal));
+      setFormData(prev => ({
+        ...prev,
+        route_id: newVal,
+        shift_type: pickedRoute?.shift_type || prev.shift_type,
+      }));
+      setErrors(prev => ({ ...prev, route_id: '', shift_type: '' }));
+      return;
+    }
+
     setFormData(prev => ({ ...prev, [name]: newVal }));
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
   }; 
@@ -254,16 +265,16 @@ const ScheduleForm = ({ schedule, mode, onSubmit, onCancel }) => {
           readOnly={isReadOnly}
         />
 
-        <FormInput
-          label="Số học sinh"
-          name="student_count"
-          type="number"
-          value={formData.student_count}
-          onChange={handleChange}
-          error={errors.student_count}
-          min="0"
-          readOnly={isReadOnly}
-        />
+        {isReadOnly && (
+          <FormInput
+            label="Số học sinh đăng ký"
+            name="student_count"
+            type="number"
+            value={formData.student_count}
+            onChange={() => {}}
+            readOnly
+          />
+        )}
 
         <FormInput
           label="Trạng thái"

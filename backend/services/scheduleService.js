@@ -205,7 +205,15 @@ class ScheduleService {
 
     await this.validateScheduleResources(scheduleData);
 
-    const newSchedule = await ScheduleModel.create(scheduleData);
+    // Tự động đếm số học sinh đã đăng ký tuyến & ca này thay vì để Admin nhập tay
+    const registeredCount = await ScheduleModel.countRegisteredStudents(
+      scheduleData.route_id,
+      scheduleData.shift_type
+    );
+    const newSchedule = await ScheduleModel.create({
+      ...scheduleData,
+      student_count: registeredCount,
+    });
     return newSchedule;
   }
 

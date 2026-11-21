@@ -41,7 +41,6 @@ import apiClient from '../../services/api';
 import routesService from '../../services/routesService';
 import stopsService from '../../services/stopsService';
 import BaseTileLayer from '../../components/map/BaseTileLayer.jsx';
-import MapLayerToggle from '../../components/map/MapLayerToggle.jsx';
 import {
   MAP_DEFAULT_CENTER,
   applyLeafletDefaultIcon,
@@ -267,7 +266,6 @@ export default function RouteBuilder() {
   const [calculatingPreview, setCalculatingPreview] = useState(false);
 
   // Stop editor (tạo mới hoặc chỉnh tọa độ trực tiếp trên map + tìm địa điểm thật)
-  const [tileLayerKey, setTileLayerKey] = useState('google');
   const [stopForm, setStopForm] = useState(null);
   const [savingStop, setSavingStop] = useState(false);
   const [stopToDelete, setStopToDelete] = useState(null);
@@ -860,24 +858,21 @@ export default function RouteBuilder() {
             </div>
           )}
 
-          <div className="absolute top-3 right-3 z-[500] flex items-center gap-2">
-            <MapLayerToggle value={tileLayerKey} onChange={setTileLayerKey} />
-            <button
-              type="button"
-              onClick={() => setFitTrigger((v) => v + 1)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/95 hover:bg-white shadow border border-gray-200 text-xs font-semibold text-[#174D2C] cursor-pointer"
-            >
-              <Maximize2 size={14} />
-              Toàn tuyến
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setFitTrigger((v) => v + 1)}
+            className="absolute top-3 right-3 z-[500] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/95 hover:bg-white shadow border border-gray-200 text-xs font-semibold text-[#174D2C] cursor-pointer"
+          >
+            <Maximize2 size={14} />
+            Toàn tuyến
+          </button>
 
           <MapContainer
             center={MAP_DEFAULT_CENTER}
             zoom={13}
             style={{ height: '100%', width: '100%' }}
           >
-            <BaseTileLayer layerKey={tileLayerKey} />
+            <BaseTileLayer />
 
             <BuilderMapController
               routePositions={routePositionsForFit}

@@ -4,6 +4,18 @@
 import pool from '../config/db.js';
 
 class ScheduleModel {
+  static async countRegisteredStudents(routeId, shiftType) {
+    if (!routeId || !shiftType) return 0;
+    const [[row]] = await pool.execute(
+      `SELECT COUNT(DISTINCT srs.student_id) AS cnt
+       FROM student_route_subscriptions srs
+       INNER JOIN students st ON st.id = srs.student_id AND st.status = 'active'
+       WHERE srs.route_id = ? AND srs.shift_type = ? AND srs.status = 'active'`,
+      [routeId, shiftType]
+    );
+    return Number(row?.cnt || 0);
+  }
+
   /**
    * Lấy tất cả lịch trình
    * @returns {Promise<Array>} Danh sách lịch trình
@@ -16,8 +28,14 @@ class ScheduleModel {
              TIME_FORMAT(s.scheduled_start_time, '%H:%i') as start_time,
              TIME_FORMAT(s.scheduled_end_time, '%H:%i') as end_time,
              r.route_name, 
-              b.bus_number, b.license_plate,
-              d.name AS driver_name
+             b.bus_number, b.license_plate, b.capacity,
+             d.name AS driver_name,
+             (SELECT COUNT(DISTINCT srs.student_id)
+              FROM student_route_subscriptions srs
+              INNER JOIN students st ON st.id = srs.student_id AND st.status = 'active'
+              WHERE srs.route_id = s.route_id
+                AND srs.shift_type = s.shift_type
+                AND srs.status = 'active') AS student_count
       FROM schedules s
       LEFT JOIN routes r ON s.route_id = r.id
       LEFT JOIN buses b ON s.bus_id = b.id
@@ -43,7 +61,13 @@ class ScheduleModel {
               TIME_FORMAT(s.scheduled_end_time, '%H:%i') as end_time,
               r.route_name,
              b.bus_number, b.license_plate, b.capacity,
-             d.name AS driver_name, d.phone AS driver_phone
+             d.name AS driver_name, d.phone AS driver_phone,
+             (SELECT COUNT(DISTINCT srs.student_id)
+              FROM student_route_subscriptions srs
+              INNER JOIN students st ON st.id = srs.student_id AND st.status = 'active'
+              WHERE srs.route_id = s.route_id
+                AND srs.shift_type = s.shift_type
+                AND srs.status = 'active') AS student_count
       FROM schedules s
       LEFT JOIN routes r ON s.route_id = r.id
       LEFT JOIN buses b ON s.bus_id = b.id
