@@ -36,27 +36,30 @@ router.post('/login', async (req, res) => {
             }
         }
 
-        // 3b. Nếu là parent, lấy student_id của con
+        // 3b. Nếu là parent, lấy thông tin phụ huynh & con đầu tiên (FE tải full danh sách con qua API)
+        let parentId = null;
         let studentId = null;
         let studentName = null;
         let morningRouteId = null;
         let afternoonRouteId = null;
         if (result.user.role === 'parent') {
+            const parentRecord = await ParentModel.findByUserId(result.user.id);
+            parentId = parentRecord?.id || null;
             const studentInfo = await ParentModel.findStudentByUserId(result.user.id);
             if (studentInfo) {
                 studentId = studentInfo.student_id;
                 studentName = studentInfo.student_name;
                 morningRouteId = studentInfo.morning_route_id;
                 afternoonRouteId = studentInfo.afternoon_route_id;
-                console.log(`Parent login: student_id=${studentId}, morning_route=${morningRouteId}, afternoon_route=${afternoonRouteId}`);
+                console.log(`Parent login: parent_id=${parentId}, student_id=${studentId}`);
             }
         }
 
-        // 4. Tạo JWT Token
+        // 4. Tạo JWT Token (đồng bộ 12h với authService)
         const token = jwt.sign(
             { id: result.user.id, username: result.user.username, role: result.user.role },
             process.env.JWT_SECRET || 'YOUR_SECRET_KEY',
-            { expiresIn: '1h' }
+            { expiresIn: '12h' }
         );
 
         console.log(` Đăng nhập thành công: ${result.user.username} (${result.user.role})`);
@@ -72,6 +75,7 @@ router.post('/login', async (req, res) => {
                 role: result.user.role,
                 driverId: driverId,
                 // Thêm thông tin cho parent
+                parent_id: parentId,
                 student_id: studentId,
                 student_name: studentName,
                 morning_route_id: morningRouteId,

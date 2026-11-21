@@ -1,80 +1,125 @@
 /**
  * ParentPage - Trang theo dõi xe buýt cho phụ huynh
- * 
- * Chức năng:
- * - Hiển thị thông tin học sinh (từ API students)
- * - Hiển thị thông tin xe buýt/tài xế đang chạy (từ API schedules)
- * - Theo dõi vị trí xe buýt realtime (qua WebSocket)
- * - Nhận thông báo sự cố và đón học sinh (qua WebSocket)
- * - Hiển thị danh sách sự cố gần đây (từ API incidents)
+ * - Hỗ trợ phụ huynh có 1 hoặc nhiều con (chuyển đổi theo từng bé)
+ * - Theo dõi vị trí xe realtime + timeline từng trạm + trạm đón/trả của bé
+ * - Hiển thị trạng thái lên/xuống xe & vắng mặt realtime + nhật ký thông báo chuyến
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { AlertTriangle, Bell } from 'lucide-react';
 
-// Services - gọi API backend
 import { studentsService } from '../../services/studentsService';
+import { parentsService } from '../../services/parentsService';
 import { schedulesService } from '../../services/schedulesService';
 import { incidentsService } from '../../services/incidentsService';
 import { routesService } from '../../services/routesService';
 import busTrackingService from '../../services/busTrackingService';
-import { parseSafeDate } from '../../utils/dateFormat';
+import { parseSafeDate, formatTimeShortVi } from '../../utils/dateFormat';
 
-// Components
 import {
   ToastNotification,
   IncidentCard,
   StudentInfoCard,
   BusInfoCard,
   TripStatusCard,
-  BusTrackingMap
+  BusTrackingMap,
 } from '../../components/parent';
 
+const toNumber = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : null;
+};
+
+const normalizeStatus = (status) => String(status || '').trim().toLowerCase();
+
 export default function ParentPage() {
-  // === STATE ===
   const [loading, setLoading] = useState(true);
-  const [studentInfo, setStudentInfo] = useState(null);
+  const [children, setChildren] = useState([]);
+  const [selectedChildId, setSelectedChildId] = useState(null);
+
   const [busInfo, setBusInfo] = useState(null);
   const [routeStops, setRouteStops] = useState([]);
   const [routeId, setRouteId] = useState(null);
-  const [assignedRouteIds, setAssignedRouteIds] = useState([]);
+  const [activeShiftType, setActiveShiftType] = useState(null);
   const [activeTripId, setActiveTripId] = useState(null);
   const [incidents, setIncidents] = useState([]);
   const [notifications, setNotifications] = useState([]);
-  
-  // State cho tracking realtime
+  const [tripLogs, setTripLogs] = useState([]);
+
   const [busStatus, setBusStatus] = useState({
     driverStatus: 'idle',
     currentStopIndex: 0,
     currentPosition: null,
-    isRunning: false
+    isRunning: false,
+    studentStatuses: {},
   });
 
   const displayedNotificationsRef = useRef(new Set());
-  // Chống race-condition khi load route stops (request cũ về sau không được ghi đè)
   const routeStopsReqIdRef = useRef(0);
-  // Delay clear khi completed để phụ huynh kịp nhìn lại (tránh tắt ngay lập tức)
   const clearCompletedTimeoutRef = useRef(null);
 
-  // === HELPER FUNCTIONS ===
+  const selectedChild = useMemo(
+    () =>
+      children.find((c) => String(c.id) === String(selectedChildId)) ||
+      children[0] ||
+      null,
+    [children, selectedChildId]
+  );
 
-  // Chuẩn hoá về số (tránh NaN khi data từ API/user là string)
-  const toNumber = (v) => {
-    const n = Number(v);
-    return Number.isNaN(n) ? null : n;
-  };
+  const assignedRouteIds = useMemo(() => {
+    if (!selectedChild) return [];
+    return [selectedChild.morning_route_id, selectedChild.afternoon_route_id]
+      .map(toNumber)
+      .filter((id, idx, arr) => id !== null && arr.indexOf(id) === idx);
+  }, [selectedChild]);
 
-  const  normalizeStatus = (status) => String(status || '').trim().toLowerCase();
+  const studentInfo = useMemo(() => {
+    if (!selectedChild) return null;
+    return {
+      id: selectedChild.id,
+      name: selectedChild.name,
+      class: selectedChild.class_name || selectedChild.class || 'N/A',
+      grade: selectedChild.grade,
+      phone: selectedChild.phone,
+      morning_route_name: selectedChild.morning_route_name,
+      morning_stop_name: selectedChild.morning_stop_name,
+      afternoon_route_name: selectedChild.afternoon_route_name,
+      afternoon_stop_name: selectedChild.afternoon_stop_name,
+    };
+  }, [selectedChild]);
 
-  // Kiểm tra schedule có thuộc các tuyến được gán cho phụ huynh không
-  const isAssignedRouteSchedule = useCallback((schedule) => {
-    const rid = toNumber(schedule?.route_id);
-    return rid != null && assignedRouteIds.includes(rid);
-  }, [assignedRouteIds]);
+  const childStopId = useMemo(() => {
+    if (!selectedChild || !routeId) return null;
+    if (
+      activeShiftType === 'morning' ||
+      Number(selectedChild.morning_route_id) === Number(routeId)
+    ) {
+      return selectedChild.morning_pickup_stop_id || null;
+    }
+    if (
+      activeShiftType === 'afternoon' ||
+      Number(selectedChild.afternoon_route_id) === Number(routeId)
+    ) {
+      return selectedChild.afternoon_dropoff_stop_id || null;
+    }
+    return null;
+  }, [selectedChild, routeId, activeShiftType]);
 
-  // Cập nhật UI theo schedule đang chạy 
-  // - Chỉ set routeId/busInfo khi schedule.status === in_progress
-  // - Clear tuyến cũ ngay khi đổi tuyến
+  const clearActiveTripUI = useCallback(() => {
+    setActiveTripId(null);
+    setRouteId(null);
+    setActiveShiftType(null);
+    setRouteStops([]);
+    setBusInfo(null);
+    setBusStatus({
+      driverStatus: 'idle',
+      currentStopIndex: 0,
+      currentPosition: null,
+      isRunning: false,
+      studentStatuses: {},
+    });
+  }, []);
+
   const applyActiveScheduleToUI = useCallback((schedule) => {
     const rid = toNumber(schedule?.route_id);
     const sid = toNumber(schedule?.id);
@@ -82,133 +127,115 @@ export default function ParentPage() {
 
     setRouteStops([]);
     setRouteId(rid);
+    setActiveShiftType(schedule?.shift_type || null);
     setActiveTripId(sid);
     setBusInfo({
       busNumber: schedule?.license_plate || schedule?.bus_number || 'N/A',
       route: schedule?.route_name || `Tuyến ${rid}`,
       driverName: schedule?.driver_name || 'Tài xế',
       driverPhone: schedule?.driver_phone || null,
-      scheduleId: schedule?.id
+      scheduleId: schedule?.id,
     });
   }, []);
 
-  //  (strict realtime): nếu không có chuyến đang chạy thì không vẽ tuyến/businfo.
-  // Hàm này reset các state liên quan đến chuyến đi.
-  const clearActiveTripUI = () => {
-    setActiveTripId(null);
-    setRouteId(null);
-    setRouteStops([]);
-    setBusInfo(null);
-    setBusStatus({
-      driverStatus: 'idle',
-      currentStopIndex: 0,
-      currentPosition: null,
-      isRunning: false
-    });
-  };
-
-
-  
-  // Tạo notification ID unique
-  const createNotificationId = (type) => {
-    return `${type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  };
-
-  // Thêm notification và tự động ẩn sau 10s
   const addNotification = useCallback((notification) => {
-    setNotifications(prev => [notification, ...prev]);
+    setNotifications((prev) => [notification, ...prev]);
+    setTripLogs((prev) => [notification, ...prev].slice(0, 15));
     setTimeout(() => {
-      setNotifications(prev => prev.filter(n => n.id !== notification.id));
+      setNotifications((prev) => prev.filter((n) => n.id !== notification.id));
     }, 10000);
   }, []);
 
-  // Xóa notification
   const removeNotification = useCallback((id) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
   }, []);
 
-  // === API CALLS ===
-
-  /**
-   * Load thông tin học sinh từ user session
-   * API: GET /students/:id
-   */
+  // Tải toàn bộ danh sách con của phụ huynh
   useEffect(() => {
-    const loadStudentInfo = async () => {
+    const loadChildren = async () => {
       try {
         setLoading(true);
-        
         const user = JSON.parse(sessionStorage.getItem('user'));
         if (!user) {
-          console.error('Chưa đăng nhập');
           setLoading(false);
           return;
         }
 
-        const { student_id, student_name, morning_route_id, afternoon_route_id } = user;
+        let list = user.id ? await parentsService.getChildrenByUserId(user.id) : [];
 
-        // Lấy 2 tuyến được gán cho học sinh (phụ huynh chỉ theo dõi các tuyến này)
-        const routes = [morning_route_id, afternoon_route_id]
-          .filter(Boolean)
-          .map((id) => Number(id))
-          .filter((id) => !Number.isNaN(id));
-        setAssignedRouteIds(routes);
-
-        if (student_id) {
-          const studentData = await studentsService.getStudentById(student_id);
-          setStudentInfo({
-            name: studentData.name,
-            class: studentData.class_name || studentData.class || 'N/A',
-            phone: studentData.phone
-          });
-        } else if (student_name) {
-          setStudentInfo({
-            name: student_name,
-            class: 'N/A',
-            phone: null
-          });
-        } else {
-          setStudentInfo({ name: 'Không có dữ liệu', class: 'N/A', phone: null });
+        // Fallback nếu tài khoản cũ chỉ có student_id trong session
+        if ((!list || list.length === 0) && user.student_id) {
+          const stu = await studentsService.getStudentById(user.student_id);
+          if (stu) {
+            const morningSub = stu.subscriptions?.find((s) => s.shift_type === 'morning');
+            const afternoonSub = stu.subscriptions?.find((s) => s.shift_type === 'afternoon');
+            list = [
+              {
+                ...stu,
+                morning_route_id: morningSub?.route_id ?? user.morning_route_id ?? null,
+                morning_route_name: morningSub?.route_name ?? null,
+                morning_pickup_stop_id: morningSub?.stop_id ?? null,
+                morning_stop_name: morningSub?.stop_name ?? null,
+                afternoon_route_id: afternoonSub?.route_id ?? user.afternoon_route_id ?? null,
+                afternoon_route_name: afternoonSub?.route_name ?? null,
+                afternoon_dropoff_stop_id: afternoonSub?.stop_id ?? null,
+                afternoon_stop_name: afternoonSub?.stop_name ?? null,
+              },
+            ];
+          }
         }
 
+        const safeList = Array.isArray(list) ? list : [];
+        setChildren(safeList);
+        if (safeList.length > 0) {
+          setSelectedChildId(safeList[0].id);
+        }
       } catch (error) {
-        console.error('Lỗi load thông tin học sinh:', error);
-        setStudentInfo({ name: 'Lỗi tải dữ liệu', class: 'N/A', phone: null });
+        console.error('Lỗi load danh sách con:', error);
+        setChildren([]);
       } finally {
         setLoading(false);
       }
     };
 
-    loadStudentInfo();
+    loadChildren();
   }, []);
 
-  // Nếu chưa có chuyến đang chạy, poll nhẹ để phát hiện khi tài xế bắt đầu chuyến.
-  // (Tránh phụ huynh phải F5 trang)
+  // Reset chuyến khi chuyển sang bé khác
   useEffect(() => {
-    if (!assignedRouteIds || assignedRouteIds.length === 0) return;
-    if (activeTripId) return;
+    clearActiveTripUI();
+    setIncidents([]);
+    setTripLogs([]);
+    displayedNotificationsRef.current.clear();
+  }, [selectedChildId, clearActiveTripUI]);
+
+  // Poll phát hiện chuyến đang chạy của bé đang chọn
+  useEffect(() => {
+    if (!assignedRouteIds.length || activeTripId) return;
 
     const checkInProgress = async () => {
       try {
         const schedule = await schedulesService.getActiveSchedule(assignedRouteIds);
-        if (schedule && isAssignedRouteSchedule(schedule) && normalizeStatus(schedule.status) === 'in_progress') {
+        const rid = toNumber(schedule?.route_id);
+        if (
+          schedule &&
+          rid != null &&
+          assignedRouteIds.includes(rid) &&
+          normalizeStatus(schedule.status) === 'in_progress'
+        ) {
           applyActiveScheduleToUI(schedule);
         }
       } catch {
-        // im lặng để không spam console nếu backend/db tạm thời lỗi
+        // Im lặng khi poll
       }
     };
 
-    // Check ngay khi vào trang (để không phải chờ 8s)
     checkInProgress();
     const interval = setInterval(checkInProgress, 8000);
     return () => clearInterval(interval);
-  }, [assignedRouteIds, activeTripId, isAssignedRouteSchedule, applyActiveScheduleToUI]);
+  }, [assignedRouteIds, activeTripId, applyActiveScheduleToUI]);
 
-  /**
-   * Load route stops khi có routeId
-   * API: GET /routes/:id/stops
-   */
+  // Load route stops khi có routeId
   useEffect(() => {
     if (!routeId) return;
 
@@ -217,7 +244,6 @@ export default function ParentPage() {
       try {
         const stopsData = await routesService.getRouteStops(routeId);
         const transformedStops = routesService.transformStopsForMap(stopsData);
-        // Chỉ set nếu đây là request mới nhất
         if (reqId === routeStopsReqIdRef.current) {
           setRouteStops(transformedStops);
         }
@@ -229,11 +255,7 @@ export default function ParentPage() {
     loadRouteStops();
   }, [routeId]);
 
-
-  /**
-   * Load incidents và auto-refresh mỗi 30 giây
-   * API: GET /incidents/route/:routeId
-   */
+  // Load sự cố gần đây theo tuyến
   useEffect(() => {
     if (!routeId) return;
 
@@ -241,9 +263,7 @@ export default function ParentPage() {
       try {
         const response = await incidentsService.getIncidentsByRoute(routeId);
         const incidentsData = response?.incidents || response || [];
-        
-        // Lọc sự cố trong 30 phút gần nhất (ưu tiên epoch ms từ SQL để tránh lệch UTC/VN)
-        const recentIncidents = incidentsData.filter(incident => {
+        const recentIncidents = incidentsData.filter((incident) => {
           const incidentMs =
             Number(incident.created_at_ms) ||
             parseSafeDate(incident.created_at)?.getTime();
@@ -251,7 +271,6 @@ export default function ParentPage() {
           const minutesDiff = (Date.now() - incidentMs) / (1000 * 60);
           return minutesDiff >= -5 && minutesDiff <= 30;
         });
-        
         setIncidents(recentIncidents);
       } catch (error) {
         console.error('Lỗi load incidents:', error);
@@ -263,161 +282,261 @@ export default function ParentPage() {
     return () => clearInterval(interval);
   }, [routeId]);
 
-  // === WEBSOCKET - Realtime tracking ===
-
+  // WebSocket realtime theo chuyến của bé
   useEffect(() => {
     if (!activeTripId) return;
 
-    // Kết nối WebSocket và join đúng room theo tripId (= scheduleId)
     busTrackingService.connect('parent', String(activeTripId));
 
-    // Handler nhận cập nhật từ driver
     const handleBusStatusUpdate = (status) => {
-      // Nếu có timer clear trước đó (do completed), mà lại nhận update mới thì hủy timer
       if (clearCompletedTimeoutRef.current) {
         clearTimeout(clearCompletedTimeoutRef.current);
         clearCompletedTimeoutRef.current = null;
       }
 
-      // Nếu trip đã kết thúc: giữ UI thêm một chút rồi mới clear
       if (status?.driverStatus === 'completed') {
-        setBusStatus(prev => ({
+        setBusStatus((prev) => ({
           ...prev,
           ...status,
           driverStatus: 'completed',
           currentStopIndex: status.currentStopIndex ?? prev.currentStopIndex,
           currentPosition: status.currentPosition || prev.currentPosition,
-          isRunning: false
+          studentStatuses: status.studentStatuses || prev.studentStatuses,
+          isRunning: false,
         }));
 
-        // Grace period (ms). Đủ để phụ huynh nhìn lại trước khi UI ẩn theo Option B.
         clearCompletedTimeoutRef.current = setTimeout(() => {
           clearActiveTripUI();
           clearCompletedTimeoutRef.current = null;
-        }, 10000);
+        }, 15000);
         return;
       }
 
-      setBusStatus(prev => ({
+      setBusStatus((prev) => ({
         ...prev,
         ...status,
         driverStatus: status.driverStatus || prev.driverStatus,
         currentStopIndex: status.currentStopIndex ?? prev.currentStopIndex,
-        currentPosition: status.currentPosition || prev.currentPosition
+        currentPosition: status.currentPosition || prev.currentPosition,
+        studentStatuses: status.studentStatuses || prev.studentStatuses,
       }));
 
       if (status.incidentAlert) {
-        const incidentKey = `incident-${status.incidentAlert.description}-${status.incidentAlert.timestamp || Date.now()}`;
-        
+        const incidentKey = `incident-${status.incidentAlert.id ?? status.incidentAlert.description}-${status.incidentAlert.timestamp || ''}`;
         if (!displayedNotificationsRef.current.has(incidentKey)) {
           displayedNotificationsRef.current.add(incidentKey);
           addNotification({
-            id: createNotificationId('incident'),
+            id: `${incidentKey}-${Date.now()}`,
             type: 'incident',
             message: status.incidentAlert.description,
             route: status.incidentAlert.route || 'Tuyến xe buýt',
-            timestamp: new Date()
+            timestamp: new Date(),
           });
         }
       }
 
       if (status.studentPickupAlert) {
-        const pickupStudentName = status.studentPickupAlert.studentName;
-        const pickupKey = `pickup-${pickupStudentName}-${status.studentPickupAlert.timestamp}`;
-        
-        const isMyChild = studentInfo && pickupStudentName === studentInfo.name;
-        
+        const alert = status.studentPickupAlert;
+        const isMyChild =
+          selectedChild &&
+          (String(alert.studentId) === String(selectedChild.id) ||
+            alert.studentName === selectedChild.name);
+        const pickupKey = `pickup-${alert.studentName}-${alert.action || 'picked_up'}-${alert.timestamp}`;
+
         if (isMyChild && !displayedNotificationsRef.current.has(pickupKey)) {
           displayedNotificationsRef.current.add(pickupKey);
+          const actionText =
+            alert.action === 'absent'
+              ? `được đánh dấu vắng mặt tại ${alert.stopName}`
+              : alert.action === 'waiting'
+                ? `chuyển lại trạng thái chờ đón tại ${alert.stopName}`
+                : `đã lên xe tại ${alert.stopName}`;
+
           addNotification({
-            id: createNotificationId('pickup'),
+            id: `${pickupKey}-${Date.now()}`,
             type: 'pickup',
-            message: `Học sinh ${pickupStudentName} đã được đón tại ${status.studentPickupAlert.stopName}`,
-            route: status.studentPickupAlert.routeName,
-            driverName: status.studentPickupAlert.driverName,
-            timestamp: new Date()
+            message: `Học sinh ${alert.studentName} ${actionText}`,
+            route: alert.routeName,
+            driverName: alert.driverName,
+            timestamp: new Date(),
           });
         }
       }
     };
 
-    // Backend emit: 'bus_status_update'
     busTrackingService.on('bus_status_update', handleBusStatusUpdate);
 
     return () => {
-      busTrackingService.off("bus_status_update", handleBusStatusUpdate);
-      if (activeTripId) busTrackingService.leaveTrip(activeTripId);
+      busTrackingService.off('bus_status_update', handleBusStatusUpdate);
+      busTrackingService.leaveTrip(String(activeTripId));
       if (clearCompletedTimeoutRef.current) {
         clearTimeout(clearCompletedTimeoutRef.current);
         clearCompletedTimeoutRef.current = null;
       }
     };
-  }, [addNotification, studentInfo, activeTripId]);
+  }, [addNotification, selectedChild, activeTripId, clearActiveTripUI]);
 
-  // === RENDER ===
+  // Tính badge trạng thái lên/xuống xe của bé hiện tại
+  const boardingBadge = useMemo(() => {
+    if (!activeTripId || !selectedChild) return null;
+    const entry = busStatus.studentStatuses?.[String(selectedChild.id)];
+    const st = entry?.status;
+    const timeText = entry?.updatedAt ? ` (${formatTimeShortVi(entry.updatedAt, '')})` : '';
+
+    if (busStatus.driverStatus === 'completed') {
+      if (st === 'absent') {
+        return {
+          label: '❌ Vắng mặt hôm nay',
+          className: 'bg-red-50 border-red-200 text-red-700',
+        };
+      }
+      if (st === 'picked_up') {
+        return {
+          label:
+            activeShiftType === 'afternoon'
+              ? '🏁 Đã hoàn thành / Đã trả bé'
+              : '🏫 Xe đã đến trường an toàn',
+          className: 'bg-emerald-50 border-emerald-200 text-emerald-800',
+        };
+      }
+    }
+
+    if (st === 'picked_up') {
+      return {
+        label: `🚌 Đã lên xe${entry?.stopName ? ` tại ${entry.stopName}` : ''}${timeText}`,
+        className: 'bg-emerald-100 border-emerald-300 text-emerald-800',
+      };
+    }
+    if (st === 'absent') {
+      return {
+        label: `❌ Tài xế đánh dấu vắng${timeText}`,
+        className: 'bg-red-100 border-red-300 text-red-800',
+      };
+    }
+    return {
+      label: '⏳ Đang chờ đón tại trạm',
+      className: 'bg-amber-50 border-amber-200 text-amber-800',
+    };
+  }, [activeTripId, selectedChild, busStatus.studentStatuses, busStatus.driverStatus, activeShiftType]);
 
   const nextStop = routeStops[busStatus.currentStopIndex + 1] || null;
 
   return (
-    <div className="p-4 md:p-8 bg-gray-100 min-h-screen">
-      <h1 className="text-3xl font-bold text-gray-800 mb-6">
-        Theo dõi xe buýt
-      </h1>
+    <div className="p-4 md:p-6 bg-gray-100 min-h-screen space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl sm:text-3xl font-bold text-[#174D2C]">
+          Theo dõi xe buýt
+        </h1>
 
-      <div className="flex flex-col gap-6">
-        {/* Thông báo sự cố */}
-        {incidents.length > 0 && (
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <h2 className="text-xl font-semibold mb-4 text-red-600 flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5" />
-              Thông báo sự cố ({incidents.length})
-            </h2>
-            <div className="space-y-3">
-              {incidents.map(incident => (
-                <IncidentCard key={incident.id} incident={incident} />
-              ))}
-            </div>
+        {children.length > 1 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-gray-600 font-medium">Chọn con:</span>
+            {children.map((child) => {
+              const active = String(child.id) === String(selectedChild?.id);
+              return (
+                <button
+                  key={child.id}
+                  type="button"
+                  onClick={() => setSelectedChildId(child.id)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition cursor-pointer ${
+                    active
+                      ? 'bg-[#174D2C] text-white shadow-sm'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  {child.name} ({child.class_name || child.class || 'N/A'})
+                </button>
+              );
+            })}
           </div>
         )}
-
-        {/* nếu chưa có chuyến đang chạy thì chỉ hiện thông báo */}
-        {!activeTripId ? (
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <h2 className="text-xl font-semibold text-gray-800 mb-2">Chưa có chuyến đang chạy</h2>
-            <p className="text-gray-600">
-              Khi tài xế bắt đầu chuyến (trạng thái <span className="font-medium">in_progress</span>), bản đồ và thông tin xe buýt sẽ tự hiển thị.
-            </p>
-          </div>
-        ) : (
-          <>
-            {/* Trạng thái chuyến đi */}
-            <TripStatusCard
-              driverStatus={busStatus.driverStatus}
-              currentStopIndex={busStatus.currentStopIndex}
-              stops={routeStops}
-              nextStop={nextStop}
-            />
-
-            {/* Bản đồ tracking */}
-            <BusTrackingMap stops={routeStops} busStatus={busStatus} />
-          </>
-        )}
-
-        {/* Thông tin học sinh */}
-        <StudentInfoCard studentInfo={studentInfo} loading={loading} />
-
-        {/* Thông tin xe buýt: chỉ hiện khi có chuyến đang chạy */}
-        {activeTripId && <BusInfoCard busInfo={busInfo} loading={loading} />}
-
-        {/* Toast Notifications */}
-        {notifications.map(notification => (
-          <ToastNotification
-            key={notification.id}
-            notification={notification}
-            onClose={() => removeNotification(notification.id)}
-          />
-        ))}
       </div>
+
+      {/* Thông tin học sinh + trạng thái đón/trả */}
+      <StudentInfoCard
+        studentInfo={studentInfo}
+        loading={loading}
+        boardingBadge={boardingBadge}
+      />
+
+      {/* Cảnh báo sự cố */}
+      {incidents.length > 0 && (
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-red-200">
+          <h2 className="text-lg font-semibold mb-3 text-red-600 flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5" />
+            Thông báo sự cố ({incidents.length})
+          </h2>
+          <div className="space-y-3">
+            {incidents.map((incident) => (
+              <IncidentCard key={incident.id} incident={incident} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Trạng thái chuyến + Bản đồ */}
+      {!activeTripId ? (
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+          <h2 className="text-lg font-bold text-gray-800 mb-1.5">
+            Chưa có chuyến xe đang chạy
+          </h2>
+          <p className="text-sm text-gray-600">
+            {assignedRouteIds.length > 0
+              ? 'Khi tài xế bấm Bắt đầu chuyến trên tuyến của bé, bản đồ vị trí xe và trạng thái từng trạm sẽ tự động hiển thị tại đây.'
+              : 'Học sinh hiện chưa được đăng ký tuyến xe buýt nào. Vui lòng liên hệ nhà trường.'}
+          </p>
+        </div>
+      ) : (
+        <>
+          <TripStatusCard
+            driverStatus={busStatus.driverStatus}
+            currentStopIndex={busStatus.currentStopIndex}
+            stops={routeStops}
+            nextStop={nextStop}
+            childStopId={childStopId}
+          />
+
+          <BusTrackingMap stops={routeStops} busStatus={busStatus} />
+
+          <BusInfoCard busInfo={busInfo} loading={loading} />
+        </>
+      )}
+
+      {/* Nhật ký thông báo trong chuyến để phụ huynh không bị lỡ nếu toast tắt sau 10s */}
+      {tripLogs.length > 0 && (
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+          <h2 className="text-base font-bold text-gray-800 mb-3 flex items-center gap-2">
+            <Bell className="h-4 w-4 text-[#174D2C]" />
+            Nhật ký thông báo trong chuyến ({tripLogs.length})
+          </h2>
+          <div className="space-y-2 text-sm">
+            {tripLogs.map((item) => (
+              <div
+                key={item.id}
+                className={`px-3 py-2 rounded-lg border flex justify-between items-center gap-2 ${
+                  item.type === 'incident'
+                    ? 'bg-red-50 border-red-200 text-red-800'
+                    : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                }`}
+              >
+                <span>{item.message}</span>
+                <span className="text-xs opacity-75 shrink-0">
+                  {formatTimeShortVi(item.timestamp, '')}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notifications */}
+      {notifications.map((notification) => (
+        <ToastNotification
+          key={notification.id}
+          notification={notification}
+          onClose={() => removeNotification(notification.id)}
+        />
+      ))}
     </div>
   );
 }

@@ -418,39 +418,59 @@ const estimatedTime = nextStop
     setTimeout(() => navigate("/driver/schedule"), 2000);
   };
 
+  const buildStudentStatusesMap = (stopsList) => {
+    const map = {};
+    const nowIso = new Date().toISOString();
+    (stopsList || []).forEach((stop) => {
+      (stop.students || []).forEach((stu) => {
+        if (stu.status === "picked_up" || stu.status === "absent") {
+          map[String(stu.id)] = {
+            status: stu.status,
+            stopId: stop.id,
+            stopName: stop.name,
+            updatedAt: nowIso,
+          };
+        }
+      });
+    });
+    return map;
+  };
+
   const toggleStudentStatus = (stopId, studentId) => {
     if (!canManageStop(stopId)) {
       pushNotice("warning", "Chỉ thao tác khi xe đã đến đúng điểm dừng");
       return;
     }
-    setStops((prev) =>
-      prev.map((stop) => {
-        if (stop.id !== stopId) return stop;
-        return {
-          ...stop,
-          students: stop.students.map((stu) => {
-            if (stu.id !== studentId) return stu;
-            if (stu.status === "picked_up") return stu; // không revert
-            const updated = { ...stu, status: "picked_up" };
-            pushNotice("success", ` Đã đón ${updated.name}`);
-            
-            //  Gửi thông báo đón học sinh qua WebSocket đến parent
-            busTrackingService.updateDriverStatus({
-              studentPickupAlert: {
-                studentName: updated.name,
-                stopName: stop.name,
-                routeName: schedule?.routeName ,
-                driverName: schedule?.driverName ,
-                timestamp: new Date().toISOString()
-              }
-            });
-          
-            
-            return updated;
-          }),
-        };
-      })
-    );
+    let alertPayload = null;
+    const nextStops = stops.map((stop) => {
+      if (stop.id !== stopId) return stop;
+      return {
+        ...stop,
+        students: stop.students.map((stu) => {
+          if (stu.id !== studentId || stu.status === "picked_up") return stu;
+          const updated = { ...stu, status: "picked_up" };
+          alertPayload = {
+            studentId: updated.id,
+            studentName: updated.name,
+            action: "picked_up",
+            stopName: stop.name,
+            routeName: schedule?.routeName,
+            driverName: schedule?.driverName,
+            timestamp: new Date().toISOString(),
+          };
+          return updated;
+        }),
+      };
+    });
+
+    setStops(nextStops);
+    if (alertPayload) {
+      pushNotice("success", ` Đã đón ${alertPayload.studentName}`);
+      busTrackingService.updateDriverStatus({
+        studentStatuses: buildStudentStatusesMap(nextStops),
+        studentPickupAlert: alertPayload,
+      });
+    }
   };
 
   const markStudentAbsent = (stopId, studentId) => {
@@ -458,30 +478,39 @@ const estimatedTime = nextStop
       pushNotice("warning", "Chỉ thao tác khi xe đã đến đúng điểm dừng");
       return;
     }
-    setStops((prevStops) =>
-      prevStops.map((stop) => {
-        if (stop.id === stopId) {
-          return {
-            ...stop,
-            students: stop.students.map((student) => {
-              if (student.id === studentId) {
-                const newStatus =
-                  student.status === "absent" ? "waiting" : "absent";
-                pushNotice(
-                  "warning",
-                  `${newStatus === "absent" ? " Vắng mặt" : " Có mặt"} ${
-                    student.name
-                  }`
-                );
-                return { ...student, status: newStatus };
-              }
-              return student;
-            }),
+    let alertPayload = null;
+    const nextStops = stops.map((stop) => {
+      if (stop.id !== stopId) return stop;
+      return {
+        ...stop,
+        students: stop.students.map((student) => {
+          if (student.id !== studentId) return student;
+          const newStatus = student.status === "absent" ? "waiting" : "absent";
+          alertPayload = {
+            studentId: student.id,
+            studentName: student.name,
+            action: newStatus,
+            stopName: stop.name,
+            routeName: schedule?.routeName,
+            driverName: schedule?.driverName,
+            timestamp: new Date().toISOString(),
           };
-        }
-        return stop;
-      })
-    );
+          return { ...student, status: newStatus };
+        }),
+      };
+    });
+
+    setStops(nextStops);
+    if (alertPayload) {
+      pushNotice(
+        "warning",
+        `${alertPayload.action === "absent" ? " Vắng mặt" : " Có mặt"} ${alertPayload.studentName}`
+      );
+      busTrackingService.updateDriverStatus({
+        studentStatuses: buildStudentStatusesMap(nextStops),
+        studentPickupAlert: alertPayload,
+      });
+    }
   };
 
   const pushNotice = (type, message) => {

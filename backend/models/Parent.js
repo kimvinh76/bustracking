@@ -57,17 +57,13 @@ class ParentModel {
    * @param {number} userId - ID của user
    * @returns {Promise<Object|null>} Thông tin phụ huynh hoặc null
    */
-  // static async findByUserId(userId) {
-  
-  //   const [rows] = await pool.execute(
-  //     'SELECT * FROM parents WHERE user_id = ?',
-  //     [userId]
-  //   );
-    
-  //   const parent = rows[0] || null;
-  //   console.log(parent ? ' MODEL: Tìm thấy phụ huynh' : ' MODEL: Không tìm thấy phụ huynh');
-  //   return parent;
-  // }
+  static async findByUserId(userId) {
+    const [rows] = await pool.execute(
+      'SELECT * FROM parents WHERE user_id = ? LIMIT 1',
+      [userId]
+    );
+    return rows[0] || null;
+  }
 
   /**
    * Lấy student đầu tiên của parent theo user_id (dùng cho login)
@@ -126,28 +122,34 @@ class ParentModel {
       return null;
     }
 
-    // Lấy danh sách con
+    // Lấy danh sách con kèm tên tuyến và điểm đón/trả
     const [children] = await pool.execute(`
       SELECT s.id,
              s.name,
+             s.phone,
+             s.address,
              s.grade,
              s.class_id,
              c.class_name,
              ms.route_id AS morning_route_id,
              mr.route_name AS morning_route_name,
+             ms.stop_id AS morning_pickup_stop_id,
+             mst.name AS morning_stop_name,
              asub.route_id AS afternoon_route_id,
              ar.route_name AS afternoon_route_name,
-             ms.stop_id AS morning_pickup_stop_id,
              asub.stop_id AS afternoon_dropoff_stop_id,
+             ast.name AS afternoon_stop_name,
              s.status
       FROM students s
       LEFT JOIN classes c ON s.class_id = c.id
       LEFT JOIN student_route_subscriptions ms
         ON ms.student_id = s.id AND ms.shift_type = 'morning' AND ms.status = 'active'
       LEFT JOIN routes mr ON ms.route_id = mr.id
+      LEFT JOIN stops mst ON ms.stop_id = mst.id
       LEFT JOIN student_route_subscriptions asub
         ON asub.student_id = s.id AND asub.shift_type = 'afternoon' AND asub.status = 'active'
       LEFT JOIN routes ar ON asub.route_id = ar.id
+      LEFT JOIN stops ast ON asub.stop_id = ast.id
       WHERE s.parent_id = ? AND s.status = 'active'
       ORDER BY s.name ASC
     `, [id]);

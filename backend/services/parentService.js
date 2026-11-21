@@ -190,6 +190,12 @@ class ParentService {
     return updatedParent;
   }
 
+  static async getParentWithChildrenByUserId(userId) {
+    const parent = await ParentModel.findByUserId(userId);
+    if (!parent) return null;
+    return this.getParentWithChildren(parent.id);
+  }
+
   /**
    * Xóa phụ huynh
    */

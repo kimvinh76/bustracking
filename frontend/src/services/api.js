@@ -54,11 +54,22 @@ apiClient.interceptors.response.use(
     (error) => {
         console.error('API Error:', error.response?.data || error.message);
         
-        if (error.response?.status === 401) {
-            console.error('Unauthorized access');
-        } else if (error.response?.status === 404) {
+        const status = error.response?.status;
+        const msg = String(error.response?.data?.message || '');
+        const isTokenExpired =
+            status === 401 ||
+            (status === 403 && /token/i.test(msg));
+
+        if (isTokenExpired && typeof window !== 'undefined') {
+            sessionStorage.removeItem('authToken');
+            sessionStorage.removeItem('user');
+            sessionStorage.removeItem('isAuthenticated');
+            if (window.location.pathname !== '/login') {
+                window.location.replace('/login');
+            }
+        } else if (status === 404) {
             console.error('Resource not found');
-        } else if (error.response?.status >= 500) {
+        } else if (status >= 500) {
             console.error('Server error');
         }
         

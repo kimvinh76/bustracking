@@ -1,7 +1,5 @@
-import React from 'react';
 import { NavLink } from 'react-router-dom';
 
-// Simple SVG Icons
 const HomeIcon = ({ className }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -22,53 +20,56 @@ const UserCircleIcon = ({ className }) => (
   </svg>
 );
 
-const ArrowLeftOnRectangleIcon = ({ className }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-  </svg>
-);
-
 const ParentNavbar = () => {
   const navigation = [
-    // Router base của parent là '/parent'
-    { name: 'Theo dõi', href: '/parent', icon: HomeIcon, end: true },
-    { name: 'Tổng quan', href: '/parent/overview', icon: ClipboardListIcon, end: false },
+    { name: 'Theo dõi xe', href: '/parent', icon: HomeIcon, end: true },
+    { name: 'Lịch trình', href: '/parent/overview', icon: ClipboardListIcon, end: false },
   ];
 
+  const handleLogout = () => {
+    sessionStorage.clear();
+    window.location.href = '/login';
+  };
+
   return (
-    <div className="w-64 bg-white shadow-lg h-full flex flex-col">
-      <div className="flex items-center justify-center h-20 border-b px-4">
-        <UserCircleIcon className="w-12 h-12 text-blue-500" />
+    <aside className="w-56 sm:w-64 bg-[#174D2C] text-white h-full flex flex-col p-4 shrink-0">
+      <div className="flex flex-col items-center justify-center pb-5 border-b border-[#D8E359]/40">
+        <UserCircleIcon className="w-16 h-16 text-[#D8E359]" />
+        <span className="mt-1.5 text-sm font-semibold tracking-wide text-[#D8E359]">
+          PHỤ HUYNH
+        </span>
       </div>
-      <nav className="flex-1 px-4 py-6 space-y-2">
+
+      <nav className="flex-1 py-5 space-y-3">
         {navigation.map((item) => (
           <NavLink
             key={item.name}
             to={item.href}
             end={item.end}
             className={({ isActive }) =>
-              `flex items-center px-4 py-3 text-lg rounded-lg transition-colors duration-200 ${
+              `flex items-center px-4 py-2.5 text-base rounded-xl transition-all duration-150 ${
                 isActive
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  ? 'bg-[#D8E359] text-[#174D2C] font-semibold shadow-sm'
+                  : 'text-white/90 hover:bg-white hover:text-[#174D2C]'
               }`
             }
           >
-            <item.icon className="h-6 w-6 mr-3" />
+            <item.icon className="h-5 w-5 mr-3 shrink-0" />
             {item.name}
           </NavLink>
         ))}
       </nav>
-      <div className="px-4 py-6 border-t">
-        <NavLink
-          to="/logout"
-          className="flex items-center px-4 py-3 text-lg text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded-lg transition-colors duration-200"
+
+      <div className="border-t border-[#D8E359]/40 pt-4 mt-auto">
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="bg-[#D8E359] hover:bg-[#c6d93a] text-[#174D2C] px-4 py-2 rounded-lg text-base font-semibold transition-colors border border-black/30 w-full cursor-pointer"
         >
-          <ArrowLeftOnRectangleIcon className="h-6 w-6 mr-3" />
           Đăng xuất
-        </NavLink>
+        </button>
       </div>
-    </div>
+    </aside>
   );
 };
 
