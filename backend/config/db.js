@@ -33,6 +33,11 @@ const pool = mysql.createPool({
     dateStrings: true,
     ssl: sslConfig, // Bật SSL khi chạy trên Cloud (production)
 });
+// Đảm bảo mọi kết nối tới MySQL/TiDB Cloud dùng thống nhất múi giờ Việt Nam (UTC+7)
+pool.on('connection', (connection) => {
+    connection.query("SET time_zone = '+07:00'");
+});
+
 // 4. (Tùy chọn) Hàm kiểm tra kết nối nhanh
 async function checkConnection() {
     try {

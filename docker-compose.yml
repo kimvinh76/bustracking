@@ -54,8 +54,8 @@ services:
     ports:
       - "${DB_PORT:-3308}:3306" # Mở port để dùng DBeaver
     volumes:
-      # Mount folder migrations để MySQL tự động chạy TẤT CẢ file SQL theo thứ tự abc (01 -> 05...)
-      - ./database/migrations:/docker-entrypoint-initdb.d
+      # Mount 1 file SQL chuẩn duy nhất (dùng chung cho cả Docker MySQL 8 và TiDB Cloud)
+      - ./database/cloud_init.sql:/docker-entrypoint-initdb.d/01_init.sql
       # Lưu dữ liệu MySQL persistent (không mất khi restart container)
       - mysql_data:/var/lib/mysql
     healthcheck:

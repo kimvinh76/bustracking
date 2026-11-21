@@ -246,7 +246,6 @@ CREATE TABLE `incidents` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
-INSERT INTO `incidents` VALUES (1,1,1,1,'traffic','Kẹt xe trên đường','medium','reported',NULL,10.75875000,106.68095000,NULL,NULL,'2026-01-03 05:38:48','2026-01-03 05:38:48'),(2,2,3,2,'traffic','Giao thông kẹt xe nghiêm trọng','medium','reported',NULL,10.81843395,106.67876849,NULL,NULL,'2026-01-14 12:27:12','2026-01-14 12:27:12');
 DROP TABLE IF EXISTS `bus_locations`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
