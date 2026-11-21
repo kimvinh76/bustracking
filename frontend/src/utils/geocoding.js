@@ -137,14 +137,13 @@ export async function searchRealPlaces(rawQuery, signal) {
   return unique.slice(0, 6);
 }
 
-/** Lấy tên địa điểm / địa chỉ tiếng Việt từ tọa độ vừa click trên bản đồ. */
-export async function reverseGeocodeLocation(lat, lng, signal) {
-  if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) return null;
+async function reverseArcgis(lat, lng, featureTypes, signal) {
   try {
     const params = new URLSearchParams({
       location: `${lng},${lat}`,
       langCode: "vi",
       f: "json",
+      ...(featureTypes ? { featureTypes } : {}),
     });
     const res = await fetch(`${ARCGIS_GEOCODE_BASE}/reverseGeocode?${params}`, { signal });
     if (!res.ok) return null;
@@ -157,13 +156,93 @@ export async function reverseGeocodeLocation(lat, lng, signal) {
       addr.PlaceName || addr.ShortLabel || addr.Address,
       fullAddress
     );
+    const distApprox =
+      Number.isFinite(Number(addr.Y)) && Number.isFinite(Number(addr.X))
+        ? Math.hypot((Number(addr.Y) - lat) * 111000, (Number(addr.X) - lng) * 109000)
+        : 0;
 
     if (!fullAddress && !suggestedName) return null;
     return {
       name: suggestedName,
       address: fullAddress || suggestedName,
+      addrType: addr.Addr_type || "",
+      distMeters: Math.round(distApprox),
     };
   } catch {
     return null;
   }
+}
+
+async function reversePhotonBusStop(lat, lng, parentSignal) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 2000);
+  const onParentAbort = () => controller.abort();
+  parentSignal?.addEventListener("abort", onParentAbort, { once: true });
+
+  try {
+    const res = await fetch(
+      `https://photon.komoot.io/reverse?lat=${lat}&lon=${lng}&limit=3`,
+      { signal: controller.signal }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const busFeature = (data?.features || []).find(
+      (f) => f?.properties?.osm_value === "bus_stop" && f?.properties?.name
+    );
+    if (!busFeature) return null;
+
+    const [fLng, fLat] = busFeature.geometry?.coordinates || [];
+    const distMeters = Math.round(
+      Math.hypot((Number(fLat) - lat) * 111000, (Number(fLng) - lng) * 109000)
+    );
+    if (!Number.isFinite(distMeters) || distMeters > 150) return null;
+
+    const props = busFeature.properties;
+    return {
+      name: `Trạm ${props.name}`,
+      address: formatPhotonAddress(props) || props.name,
+      addrType: "BusStop",
+      distMeters,
+    };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+    parentSignal?.removeEventListener("abort", onParentAbort);
+  }
+}
+
+/**
+ * Lấy gợi ý địa điểm thực tế từ tọa độ vừa click:
+ * Ưu tiên Trạm xe buýt OSM (<150m) -> Địa điểm POI gần nhất (<150m) -> Địa chỉ đường phố.
+ */
+export async function reverseGeocodeLocation(lat, lng, signal) {
+  if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) return null;
+
+  const [busRes, poiRes, streetRes] = await Promise.allSettled([
+    reversePhotonBusStop(lat, lng, signal),
+    reverseArcgis(lat, lng, "POI", signal),
+    reverseArcgis(lat, lng, "", signal),
+  ]);
+
+  const bus = busRes.status === "fulfilled" ? busRes.value : null;
+  const poi = poiRes.status === "fulfilled" && poiRes.value?.distMeters <= 150 ? poiRes.value : null;
+  const street = streetRes.status === "fulfilled" ? streetRes.value : null;
+
+  const suggestions = [];
+  for (const item of [bus, poi, street]) {
+    if (!item) continue;
+    const exists = suggestions.some(
+      (s) => s.name.toLowerCase() === item.name.toLowerCase()
+    );
+    if (!exists) suggestions.push(item);
+  }
+
+  if (suggestions.length === 0) return null;
+  const primary = suggestions[0];
+  return {
+    name: primary.name,
+    address: primary.addrType === "BusStop" && street?.address ? street.address : primary.address,
+    suggestions,
+  };
 }

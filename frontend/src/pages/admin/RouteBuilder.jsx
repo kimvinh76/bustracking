@@ -275,6 +275,7 @@ export default function RouteBuilder() {
   const [reverseHint, setReverseHint] = useState(null);
   const [focusCoords, setFocusCoords] = useState(null);
   const geocodeAbortRef = useRef(null);
+  const lastAutoFilledRef = useRef({ name: '', address: '' });
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -526,6 +527,7 @@ export default function RouteBuilder() {
 
   const resetGeocodeHelpers = () => {
     geocodeAbortRef.current?.abort();
+    lastAutoFilledRef.current = { name: '', address: '' };
     setPlaceQuery('');
     setPlaceResults([]);
     setReverseHint(null);
@@ -578,9 +580,22 @@ export default function RouteBuilder() {
     const hint = await reverseGeocodeLocation(lat, lng, controller.signal);
     if (controller.signal.aborted || !hint) return;
     setReverseHint(hint);
+
+    // Khi tạo trạm mới: tự động điền cả tên + địa chỉ nếu người dùng chưa tự gõ tay
     setStopForm((prev) => {
-      if (!prev || prev.id || prev.address.trim()) return prev;
-      return { ...prev, address: hint.address };
+      if (!prev || prev.id) return prev;
+      const lastAuto = lastAutoFilledRef.current;
+      const canUpdateName = !prev.name.trim() || prev.name === lastAuto.name;
+      const canUpdateAddress = !prev.address.trim() || prev.address === lastAuto.address;
+      lastAutoFilledRef.current = {
+        name: canUpdateName ? hint.name : prev.name,
+        address: canUpdateAddress ? hint.address : prev.address,
+      };
+      return {
+        ...prev,
+        name: canUpdateName ? hint.name : prev.name,
+        address: canUpdateAddress ? hint.address : prev.address,
+      };
     });
   }, []);
 
@@ -1052,23 +1067,46 @@ export default function RouteBuilder() {
                 )}
 
                 {reverseHint && (
-                  <div className="flex items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-[11px] text-blue-900">
-                    <span className="truncate">
-                      Gợi ý vị trí chấm: <strong>{reverseHint.name}</strong> — {reverseHint.address}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setStopForm((prev) =>
-                          prev
-                            ? { ...prev, name: reverseHint.name, address: reverseHint.address }
-                            : prev
-                        )
-                      }
-                      className="shrink-0 font-semibold text-blue-700 hover:underline cursor-pointer"
-                    >
-                      Áp dụng
-                    </button>
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-2 text-[11px] text-blue-900 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate font-medium">
+                        Gợi ý gần điểm chấm (bấm để chọn):
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setStopForm((prev) =>
+                            prev
+                              ? { ...prev, name: reverseHint.name, address: reverseHint.address }
+                              : prev
+                          )
+                        }
+                        className="shrink-0 font-semibold text-blue-700 hover:underline cursor-pointer"
+                      >
+                        Điền mặc định
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(reverseHint.suggestions || [reverseHint]).map((s, idx) => (
+                        <button
+                          key={`${s.name}-${idx}`}
+                          type="button"
+                          onClick={() => {
+                            const nextAddr =
+                              s.addrType === 'BusStop' ? reverseHint.address : s.address;
+                            lastAutoFilledRef.current = { name: s.name, address: nextAddr };
+                            setStopForm((prev) =>
+                              prev ? { ...prev, name: s.name, address: nextAddr } : prev
+                            );
+                          }}
+                          className="px-2 py-0.5 rounded-md bg-white border border-blue-200 hover:bg-blue-100 text-blue-900 font-medium truncate max-w-full cursor-pointer"
+                          title={s.address}
+                        >
+                          {s.addrType === 'BusStop' ? '🚌 ' : s.addrType === 'POI' ? '📍 ' : '🛣️ '}
+                          {s.name}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

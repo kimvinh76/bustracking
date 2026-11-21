@@ -355,15 +355,13 @@ export default function MapPage() {
                   Chưa có chuyến xe đang chạy
                 </span>
                 <div className="flex items-center gap-2">
-                  <label className="text-sm text-gray-600">Xem trước:</label>
+                  <label className="text-sm text-gray-600">Xem trước tuyến:</label>
                   <select
                     className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm bg-white"
                     value={previewRouteId}
                     onChange={(e) => setPreviewRouteId(e.target.value)}
                   >
-                    <option value="">
-                      Tất cả trạm dừng ({validLibraryStops.length} trạm)
-                    </option>
+                    <option value="">-- Chọn tuyến xem trước --</option>
                     {allRoutes.map((r) => (
                       <option key={r.id} value={r.id}>
                         {r.route_name} ({r.shift_type === "afternoon" ? "Chiều" : "Sáng"}
@@ -413,7 +411,7 @@ export default function MapPage() {
             <div className="absolute top-3 left-14 z-[500] bg-white/95 backdrop-blur px-3.5 py-1.5 rounded-full shadow border border-gray-200 text-xs sm:text-sm text-gray-700 font-medium max-w-[calc(100%-5rem)] truncate">
               {previewRouteObj
                 ? `Xem trước lộ trình: ${previewRouteObj.route_name} (${displayedStops.length} trạm)`
-                : `Chưa có chuyến xe đang chạy · Đang hiển thị ${validLibraryStops.length} trạm dừng`}
+                : "Chưa có chuyến xe đang chạy · Đang hiển thị mạng lưới trạm"}
             </div>
           )}
 

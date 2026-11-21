@@ -78,10 +78,15 @@ class ParentModel {
     console.log('MODEL: Tìm student của parent với user_id:', userId);
     const [rows] = await pool.execute(`
       SELECT s.id AS student_id, s.name AS student_name, 
-             s.morning_route_id, s.afternoon_route_id,
+             ms.route_id AS morning_route_id,
+             asub.route_id AS afternoon_route_id,
              p.id AS parent_id, p.name AS parent_name
       FROM parents p
-      JOIN students s ON s.parent_id = p.id
+      JOIN students s ON s.parent_id = p.id AND s.status = 'active'
+      LEFT JOIN student_route_subscriptions ms
+        ON ms.student_id = s.id AND ms.shift_type = 'morning' AND ms.status = 'active'
+      LEFT JOIN student_route_subscriptions asub
+        ON asub.student_id = s.id AND asub.shift_type = 'afternoon' AND asub.status = 'active'
       WHERE p.user_id = ?
       ORDER BY s.id ASC
       LIMIT 1
@@ -128,18 +133,22 @@ class ParentModel {
              s.grade,
              s.class_id,
              c.class_name,
-             s.morning_route_id,
+             ms.route_id AS morning_route_id,
              mr.route_name AS morning_route_name,
-             s.afternoon_route_id,
+             asub.route_id AS afternoon_route_id,
              ar.route_name AS afternoon_route_name,
-             s.morning_pickup_stop_id,
-             s.afternoon_dropoff_stop_id,
+             ms.stop_id AS morning_pickup_stop_id,
+             asub.stop_id AS afternoon_dropoff_stop_id,
              s.status
       FROM students s
       LEFT JOIN classes c ON s.class_id = c.id
-      LEFT JOIN routes mr ON s.morning_route_id = mr.id
-      LEFT JOIN routes ar ON s.afternoon_route_id = ar.id
-      WHERE s.parent_id = ?
+      LEFT JOIN student_route_subscriptions ms
+        ON ms.student_id = s.id AND ms.shift_type = 'morning' AND ms.status = 'active'
+      LEFT JOIN routes mr ON ms.route_id = mr.id
+      LEFT JOIN student_route_subscriptions asub
+        ON asub.student_id = s.id AND asub.shift_type = 'afternoon' AND asub.status = 'active'
+      LEFT JOIN routes ar ON asub.route_id = ar.id
+      WHERE s.parent_id = ? AND s.status = 'active'
       ORDER BY s.name ASC
     `, [id]);
 
