@@ -447,12 +447,13 @@ const estimatedTime = nextStop
       return {
         ...stop,
         students: stop.students.map((stu) => {
-          if (stu.id !== studentId || stu.status === "picked_up") return stu;
-          const updated = { ...stu, status: "picked_up" };
+          if (stu.id !== studentId) return stu;
+          const newStatus = stu.status === "picked_up" ? "waiting" : "picked_up";
+          const updated = { ...stu, status: newStatus };
           alertPayload = {
             studentId: updated.id,
             studentName: updated.name,
-            action: "picked_up",
+            action: newStatus,
             stopName: stop.name,
             routeName: schedule?.routeName,
             driverName: schedule?.driverName,
@@ -465,7 +466,12 @@ const estimatedTime = nextStop
 
     setStops(nextStops);
     if (alertPayload) {
-      pushNotice("success", ` Đã đón ${alertPayload.studentName}`);
+      pushNotice(
+        alertPayload.action === "picked_up" ? "success" : "info",
+        alertPayload.action === "picked_up"
+          ? ` Đã đón ${alertPayload.studentName}`
+          : ` Chuyển lại chờ đón: ${alertPayload.studentName}`
+      );
       busTrackingService.updateDriverStatus({
         studentStatuses: buildStudentStatusesMap(nextStops),
         studentPickupAlert: alertPayload,

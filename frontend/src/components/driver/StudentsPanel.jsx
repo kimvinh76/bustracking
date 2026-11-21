@@ -21,10 +21,10 @@ export default function StudentsPanel({
   return (
     <>
       {/* Overlay */}
-      <div className="fixed inset-0 bg-black/30 z-40" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/30 z-[900]" onClick={onClose} />
 
       {/* Sidebar */}
-      <div className="fixed right-0 top-0 h-full w-96 bg-white shadow-2xl z-50 transform transition-transform">
+      <div className="fixed right-0 top-0 h-full w-96 bg-white shadow-2xl z-[950] transform transition-transform">
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4">
@@ -49,10 +49,22 @@ export default function StudentsPanel({
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto">
+            {pausedWaypointIdx === null ? (
+              <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-xs text-amber-800">
+                Xe đang di chuyển. Nút điểm danh sẽ mở khóa khi xe dừng đúng trạm.
+              </div>
+            ) : (
+              <div className="bg-blue-50 border-b border-blue-200 px-4 py-2 text-xs text-blue-800">
+                Chỉ điểm danh được các em ở trạm xe đang dừng (✓ Đón / ✕ Vắng).
+              </div>
+            )}
             {stops
               .map((stop, originalIndex) => ({ stop, originalIndex }))
               .filter(({ stop }) => !stop.isStartOrEnd)
-              .map(({ stop, originalIndex }, stopIndex) => (
+              .map(({ stop, originalIndex }, stopIndex) => {
+                const canCheckHere =
+                  pausedWaypointIdx !== null && originalIndex === pausedWaypointIdx;
+                return (
                 <div key={stop.id} className="border-b border-gray-200">
                   {/* Stop Header */}
                   <div className="bg-gray-50 px-4 py-3 sticky top-0 z-10">
@@ -140,36 +152,57 @@ export default function StudentsPanel({
                             {/* Action Buttons */}
                             <div className="flex gap-1">
                               <button
+                                type="button"
+                                disabled={!canCheckHere}
                                 onClick={() =>
                                   toggleStudentStatus(stop.id, student.id)
                                 }
                                 className={`p-2 rounded-lg transition-colors ${
-                                  student.status === "picked_up"
-                                    ? "bg-green-600 text-white"
-                                    : "bg-gray-200 text-gray-600 hover:bg-green-600 hover:text-white"
+                                  !canCheckHere
+                                    ? "bg-gray-100 text-gray-400 cursor-not-allowed opacity-60"
+                                    : student.status === "picked_up"
+                                    ? "bg-green-600 text-white cursor-pointer"
+                                    : "bg-gray-200 text-gray-600 hover:bg-green-600 hover:text-white cursor-pointer"
                                 }`}
-                                title="Đánh dấu đã đón"
+                                title={
+                                  canCheckHere
+                                    ? student.status === "picked_up"
+                                      ? "Bỏ đánh dấu đã đón"
+                                      : "Đánh dấu đã đón"
+                                    : "Chỉ thao tác khi xe dừng tại trạm này"
+                                }
                               >
                                 <CheckCircle className="w-4 h-4" />
                               </button>
                               <button
+                                type="button"
+                                disabled={!canCheckHere}
                                 onClick={() =>
                                   markStudentAbsent(stop.id, student.id)
                                 }
                                 className={`p-2 rounded-lg transition-colors ${
-                                  student.status === "absent"
-                                    ? "bg-red-600 text-white"
-                                    : "bg-gray-200 text-gray-600 hover:bg-red-600 hover:text-white"
+                                  !canCheckHere
+                                    ? "bg-gray-100 text-gray-400 cursor-not-allowed opacity-60"
+                                    : student.status === "absent"
+                                    ? "bg-red-600 text-white cursor-pointer"
+                                    : "bg-gray-200 text-gray-600 hover:bg-red-600 hover:text-white cursor-pointer"
                                 }`}
-                                title="Đánh dấu vắng mặt"
+                                title={
+                                  canCheckHere
+                                    ? student.status === "absent"
+                                      ? "Bỏ đánh dấu vắng"
+                                      : "Đánh dấu vắng mặt"
+                                    : "Chỉ thao tác khi xe dừng tại trạm này"
+                                }
                               >
                                 <XCircle className="w-4 h-4" />
                               </button>
                               <button
+                                type="button"
                                 onClick={() =>
                                   window.open(`tel:${student.phone}`)
                                 }
-                                className="p-2 bg-gray-200 text-gray-600 hover:bg-blue-600 hover:text-white rounded-lg transition-colors"
+                                className="p-2 bg-gray-200 text-gray-600 hover:bg-blue-600 hover:text-white rounded-lg transition-colors cursor-pointer"
                                 title="Gọi điện"
                               >
                                 <Phone className="w-4 h-4" />
@@ -181,7 +214,8 @@ export default function StudentsPanel({
                     ))}
                   </div>
                 </div>
-              ))}
+                );
+              })}
           </div>
 
           {/* Footer */}

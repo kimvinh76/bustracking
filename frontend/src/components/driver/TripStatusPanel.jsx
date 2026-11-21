@@ -20,6 +20,8 @@ export default function TripStatusPanel({
                   ? "bg-green-500"
                   : tripStatus === "in_progress"
                   ? "bg-blue-500"
+                  : tripStatus === "paused"
+                  ? "bg-amber-500"
                   : "bg-gray-400"
               }`}
             ></div>
@@ -28,6 +30,8 @@ export default function TripStatusPanel({
                 ? "🏁 Chuyến đã hoàn thành"
                 : tripStatus === "in_progress"
                 ? "🚍 Đang trong chuyến"
+                : tripStatus === "paused"
+                ? "⏸️ Đang dừng tại trạm"
                 : "⏳ Chờ bắt đầu chuyến"}
             </span>
           </div>
