@@ -5,6 +5,7 @@ import "leaflet/dist/leaflet.css";
 import BaseTileLayer from "../../components/map/BaseTileLayer.jsx";
 import BusRouteLayer from "../../components/map/BusRouteLayer.jsx";
 import { applyLeafletDefaultIcon, MAP_DEFAULT_CENTER } from "../../utils/mapDefaults.js";
+import { getStopProgressState } from "../../utils/mergeBusStatus.js";
 import DriverHeader from "../../components/driver/DriverHeader.jsx";
 import AlertsContainer from "../../components/driver/AlertsContainer.jsx";
 import TripStatusPanel from "../../components/driver/TripStatusPanel.jsx";
@@ -634,17 +635,28 @@ const estimatedTime = nextStop
           >
             <BaseTileLayer />
 
-            {stops.map((s, i) => (
-              <Marker key={s.id} position={[s.lat, s.lng]}>
-                <Popup>
-                  <strong>
-                    {i === 0 ? "Điểm xuất phát" : `Điểm dừng ${i}`}
-                  </strong>
-                  <br />
-                  {s.name}
-                </Popup>
-              </Marker>
-            ))}
+            {stops.map((s, i) => {
+              const stopProgress = getStopProgressState(i, stopIdx, status);
+              return (
+                <Marker key={s.id} position={[s.lat, s.lng]}>
+                  <Popup>
+                    <strong>
+                      {i === 0
+                        ? "Điểm xuất phát"
+                        : i === stops.length - 1
+                          ? "Điểm kết thúc"
+                          : `Điểm dừng ${i}`}
+                    </strong>
+                    <br />
+                    {s.name}
+                    <br />
+                    <span className="text-xs text-blue-700 font-medium">
+                      Trạng thái: {stopProgress.label}
+                    </span>
+                  </Popup>
+                </Marker>
+              );
+            })}
 
             {status !== "not_started" && stops.length > 0 && (
               <BusRouteLayer

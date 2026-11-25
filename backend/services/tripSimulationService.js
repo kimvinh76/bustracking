@@ -336,8 +336,8 @@ class TripSimulationService {
     try {
       // Gọi OSRM public để lấy đường đi. Nếu fail sẽ fallback về straight waypoints.
       const coordsStr = waypoints.map((wp) => `${wp.lng},${wp.lat}`).join(';');
-      const url = `http://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=full&geometries=geojson`;
-      const response = await axios.get(url);
+      const url = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=full&geometries=geojson`;
+      const response = await axios.get(url, { timeout: 6000 });
       const coordinates = response?.data?.routes?.[0]?.geometry?.coordinates;
       if (!coordinates?.length) throw new Error('No routes found');
       return coordinates.map((c) => ({ lat: c[1], lng: c[0] }));

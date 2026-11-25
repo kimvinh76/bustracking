@@ -11,6 +11,8 @@ import {
   INITIAL_BUS_STATUS,
   isTripActiveOnMap,
   isPreTripOnMap,
+  getStopProgressState,
+  getPassedStopCount,
 } from "../../utils/mergeBusStatus.js";
 import {
   applyLeafletDefaultIcon,
@@ -343,9 +345,9 @@ export default function MapPage() {
                 </div>
 
                 <div className="text-sm text-gray-600 whitespace-nowrap">
-                  Điểm hiện tại:{" "}
+                  Tiến độ trạm:{" "}
                   {routeStops.length > 0
-                    ? `${Math.min(busStatus.currentStopIndex + 1, routeStops.length)}/${routeStops.length}`
+                    ? `${getPassedStopCount(busStatus.currentStopIndex, busStatus.driverStatus, routeStops.length)}/${routeStops.length}`
                     : "0/0"}
                 </div>
               </>
@@ -433,8 +435,21 @@ export default function MapPage() {
             {displayedStops.map((s, index) => {
               const isNumbered = isLiveMode || Boolean(previewRouteId);
               const isSchool = isSchoolStop(s);
+              const stopProgress = isLiveMode
+                ? getStopProgressState(index, busStatus.currentStopIndex, busStatus.driverStatus)
+                : null;
               let icon = libraryStopIcon;
-              if (isNumbered) {
+              if (isLiveMode && stopProgress) {
+                const bg =
+                  stopProgress.state === "stopped"
+                    ? "#f59e0b"
+                    : stopProgress.state === "approaching"
+                      ? "#16a34a"
+                      : stopProgress.state === "passed"
+                        ? "#9ca3af"
+                        : "#2563eb";
+                icon = getStopCircleIcon(index + 1, bg, 28);
+              } else if (isNumbered) {
                 const isFirst = index === 0;
                 const isLast = displayedStops.length > 1 && index === displayedStops.length - 1;
                 const bg = isFirst ? "#16a34a" : isLast ? "#dc2626" : "#2563eb";
@@ -455,14 +470,9 @@ export default function MapPage() {
                       <div className="text-gray-400">
                         {s.lat.toFixed(5)}, {s.lng.toFixed(5)}
                       </div>
-                      {isLiveMode && (
+                      {isLiveMode && stopProgress && (
                         <div className="font-medium text-blue-700 pt-0.5">
-                          Trạng thái:{" "}
-                          {index < busStatus.currentStopIndex
-                            ? "Đã qua"
-                            : index === busStatus.currentStopIndex
-                              ? "Hiện tại"
-                              : "Chưa tới"}
+                          Trạng thái: {stopProgress.label}
                         </div>
                       )}
                     </div>

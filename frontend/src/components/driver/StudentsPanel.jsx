@@ -1,4 +1,5 @@
 import { Users, X, CheckCircle, XCircle, Clock, Phone } from "lucide-react";
+import { getStopProgressState } from "../../utils/mergeBusStatus";
 
 export default function StudentsPanel({
   isOpen,
@@ -62,6 +63,11 @@ export default function StudentsPanel({
               .filter(({ stop }) => !stop.isStartOrEnd || (stop.students && stop.students.length > 0))
               .map(({ stop, originalIndex }, stopIndex) => {
                 const canCheckHere = canCheckStudents;
+                const stopProgress = getStopProgressState(
+                  originalIndex,
+                  currentStopIndex,
+                  tripStatus
+                );
                 return (
                 <div key={stop.id} className="border-b border-gray-200">
                   {/* Stop Header */}
@@ -69,9 +75,11 @@ export default function StudentsPanel({
                     <div className="flex items-center gap-3">
                       <div
                         className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold text-sm ${
-                          originalIndex === currentStopIndex
+                          stopProgress.state === "stopped"
+                            ? "bg-amber-500"
+                            : stopProgress.state === "approaching"
                             ? "bg-blue-500"
-                            : originalIndex < currentStopIndex
+                            : stopProgress.state === "passed"
                             ? "bg-green-500"
                             : "bg-gray-400"
                         }`}
@@ -86,18 +94,16 @@ export default function StudentsPanel({
                       </div>
                       <div
                         className={`text-xs px-2 py-1 rounded-full font-medium ${
-                          originalIndex === currentStopIndex
+                          stopProgress.state === "stopped"
+                            ? "bg-amber-100 text-amber-800"
+                            : stopProgress.state === "approaching"
                             ? "bg-blue-100 text-blue-700"
-                            : originalIndex < currentStopIndex
+                            : stopProgress.state === "passed"
                             ? "bg-green-100 text-green-700"
                             : "bg-gray-100 text-gray-600"
                         }`}
                       >
-                        {originalIndex === currentStopIndex
-                          ? "Hiện tại"
-                          : originalIndex < currentStopIndex
-                          ? "Hoàn thành"
-                          : "Chờ"}
+                        {stopProgress.shortLabel}
                       </div>
                     </div>
                   </div>
@@ -167,7 +173,7 @@ export default function StudentsPanel({
                                     ? student.status === "picked_up"
                                       ? "Bỏ đánh dấu đã đón"
                                       : "Đánh dấu đã đón"
-                                    : "Chỉ thao tác khi xe dừng tại trạm này"
+                                    : "Hãy bấm Bắt đầu chuyến để điểm danh"
                                 }
                               >
                                 <CheckCircle className="w-4 h-4" />
@@ -190,7 +196,7 @@ export default function StudentsPanel({
                                     ? student.status === "absent"
                                       ? "Bỏ đánh dấu vắng"
                                       : "Đánh dấu vắng mặt"
-                                    : "Chỉ thao tác khi xe dừng tại trạm này"
+                                    : "Hãy bấm Bắt đầu chuyến để điểm danh"
                                 }
                               >
                                 <XCircle className="w-4 h-4" />

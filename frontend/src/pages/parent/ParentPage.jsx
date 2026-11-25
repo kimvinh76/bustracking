@@ -15,6 +15,7 @@ import { incidentsService } from '../../services/incidentsService';
 import { routesService } from '../../services/routesService';
 import busTrackingService from '../../services/busTrackingService';
 import { parseSafeDate, formatTimeShortVi } from '../../utils/dateFormat';
+import { normalizeDriverStatus } from '../../utils/mergeBusStatus';
 
 import {
   ToastNotification,
@@ -90,16 +91,16 @@ export default function ParentPage() {
 
   const childStopId = useMemo(() => {
     if (!selectedChild || !routeId) return null;
-    if (
-      activeShiftType === 'morning' ||
-      Number(selectedChild.morning_route_id) === Number(routeId)
-    ) {
+    if (activeShiftType === 'morning') {
       return selectedChild.morning_pickup_stop_id || null;
     }
-    if (
-      activeShiftType === 'afternoon' ||
-      Number(selectedChild.afternoon_route_id) === Number(routeId)
-    ) {
+    if (activeShiftType === 'afternoon') {
+      return selectedChild.afternoon_dropoff_stop_id || null;
+    }
+    if (Number(selectedChild.morning_route_id) === Number(routeId)) {
+      return selectedChild.morning_pickup_stop_id || null;
+    }
+    if (Number(selectedChild.afternoon_route_id) === Number(routeId)) {
       return selectedChild.afternoon_dropoff_stop_id || null;
     }
     return null;
@@ -315,7 +316,7 @@ export default function ParentPage() {
       setBusStatus((prev) => ({
         ...prev,
         ...status,
-        driverStatus: status.driverStatus || prev.driverStatus,
+        driverStatus: normalizeDriverStatus(status.driverStatus || prev.driverStatus),
         currentStopIndex: status.currentStopIndex ?? prev.currentStopIndex,
         currentPosition: status.currentPosition || prev.currentPosition,
         studentStatuses: status.studentStatuses || prev.studentStatuses,

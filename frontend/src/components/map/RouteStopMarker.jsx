@@ -1,12 +1,12 @@
 import { Marker, Popup } from "react-leaflet";
 import L from "leaflet";
+import { getStopProgressState } from "../../utils/mergeBusStatus";
 
-function stopMarkerStyle({ isPassed, isNext, isCurrentPaused }) {
-  if (isNext || isCurrentPaused) {
-    return { bg: "#4CAF50", text: isCurrentPaused ? "Đang dừng" : "Đang tới" };
-  }
-  if (isPassed) return { bg: "#9E9E9E", text: "Đã qua" };
-  return { bg: "#2196F3", text: "Chưa tới" };
+function stopMarkerColor(state) {
+  if (state === "stopped") return "#F59E0B";
+  if (state === "approaching") return "#16A34A";
+  if (state === "passed") return "#9E9E9E";
+  return "#2196F3";
 }
 
 export default function RouteStopMarker({
@@ -15,10 +15,8 @@ export default function RouteStopMarker({
   currentStopIndex = 0,
   driverStatus = "idle",
 }) {
-  const isPassed = index <= currentStopIndex;
-  const isNext = driverStatus === "in_progress" && index === currentStopIndex + 1;
-  const isCurrentPaused = driverStatus === "paused" && index === currentStopIndex;
-  const { bg, text } = stopMarkerStyle({ isPassed, isNext, isCurrentPaused });
+  const { state, label } = getStopProgressState(index, currentStopIndex, driverStatus);
+  const bg = stopMarkerColor(state);
 
   return (
     <Marker
@@ -38,7 +36,7 @@ export default function RouteStopMarker({
       <Popup>
         <strong>{stop.name}</strong>
         {stop.time && <p>Thời gian: {stop.time}</p>}
-        <p>Trạng thái: {text}</p>
+        <p>Trạng thái: {label}</p>
       </Popup>
     </Marker>
   );
