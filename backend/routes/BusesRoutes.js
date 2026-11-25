@@ -24,7 +24,8 @@ const handleError = (res, error, defaultStatus = 500) => {
   
   if (error.message.includes('không hợp lệ') || 
       error.message.includes('bắt buộc') ||
-      error.message.includes('đã tồn tại')) {
+      error.message.includes('đã tồn tại') ||
+      error.message.includes('đã được sử dụng')) {
     statusCode = 400; // Bad Request
   } else if (error.message.includes('Không tìm thấy')) {
     statusCode = 404; // Not Found

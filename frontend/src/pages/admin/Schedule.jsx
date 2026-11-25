@@ -113,10 +113,16 @@ const SchedulesPage = () => {
       setSelectedSchedule(null);
     } catch (err) {
       console.error('Error saving schedule:', err);
-      // Luôn hiển thị modal lỗi có nội dung thân thiện khi thêm/sửa
+      // api.js interceptor reject trực tiếp với response.data hoặc Error
       const resp = err?.response || {};
-      const rawMessage = resp.data?.details || resp.data?.message || err.message || '';
-      const title = resp.status === 409 ? 'Xung đột lịch trình' : 'Không thể lưu lịch trình';
+      const rawMessage = resp.data?.details || resp.data?.message || err?.details || err?.message || '';
+      const isConflict =
+        resp.status === 409 ||
+        rawMessage.includes('trùng') ||
+        rawMessage.includes('đã có lịch trình') ||
+        rawMessage.includes('đã được phân công') ||
+        rawMessage.includes('đã tồn tại');
+      const title = isConflict ? 'Xung đột lịch trình' : 'Không thể lưu lịch trình';
       const message = mapErrorToNaturalMessage(rawMessage);
       setErrorDetails({ title, message });
       setShowErrorModal(true);

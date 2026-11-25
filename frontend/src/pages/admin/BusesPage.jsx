@@ -71,9 +71,10 @@ export default function BusesPage() {
 
   // Filter buses
   const filteredBuses = buses.filter((bus) => {
+    const keyword = searchTerm.toLowerCase();
     const matchesSearch =
-      bus.license_plate.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      bus.bus_number.toLowerCase().includes(searchTerm.toLowerCase());
+      (bus.license_plate || "").toLowerCase().includes(keyword) ||
+      (bus.bus_number || "").toLowerCase().includes(keyword);
 
     const matchesStatus = !statusFilter || bus.status === statusFilter;
 

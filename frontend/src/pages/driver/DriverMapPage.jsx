@@ -50,6 +50,23 @@ export default function DriverMapPage() {
   const completedHandledRef = useRef(false);
   const stopsRef = useRef([]);
   const routeIdRef = useRef(null);
+  const serverStudentStatusesRef = useRef({});
+
+  const applyStudentStatusesToStops = useCallback((stopList, statusMap) => {
+    if (!statusMap || typeof statusMap !== "object" || Object.keys(statusMap).length === 0) {
+      return stopList;
+    }
+    return stopList.map((stop) => ({
+      ...stop,
+      students: (stop.students || []).map((st) => {
+        const entry = statusMap[String(st.id)];
+        if (entry?.status && entry.status !== st.status) {
+          return { ...st, status: entry.status };
+        }
+        return st;
+      }),
+    }));
+  }, []);
 
   // Data from API
   const [schedule, setSchedule] = useState(null);
@@ -150,6 +167,7 @@ const estimatedTime = nextStop
   useEffect(() => {
     completedHandledRef.current = false;
     lastPausedIdxRef.current = null;
+    serverStudentStatusesRef.current = {};
   }, [scheduleId]);
 
   // Nhận trạng thái từ backend để driver UI luôn đồng bộ (passive)
@@ -178,6 +196,18 @@ const estimatedTime = nextStop
       if (hasPosition) {
         setBusCurrentPosition(statusPayload.currentPosition);
         busPosRef.current = statusPayload.currentPosition;
+      }
+
+      if (
+        statusPayload.studentStatuses &&
+        typeof statusPayload.studentStatuses === "object" &&
+        Object.keys(statusPayload.studentStatuses).length > 0
+      ) {
+        serverStudentStatusesRef.current = {
+          ...serverStudentStatusesRef.current,
+          ...statusPayload.studentStatuses,
+        };
+        setStops((prev) => applyStudentStatusesToStops(prev, serverStudentStatusesRef.current));
       }
 
       setStopIdx(serverStopIndex);
@@ -224,7 +254,7 @@ const estimatedTime = nextStop
     return () => {
       busTrackingService.off('bus_status_update', handleStatusUpdate);
     };
-  }, [scheduleId, updateActiveTripSession]);
+  }, [scheduleId, updateActiveTripSession, applyStudentStatusesToStops]);
 
   // Khi người dùng vào /driver/map (không có scheduleId):
   // - Nếu có chuyến đang chạy trong sessionStorage → tự điều hướng tới /driver/map/:scheduleId đó
@@ -293,7 +323,7 @@ const estimatedTime = nextStop
           ...scheduleData,
           totalStudents
         });
-        setStops(stopsWithStudents);
+        setStops(applyStudentStatusesToStops(stopsWithStudents, serverStudentStatusesRef.current));
 
         // Nếu trong sessionStorage đang lưu chuyến in_progress cho schedule này
         // thì khôi phục trạng thái in_progress để không phải bấm Bắt đầu lại.
@@ -319,7 +349,7 @@ const estimatedTime = nextStop
     if (scheduleId) {
       loadScheduleData();
     }
-  }, [scheduleId]);
+  }, [scheduleId, applyStudentStatusesToStops]);
   
   // Đồng hồ
   useEffect(() => {

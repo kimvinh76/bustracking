@@ -52,19 +52,22 @@ class BusService {
     }
     console.log(' SERVICE: Validation passed');
 
-    // Business rule: Kiểm tra biển số có trùng không
-    console.log(' SERVICE: Kiểm tra biển số trùng...');
-    const existingBus = await BusModel.findByLicensePlate(license_plate);
-    if (existingBus) {
-      console.error(' SERVICE: Biển số đã tồn tại:', license_plate);
-      throw new Error(`Biển số xe ${license_plate} đã tồn tại`);
-    }
-    console.log(' SERVICE: Không trùng biển số');
+    const normalizedPlate = license_plate.toUpperCase().trim();
+    const normalizedBusNum = bus_number.trim();
 
-    // Business rule: Format biển số (VD: chuyển thành chữ hoa)
-    console.log(' SERVICE: Format dữ liệu...');
-    busData.license_plate = license_plate.toUpperCase().trim();
-    busData.bus_number = bus_number.trim();
+    const existingByNumber = await BusModel.findByBusNumber(normalizedBusNum);
+    if (existingByNumber) {
+      throw new Error(`Mã xe ${normalizedBusNum} đã tồn tại`);
+    }
+
+    const existingBus = await BusModel.findByLicensePlate(normalizedPlate);
+    if (existingBus) {
+      console.error(' SERVICE: Biển số đã tồn tại:', normalizedPlate);
+      throw new Error(`Biển số xe ${normalizedPlate} đã tồn tại`);
+    }
+
+    busData.license_plate = normalizedPlate;
+    busData.bus_number = normalizedBusNum;
     console.log(' SERVICE: Dữ liệu đã format:', busData);
 
     // Tạo xe bus
@@ -96,15 +99,24 @@ class BusService {
       throw new Error('Không tìm thấy xe bus để cập nhật');
     }
 
+    const normalizedPlate = license_plate.toUpperCase().trim();
+    const normalizedBusNum = bus_number.trim();
+
+    // Kiểm tra mã xe trùng (ngoại trừ chính nó)
+    const existingByNumber = await BusModel.findByBusNumber(normalizedBusNum);
+    if (existingByNumber && existingByNumber.id !== parseInt(id)) {
+      throw new Error(`Mã xe ${normalizedBusNum} đã được sử dụng`);
+    }
+
     // Business rule: Kiểm tra biển số trùng (ngoại trừ chính nó)
-    const existingBus = await BusModel.findByLicensePlate(license_plate);
+    const existingBus = await BusModel.findByLicensePlate(normalizedPlate);
     if (existingBus && existingBus.id !== parseInt(id)) {
-      throw new Error(`Biển số xe ${license_plate} đã được sử dụng`);
+      throw new Error(`Biển số xe ${normalizedPlate} đã được sử dụng`);
     }
 
     // Format dữ liệu
-    busData.license_plate = license_plate.toUpperCase().trim();
-    busData.bus_number = bus_number.trim();
+    busData.license_plate = normalizedPlate;
+    busData.bus_number = normalizedBusNum;
 
     return await BusModel.update(id, busData);
   }

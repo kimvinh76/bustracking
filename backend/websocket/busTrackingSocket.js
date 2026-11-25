@@ -1,7 +1,6 @@
 
 import { Server } from 'socket.io';
 import TripSimulationService from '../services/tripSimulationService.js';
-import TripSimulationModel from '../models/TripSimulation.js';
 import { corsOriginValidator } from '../config/cors.js';
 
 /**
@@ -16,6 +15,7 @@ class BusTrackingSocket {
   constructor() {
     this.io = null;
     this.tripStatuses = new Map();
+    this.cleanupTimers = new Map();
     this.tripSimulator = new TripSimulationService({
       emitStatus: (tripId, status) => this.updateBusStatus(tripId, status)
     });
@@ -34,7 +34,8 @@ class BusTrackingSocket {
       console.log(`New client connected: ${socket.id}`);
 
       // Client tham gia room để nhận updates cho trip cụ thể
-      socket.on('join_trip', ({ tripId }) => {
+      socket.on('join_trip', (payload = {}) => {
+        const { tripId } = payload || {};
         if (!tripId) return;
         const roomId = String(tripId);
         socket.join(roomId);
@@ -45,23 +46,22 @@ class BusTrackingSocket {
       });
 
       // Client rời room
-      socket.on('leave_trip', ({ tripId }) => {
+      socket.on('leave_trip', (payload = {}) => {
+        const { tripId } = payload || {};
         if (!tripId) return;
         socket.leave(String(tripId));
       });
 
-      // Cảnh báo / pickup — không phải nguồn vị trí (vị trí do tripSimulator phát)
       // Chỉ merge cảnh báo (sự cố, đón HS) — vị trí xe do tripSimulator phát
-      // Driver gửi các bản tin cảnh báo/alert (không phải vị trí). Merge và
-      // broadcast để các client khác nhận cảnh báo kèm vị trí hiện tại.
-      socket.on('driver_status_update', ({ tripId, status }) => {
+      socket.on('driver_status_update', (payload = {}) => {
+        const { tripId, status } = payload || {};
         if (!tripId || !status) return;
         this._mergeAndBroadcast(String(tripId), status);
       });
 
-      // Driver điều khiển trip: start/pause/resume/stop. Các hành động này
-      // được chuyển sang TripSimulationService để xử lý và persist checkpoint.
-      socket.on('driver_trip_control', async ({ tripId, action, routeId, speedMetersPerSec }) => {
+      // Driver điều khiển trip: start/pause/resume/stop
+      socket.on('driver_trip_control', async (payload = {}) => {
+        const { tripId, action, routeId, speedMetersPerSec } = payload || {};
         if (!tripId || !action) return;
         const roomId = String(tripId);
 
@@ -87,16 +87,21 @@ class BusTrackingSocket {
     });
 
     console.log('Socket.IO server initialized');
-    // Khi khởi tạo socket server thì cố gắng restore các trip đang active
-    // từ DB (nếu có checkpoint). Nếu restore thất bại sẽ log và tiếp tục.
     this.tripSimulator.restoreActiveTrips().catch((err) => {
       console.warn('Trip restore failed:', err?.message || err);
     });
   }
 
+  _clearCleanupTimer(roomId) {
+    const timer = this.cleanupTimers.get(roomId);
+    if (timer) {
+      clearTimeout(timer);
+      this.cleanupTimers.delete(roomId);
+    }
+  }
+
   _mergeAndBroadcast(roomId, patch) {
     // Tách các cảnh báo tức thời (one-shot) để chỉ phát 1 lần, không lưu dính vào tripStatuses
-    // tránh lặp lại thông báo mỗi nhịp cập nhật GPS.
     const current = this.tripStatuses.get(roomId) || this.getInitialStatus(roomId);
     const { incidentAlert, studentPickupAlert, ...persistentPatch } = patch || {};
     const persistentState = { ...current, ...persistentPatch, lastUpdate: new Date() };
@@ -112,19 +117,23 @@ class BusTrackingSocket {
   }
 
   updateBusStatus(tripId, status) {
-    // Cập nhật trạng thái in-memory và broadcast đến các client đang nghe
     if (!tripId || !status) return;
     const roomId = String(tripId);
+    // Hủy timer dọn cũ nếu chuyến được khởi động lại trong vòng 60s
+    this._clearCleanupTimer(roomId);
     this._mergeAndBroadcast(roomId, status);
     if (status.driverStatus === 'completed') {
-      setTimeout(() => this.tripStatuses.delete(roomId), 60_000);
+      const timer = setTimeout(() => {
+        this.tripStatuses.delete(roomId);
+        this.cleanupTimers.delete(roomId);
+      }, 60_000);
+      this.cleanupTimers.set(roomId, timer);
     }
   }
 
-  /** Gọi khi reset schedule stale — tránh simulation mồ côi. */
+  /** Gọi khi reset schedule stale — tránh simulation mồ côi trong Redis & RAM. */
   async cleanupOrphanSimulations(cutoff) {
-    // Dọn các checkpoint quá cũ và xóa timers trong RAM để tránh orphaned simulations
-    const affected = await TripSimulationModel.cleanupStaleActive(cutoff);
+    const affected = await this.tripSimulator.cleanupStaleRedisTrips(cutoff);
     if (affected > 0) {
       this.tripSimulator.stopAllInMemory();
     }

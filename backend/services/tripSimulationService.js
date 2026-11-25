@@ -59,28 +59,43 @@ class TripSimulationService {
 
   async startTrip({ tripId, routeId, speedMetersPerSec = 15 }) {
     if (!tripId || !routeId) throw new Error('Thiếu tripId hoặc routeId');
+    const id = String(tripId);
 
-    // Bắt đầu mô phỏng mới cho trip; nếu đã có in-memory simulation thì dừng nó.
-    const existing = this.trips.get(String(tripId));
-    if (existing) this._stopTimer(existing);
+    // Chống double-click gây chạy song song 2 startTrip cùng lúc -> rò rỉ zombie timer
+    if (!this._startingTrips) this._startingTrips = new Set();
+    if (this._startingTrips.has(id)) return;
+    this._startingTrips.add(id);
 
-    const tripState = await this._createTripState({
-      tripId: String(tripId),
-      routeId,
-      speedMetersPerSec,
-      restore: null
-    });
-    this.trips.set(tripState.tripId, tripState);
+    try {
+      // Bắt đầu mô phỏng mới cho trip; nếu đã có in-memory simulation thì dừng nó.
+      const existingBefore = this.trips.get(id);
+      if (existingBefore) this._stopTimer(existingBefore);
 
-    this.emitStatus(tripState.tripId, {
-      ...this._statusPayload(tripState),
-      isRunning: true,
-      driverStatus: 'in_progress'
-    });
+      const tripState = await this._createTripState({
+        tripId: id,
+        routeId,
+        speedMetersPerSec,
+        restore: null
+      });
 
-    // Ghi checkpoint ngay khi start (force=true) để có thể resume nếu crash ngay.
-    this._persistState(tripState, 'in_progress', true).catch(() => { });
-    this._startTimer(tripState);
+      // Dừng lại lần nữa phòng trường hợp có trip khác được nạp trong lúc chờ OSRM
+      const existingAfter = this.trips.get(id);
+      if (existingAfter) this._stopTimer(existingAfter);
+
+      this.trips.set(tripState.tripId, tripState);
+
+      this.emitStatus(tripState.tripId, {
+        ...this._statusPayload(tripState),
+        isRunning: true,
+        driverStatus: 'in_progress'
+      });
+
+      // Ghi checkpoint ngay khi start (force=true) để có thể resume nếu crash ngay.
+      this._persistState(tripState, 'in_progress', true).catch(() => { });
+      this._startTimer(tripState);
+    } finally {
+      this._startingTrips.delete(id);
+    }
   }
 
   pauseTrip(tripId) {
@@ -125,6 +140,34 @@ class TripSimulationService {
     });
 
     this._finalizeTrip(trip).catch(() => { });
+  }
+
+  /** Dọn các checkpoint simulation quá cũ trong Redis (thay cho bảng trip_simulations đã bỏ). */
+  async cleanupStaleRedisTrips(cutoff) {
+    if (!redisClient.isReady) return 0;
+    try {
+      const cutoffMs = cutoff ? new Date(cutoff).getTime() : Date.now() - 12 * 60 * 60 * 1000;
+      const keys = await redisClient.keys('trip_simulation:*');
+      let removed = 0;
+      for (const key of keys) {
+        const raw = await redisClient.get(key);
+        if (!raw) continue;
+        try {
+          const data = JSON.parse(raw);
+          const updatedMs = data?.updated_at ? new Date(data.updated_at).getTime() : 0;
+          if (!Number.isFinite(updatedMs) || updatedMs < cutoffMs) {
+            await redisClient.del(key);
+            removed++;
+          }
+        } catch {
+          await redisClient.del(key);
+          removed++;
+        }
+      }
+      return removed;
+    } catch {
+      return 0;
+    }
   }
 
   /** Dừng mọi simulation trong RAM (khi reset schedule stale). */
@@ -210,18 +253,24 @@ class TripSimulationService {
   }
 
   _parsePendingIndices(raw, stopCount) {
-    let pending = [];
-    if (raw) {
+    // Khởi tạo chuyến mới (chưa có checkpoint): toàn bộ trạm trung gian 1..n-2
+    if (raw === undefined || raw === null) {
+      return stopCount > 2 ? Array.from({ length: stopCount - 2 }, (_, i) => i + 1) : [];
+    }
+    if (Array.isArray(raw)) {
+      return raw.map(Number).filter((n) => Number.isInteger(n) && n > 0 && n < stopCount - 1);
+    }
+    if (typeof raw === 'string') {
       try {
-        pending = JSON.parse(raw);
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          return parsed.map(Number).filter((n) => Number.isInteger(n) && n > 0 && n < stopCount - 1);
+        }
       } catch {
-        pending = [];
+        // Fallback nếu dữ liệu cũ bị lỗi
       }
     }
-    if (pending.length === 0 && stopCount > 2) {
-      pending = Array.from({ length: stopCount - 2 }, (_, i) => i + 1);
-    }
-    return pending;
+    return stopCount > 2 ? Array.from({ length: stopCount - 2 }, (_, i) => i + 1) : [];
   }
 
   _statusPayload(trip) {

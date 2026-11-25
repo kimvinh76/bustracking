@@ -25,4 +25,15 @@ const authMiddleware = (req, res, next) => {
     }
 };
 
+export const requireRole = (...allowedRoles) => (req, res, next) => {
+    const role = String(req.user?.role || '').toLowerCase();
+    if (!role || !allowedRoles.includes(role)) {
+        return res.status(403).json({
+            success: false,
+            message: 'Bạn không có quyền thực hiện thao tác này.',
+        });
+    }
+    next();
+};
+
 export default authMiddleware;

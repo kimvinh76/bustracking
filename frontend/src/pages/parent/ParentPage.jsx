@@ -353,9 +353,16 @@ export default function ParentPage() {
                 ? `chuyển lại trạng thái chờ đón tại ${alert.stopName}`
                 : `đã lên xe tại ${alert.stopName}`;
 
+          const notifType =
+            alert.action === 'absent'
+              ? 'absent'
+              : alert.action === 'waiting'
+                ? 'waiting'
+                : 'pickup';
+
           addNotification({
             id: `${pickupKey}-${Date.now()}`,
-            type: 'pickup',
+            type: notifType,
             message: `Học sinh ${alert.studentName} ${actionText}`,
             route: alert.routeName,
             driverName: alert.driverName,
@@ -515,9 +522,11 @@ export default function ParentPage() {
               <div
                 key={item.id}
                 className={`px-3 py-2 rounded-lg border flex justify-between items-center gap-2 ${
-                  item.type === 'incident'
+                  item.type === 'incident' || item.type === 'absent'
                     ? 'bg-red-50 border-red-200 text-red-800'
-                    : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                    : item.type === 'waiting'
+                      ? 'bg-amber-50 border-amber-200 text-amber-900'
+                      : 'bg-emerald-50 border-emerald-200 text-emerald-900'
                 }`}
               >
                 <span>{item.message}</span>
@@ -530,14 +539,19 @@ export default function ParentPage() {
         </div>
       )}
 
-      {/* Toast Notifications */}
-      {notifications.map((notification) => (
-        <ToastNotification
-          key={notification.id}
-          notification={notification}
-          onClose={() => removeNotification(notification.id)}
-        />
-      ))}
+      {/* Toast Notifications (xếp dọc không chồng đè) */}
+      {notifications.length > 0 && (
+        <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+          {notifications.map((notification) => (
+            <div key={notification.id} className="pointer-events-auto">
+              <ToastNotification
+                notification={notification}
+                onClose={() => removeNotification(notification.id)}
+              />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

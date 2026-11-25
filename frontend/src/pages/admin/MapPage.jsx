@@ -154,29 +154,39 @@ export default function MapPage() {
     [selectedScheduleId]
   );
 
-  // Khi chọn chuyến đang chạy: load route stops + join room WebSocket
-  useEffect(() => {
-    if (!selectedSchedule) return;
+  const selectedRouteId = selectedSchedule?.route_id ?? null;
+  const hasActiveTrip = Boolean(selectedTripId && selectedRouteId);
 
+  // Khi chọn chuyến đang chạy: load route stops + join room WebSocket
+  // Quan trọng: chỉ phụ thuộc primitive IDs để polling 10s không reset map/busStatus
+  useEffect(() => {
+    if (!selectedTripId || !selectedRouteId) return;
+
+    let cancelled = false;
     setBusStatus(INITIAL_BUS_STATUS);
-    busTrackingService.connect("admin", String(selectedSchedule.id));
+    busTrackingService.connect("admin", selectedTripId);
 
     const loadStops = async () => {
       try {
-        const stopsData = await routesService.getRouteStops(selectedSchedule.route_id);
-        setRouteStops(routesService.transformStopsForMap(stopsData));
+        const stopsData = await routesService.getRouteStops(selectedRouteId);
+        if (!cancelled) {
+          setRouteStops(routesService.transformStopsForMap(stopsData));
+        }
       } catch (error) {
         console.error("Lỗi tải điểm dừng tuyến:", error);
-        setRouteStops([]);
+        if (!cancelled) setRouteStops([]);
       }
     };
 
     loadStops();
-  }, [selectedSchedule]);
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedTripId, selectedRouteId]);
 
   // Khi ở chế độ xem trước tuyến (khi chưa có chuyến chạy hoặc Admin chọn tuyến xem trước)
   useEffect(() => {
-    if (selectedSchedule || !previewRouteId) {
+    if (hasActiveTrip || !previewRouteId) {
       setPreviewStops([]);
       return;
     }
@@ -195,7 +205,7 @@ export default function MapPage() {
     return () => {
       mounted = false;
     };
-  }, [selectedSchedule, previewRouteId]);
+  }, [hasActiveTrip, previewRouteId]);
 
   // Kết nối WebSocket để nhận trạng thái từ driver
   useEffect(() => {

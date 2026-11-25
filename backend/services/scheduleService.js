@@ -210,11 +210,25 @@ class ScheduleService {
       scheduleData.route_id,
       scheduleData.shift_type
     );
-    const newSchedule = await ScheduleModel.create({
-      ...scheduleData,
-      student_count: registeredCount,
-    });
-    return newSchedule;
+    try {
+      const newSchedule = await ScheduleModel.create({
+        ...scheduleData,
+        student_count: registeredCount,
+      });
+      return newSchedule;
+    } catch (err) {
+      if (err?.code === 'ER_DUP_ENTRY') {
+        const msg = String(err.sqlMessage || err.message || '');
+        if (msg.includes('unique_driver_date_shift')) {
+          throw new Error('Tài xế này đã có lịch trình trong ca và ngày đã chọn');
+        }
+        if (msg.includes('schedules_bus_date_shift')) {
+          throw new Error('Xe buýt này đã được phân công trong ca và ngày đã chọn');
+        }
+        throw new Error('Lịch trình bị trùng tài xế hoặc xe buýt trong cùng ca');
+      }
+      throw err;
+    }
   }
 
   /**
@@ -287,12 +301,14 @@ class ScheduleService {
     // 1. Kiểm tra tồn tại
     const existingSchedule = await this.getScheduleById(id);
 
-    // 2. Validation
-    const { 
+    // 2. Validation — giữ nguyên status / actual_end_time / student_count cũ nếu không gửi lên
+    const {
       route_id, bus_id, driver_id, date, shift_type,
       scheduled_start_time, scheduled_end_time,
-      student_count = 0, notes = null,
-      actual_end_time = null, status = 'scheduled'
+      student_count = existingSchedule.student_count ?? 0,
+      notes = existingSchedule.notes ?? null,
+      actual_end_time = existingSchedule.actual_end_time ?? null,
+      status = existingSchedule.status || 'scheduled',
     } = scheduleData;
     
     console.log(' SERVICE: Validation fields:', { route_id, bus_id, driver_id, date, shift_type });
@@ -338,10 +354,23 @@ class ScheduleService {
     };
 
     // 6. Cập nhật
-    const updatedSchedule = await ScheduleModel.update(id, formattedData);
-    
-    console.log(' SERVICE: Cập nhật lịch trình thành công');
-    return updatedSchedule;
+    try {
+      const updatedSchedule = await ScheduleModel.update(id, formattedData);
+      console.log(' SERVICE: Cập nhật lịch trình thành công');
+      return updatedSchedule;
+    } catch (err) {
+      if (err?.code === 'ER_DUP_ENTRY') {
+        const msg = String(err.sqlMessage || err.message || '');
+        if (msg.includes('unique_driver_date_shift')) {
+          throw new Error('Tài xế này đã có lịch trình trong ca và ngày đã chọn');
+        }
+        if (msg.includes('schedules_bus_date_shift')) {
+          throw new Error('Xe buýt này đã được phân công trong ca và ngày đã chọn');
+        }
+        throw new Error('Lịch trình bị trùng tài xế hoặc xe buýt trong cùng ca');
+      }
+      throw err;
+    }
   }
 
   /**

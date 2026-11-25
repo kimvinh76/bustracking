@@ -45,6 +45,14 @@ class BusModel {
     return rows[0] || null;
   }
 
+  static async findByBusNumber(busNumber) {
+    const [rows] = await pool.execute(
+      'SELECT * FROM buses WHERE bus_number = ?',
+      [busNumber]
+    );
+    return rows[0] || null;
+  }
+
   /**
    * Tạo xe bus mới
    * @param {Object} busData - Dữ liệu xe bus
