@@ -5,6 +5,7 @@ import Button from '../../common/Button';
 import { parentsService } from '../../../services/parentsService';
 import { classesService } from '../../../services/classesService';
 import { routesService } from '../../../services/routesService';
+import { isSchoolStop } from '../../../utils/routeStopHelpers';
 
 const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
   
@@ -21,6 +22,7 @@ const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
   const [allRoutes, setAllRoutes] = useState([]);
   const [morningRouteStops, setMorningRouteStops] = useState([]);
   const [afternoonRouteStops, setAfternoonRouteStops] = useState([]); 
+  const [sameAsParentAddress, setSameAsParentAddress] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -43,7 +45,10 @@ const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
   }, []);
 
   useEffect(() => {
-    if (!student) return;
+    if (!student) {
+      setSameAsParentAddress(true);
+      return;
+    }
     
     setFormData({
       name: student.name || '', grade: student.grade || '', class: student.class_name || student.class || '',
@@ -53,6 +58,10 @@ const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
       afternoon_route_id: student.subscriptions?.find(s => s.shift_type === 'afternoon')?.route_id || '',
       afternoon_dropoff_stop_id: student.subscriptions?.find(s => s.shift_type === 'afternoon')?.stop_id || ''
     });
+
+    const parentAddr = String(student.parent_address || '').trim();
+    const studentAddr = String(student.address || '').trim();
+    setSameAsParentAddress(Boolean(parentAddr) && studentAddr === parentAddr);
 
  
   const loadStops = async (routeId, setStops) => {
@@ -69,6 +78,12 @@ const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
     loadStops(student.subscriptions?.find(s => s.shift_type === 'afternoon')?.route_id, setAfternoonRouteStops);
   }, [student]);
 
+  const selectedParent = parents.find(
+    (p) => String(p.id) === String(formData.parent_id)
+  );
+  const selectedParentAddress =
+    selectedParent?.address || student?.parent_address || '';
+
   const validateForm = () => {
     const newErrors = {};
     
@@ -76,22 +91,11 @@ const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
     if (!formData.address.trim()) newErrors.address = 'Địa chỉ là bắt buộc';
     if (mode === 'add' && !formData.parent_id) newErrors.parent_id = 'Phụ huynh là bắt buộc';
 
-
-    const availableGrades = [...new Set(classes.map(cls => cls.grade))];
-    if (!formData.grade.trim()) {
-      newErrors.grade = 'Khối là bắt buộc';
-    } else if (!availableGrades.includes(formData.grade)) {
-      newErrors.grade = `Khối không hợp lệ. Có: ${availableGrades.join(', ')}`;
-    }
-
-
     const selectedClass = classes.find(cls => cls.class_name === formData.class);
     if (!formData.class.trim()) {
       newErrors.class = 'Lớp học là bắt buộc';
     } else if (!selectedClass) {
       newErrors.class = 'Lớp không tồn tại';
-    } else if (selectedClass.grade !== formData.grade) {
-      newErrors.grade = `Lớp ${formData.class} thuộc khối ${selectedClass.grade}`;
     }
 
     // Validate Routes & Stops
@@ -130,13 +134,33 @@ const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
     const { name, value } = e.target;
 
 
-    if (name === 'class' && value) {
+    if (name === 'class') {
       const selectedClass = classes.find(cls => cls.class_name === value);
-      if (selectedClass) {
-        setFormData(prev => ({ ...prev, class: value, grade: selectedClass.grade }));
-        setErrors(prev => ({ ...prev, class: '', grade: '' }));
-        return;
-      }
+      setFormData(prev => ({
+        ...prev,
+        class: value,
+        grade: selectedClass ? selectedClass.grade : ''
+      }));
+      setErrors(prev => ({ ...prev, class: '', grade: '' }));
+      return;
+    }
+
+    if (name === 'parent_id') {
+      const pickedParent = parents.find(p => String(p.id) === String(value));
+      setFormData(prev => ({
+        ...prev,
+        parent_id: value,
+        address:
+          sameAsParentAddress && pickedParent?.address
+            ? pickedParent.address
+            : prev.address
+      }));
+      setErrors(prev => ({
+        ...prev,
+        parent_id: '',
+        address: sameAsParentAddress && pickedParent?.address ? '' : prev.address
+      }));
+      return;
     }
 
 
@@ -170,6 +194,7 @@ const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
 
     if (validateForm()) {
       setLoading(true);
+      setErrors(prev => ({ ...prev, submit: '' }));
       try {
         const subscriptions = [];
         if (formData.morning_route_id && formData.morning_pickup_stop_id) {
@@ -197,6 +222,8 @@ const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
         };
 
         await onSubmit({ ...restData, subscriptions });
+      } catch (err) {
+        setErrors(prev => ({ ...prev, submit: err?.message || 'Không thể lưu học sinh. Vui lòng thử lại.' }));
       } finally {
         setLoading(false);
       }
@@ -208,6 +235,11 @@ const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
 
   return (
     <form onSubmit={handleSubmit}>
+      {errors.submit && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {errors.submit}
+        </div>
+      )}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
         <FormInput
           label="Họ và tên"
@@ -221,23 +253,6 @@ const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
         />
 
         <FormInput
-          label="Khối"
-          name="grade"
-          type="select"
-          value={formData.grade}
-          onChange={handleChange}
-          error={errors.grade}
-          options={[
-            { value: '', label: 'Chọn khối' },
-            ...[...new Set(classes.map(cls => cls.grade))]
-              .sort()
-              .map(grade => ({ value: grade, label: `Khối ${grade}` }))
-          ]}
-          required
-          readOnly={isReadOnly}
-        />
-
-        <FormInput
           label="Lớp học"
           name="class"
           type="select"
@@ -245,29 +260,47 @@ const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
           onChange={handleChange}
           error={errors.class}
           placeholder="Chọn lớp học"
-          options={(classes || []).map(cls => ({ 
-            value: cls.class_name, 
-            label: `${cls.class_name} (Khối ${cls.grade})` 
-          }))}
+          options={[...classes]
+            .sort((a, b) => String(a.class_name).localeCompare(String(b.class_name)))
+            .map(cls => ({
+              value: cls.class_name,
+              label: `${cls.class_name} (Khối ${cls.grade})`
+            }))}
           required
           readOnly={isReadOnly}
         />
 
         <FormInput
-          label="Phụ huynh"
-          name="parent_id"
-          type="select"
-          value={formData.parent_id}
-          onChange={handleChange}
-          error={errors.parent_id}
-          placeholder="Chọn phụ huynh"
-          options={(parents || []).map(parent => ({
-            value: parent.id,
-            label: `${parent.name} - ${parent.phone || 'N/A'}`
-          }))}
-          required={mode === 'add'}
-          readOnly={mode === 'view'}
+          label="Khối (Tự động theo lớp)"
+          name="grade"
+          value={formData.grade ? `Khối ${formData.grade}` : ''}
+          onChange={() => {}}
+          placeholder="Tự cập nhật khi chọn lớp"
+          readOnly
         />
+
+        <div className="space-y-1">
+          <FormInput
+            label={mode === 'edit' ? 'Phụ huynh (Cố định)' : 'Phụ huynh'}
+            name="parent_id"
+            type="select"
+            value={formData.parent_id}
+            onChange={handleChange}
+            error={errors.parent_id}
+            placeholder="Chọn phụ huynh"
+            options={(parents || []).map(parent => ({
+              value: parent.id,
+              label: `${parent.name} - ${parent.phone || 'N/A'}`
+            }))}
+            required={mode === 'add'}
+            readOnly={isReadOnly || (mode === 'edit' && Boolean(student?.parent_id))}
+          />
+          {selectedParentAddress && (
+            <p className="text-xs text-slate-500">
+              Địa chỉ phụ huynh: <span className="font-medium text-slate-700">{selectedParentAddress}</span>
+            </p>
+          )}
+        </div>
 
         <FormInput
           label="Số điện thoại"
@@ -287,7 +320,7 @@ const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
           value={formData.morning_route_id}
           onChange={handleChange}
           error={errors.morning_route_id}
-          options={[{ value: '', label: 'Không đi / Chọn tuyến đi' }, ...(morningRoutes || []).map(r => ({ value: r.id, label: r.route_name || r.name || `Tuyến ${r.id}` }))]}
+          options={[{ value: '', label: 'Không đi / Chọn tuyến đi' }, ...(morningRoutes || []).map(r => ({ value: r.id, label: `${r.route_name || r.name || `Tuyến ${r.id}`}${r.status === 'inactive' ? ' (Không hoạt động)' : ''}` }))]}
           readOnly={isReadOnly}
         />
 
@@ -301,7 +334,7 @@ const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
           options={[
             { value: '', label: 'Chọn điểm đón' }, 
             ...(morningRouteStops || [])
-              .filter(s => s.stop_order !== 0 && s.stop_order !== 99)
+              .filter(s => s.stop_order !== 99 && !isSchoolStop(s))
               .map(s => ({ 
                 value: s.stop_id, 
                 label: `${s.name} - ${s.address}` 
@@ -318,7 +351,7 @@ const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
           value={formData.afternoon_route_id}
           onChange={handleChange}
           error={errors.afternoon_route_id}
-          options={[{ value: '', label: 'Không đi / Chọn tuyến về' }, ...(afternoonRoutes || []).map(r => ({ value: r.id, label: r.route_name || r.name || `Tuyến ${r.id}` }))]}
+          options={[{ value: '', label: 'Không đi / Chọn tuyến về' }, ...(afternoonRoutes || []).map(r => ({ value: r.id, label: `${r.route_name || r.name || `Tuyến ${r.id}`}${r.status === 'inactive' ? ' (Không hoạt động)' : ''}` }))]}
           readOnly={isReadOnly}
         />
 
@@ -332,7 +365,7 @@ const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
           options={[
             { value: '', label: 'Chọn điểm trả' },
             ...(afternoonRouteStops || [])
-              .filter(s => s.stop_order !== 0 && s.stop_order !== 99)
+              .filter(s => s.stop_order !== 0 && !isSchoolStop(s))
               .map(s => ({ 
                 value: s.stop_id, 
                 label: `${s.name} - ${s.address}` 
@@ -343,18 +376,42 @@ const StudentForm = ({ student, mode, onSubmit, onCancel }) => {
         />
       </div>
 
-      <FormInput
-        label="Địa chỉ"
-        name="address"
-        type="textarea"
-        value={formData.address}
-        onChange={handleChange}
-        error={errors.address}
-        placeholder="Nhập địa chỉ đầy đủ"
-        required
-        readOnly={isReadOnly}
-        rows={3}
-      />
+      <div className="mt-4 space-y-2">
+        {!isReadOnly && selectedParentAddress && (
+          <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={sameAsParentAddress}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setSameAsParentAddress(checked);
+                if (checked && selectedParentAddress) {
+                  setFormData(prev => ({ ...prev, address: selectedParentAddress }));
+                  setErrors(prev => ({ ...prev, address: '' }));
+                }
+              }}
+              className="accent-[#174D2C] cursor-pointer"
+            />
+            <span>Dùng chung địa chỉ với phụ huynh (bỏ tick nếu học sinh ở địa chỉ riêng)</span>
+          </label>
+        )}
+
+        <FormInput
+          label="Địa chỉ học sinh"
+          name="address"
+          type="textarea"
+          value={formData.address}
+          onChange={(e) => {
+            setSameAsParentAddress(false);
+            handleChange(e);
+          }}
+          error={errors.address}
+          placeholder="Nhập địa chỉ đầy đủ (hoặc chọn dùng địa chỉ phụ huynh ở trên)"
+          required
+          readOnly={isReadOnly || (sameAsParentAddress && Boolean(selectedParentAddress))}
+          rows={2}
+        />
+      </div>
 
       <div className="flex gap-3 justify-end pt-6 mt-6 border-t border-slate-200">
         <Button variant="secondary" onClick={onCancel}>

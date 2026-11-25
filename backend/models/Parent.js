@@ -57,17 +57,13 @@ class ParentModel {
    * @param {number} userId - ID của user
    * @returns {Promise<Object|null>} Thông tin phụ huynh hoặc null
    */
-  // static async findByUserId(userId) {
-  
-  //   const [rows] = await pool.execute(
-  //     'SELECT * FROM parents WHERE user_id = ?',
-  //     [userId]
-  //   );
-    
-  //   const parent = rows[0] || null;
-  //   console.log(parent ? ' MODEL: Tìm thấy phụ huynh' : ' MODEL: Không tìm thấy phụ huynh');
-  //   return parent;
-  // }
+  static async findByUserId(userId) {
+    const [rows] = await pool.execute(
+      'SELECT * FROM parents WHERE user_id = ? LIMIT 1',
+      [userId]
+    );
+    return rows[0] || null;
+  }
 
   /**
    * Lấy student đầu tiên của parent theo user_id (dùng cho login)
@@ -78,10 +74,15 @@ class ParentModel {
     console.log('MODEL: Tìm student của parent với user_id:', userId);
     const [rows] = await pool.execute(`
       SELECT s.id AS student_id, s.name AS student_name, 
-             s.morning_route_id, s.afternoon_route_id,
+             ms.route_id AS morning_route_id,
+             asub.route_id AS afternoon_route_id,
              p.id AS parent_id, p.name AS parent_name
       FROM parents p
-      JOIN students s ON s.parent_id = p.id
+      JOIN students s ON s.parent_id = p.id AND s.status = 'active'
+      LEFT JOIN student_route_subscriptions ms
+        ON ms.student_id = s.id AND ms.shift_type = 'morning' AND ms.status = 'active'
+      LEFT JOIN student_route_subscriptions asub
+        ON asub.student_id = s.id AND asub.shift_type = 'afternoon' AND asub.status = 'active'
       WHERE p.user_id = ?
       ORDER BY s.id ASC
       LIMIT 1
@@ -121,25 +122,35 @@ class ParentModel {
       return null;
     }
 
-    // Lấy danh sách con
+    // Lấy danh sách con kèm tên tuyến và điểm đón/trả
     const [children] = await pool.execute(`
       SELECT s.id,
              s.name,
+             s.phone,
+             s.address,
              s.grade,
              s.class_id,
              c.class_name,
-             s.morning_route_id,
+             ms.route_id AS morning_route_id,
              mr.route_name AS morning_route_name,
-             s.afternoon_route_id,
+             ms.stop_id AS morning_pickup_stop_id,
+             mst.name AS morning_stop_name,
+             asub.route_id AS afternoon_route_id,
              ar.route_name AS afternoon_route_name,
-             s.morning_pickup_stop_id,
-             s.afternoon_dropoff_stop_id,
+             asub.stop_id AS afternoon_dropoff_stop_id,
+             ast.name AS afternoon_stop_name,
              s.status
       FROM students s
       LEFT JOIN classes c ON s.class_id = c.id
-      LEFT JOIN routes mr ON s.morning_route_id = mr.id
-      LEFT JOIN routes ar ON s.afternoon_route_id = ar.id
-      WHERE s.parent_id = ?
+      LEFT JOIN student_route_subscriptions ms
+        ON ms.student_id = s.id AND ms.shift_type = 'morning' AND ms.status = 'active'
+      LEFT JOIN routes mr ON ms.route_id = mr.id
+      LEFT JOIN stops mst ON ms.stop_id = mst.id
+      LEFT JOIN student_route_subscriptions asub
+        ON asub.student_id = s.id AND asub.shift_type = 'afternoon' AND asub.status = 'active'
+      LEFT JOIN routes ar ON asub.route_id = ar.id
+      LEFT JOIN stops ast ON asub.stop_id = ast.id
+      WHERE s.parent_id = ? AND s.status = 'active'
       ORDER BY s.name ASC
     `, [id]);
 
@@ -181,13 +192,17 @@ class ParentModel {
    * @returns {Promise<Object>} Phụ huynh sau khi cập nhật
    */
   static async update(id, parentData) {
-    const { name, phone, address, relationship, user_id } = parentData;
+    const { name, phone, address = null, relationship = null, user_id = null } = parentData;
     
     console.log(' MODEL: Cập nhật phụ huynh ID:', id);
     
     await pool.execute(
-      'UPDATE parents SET name = ?, phone = ?, address = ?, relationship = ?, user_id = ? WHERE id = ?',
-      [name, phone, address || null, relationship, user_id || null, id]
+      `UPDATE parents
+       SET name = ?, phone = ?, address = ?,
+           relationship = COALESCE(?, relationship),
+           user_id = COALESCE(?, user_id)
+       WHERE id = ?`,
+      [name ?? null, phone ?? null, address ?? null, relationship ?? null, user_id ?? null, id]
     );
     
     console.log(' MODEL: Cập nhật thành công');

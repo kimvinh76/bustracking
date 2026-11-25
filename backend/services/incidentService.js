@@ -6,6 +6,7 @@ import DriverModel from '../models/Driver.js';
 import BusModel from '../models/Bus.js';
 import RouteModel from '../models/Route.js';
 import ScheduleModel from '../models/Schedule.js';
+import { getVietnamDateString } from '../utils/dateTime.js';
 
 class IncidentService {
   /**
@@ -141,13 +142,13 @@ class IncidentService {
     if (!finalRouteId) {
       console.log(' SERVICE: Không có route_id, tìm schedule đang active...');
       
-      // Tìm schedule đang chạy của driver/bus trong ngày hôm nay
-      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      // Tìm schedule đang chạy của driver/bus trong ngày hôm nay (giờ Việt Nam)
+      const today = getVietnamDateString();
       const activeSchedules = await ScheduleModel.findByDateAndStatus(today, 'in_progress');
       
-      // Tìm schedule match với driver_id hoặc bus_id
+      // Tìm schedule match với driver_id hoặc bus_id (ép kiểu Number tránh lệch string/number)
       const matchedSchedule = activeSchedules.find(
-        s => s.driver_id === driver_id || s.bus_id === bus_id
+        (s) => Number(s.driver_id) === Number(driver_id) || Number(s.bus_id) === Number(bus_id)
       );
       
       if (matchedSchedule) {

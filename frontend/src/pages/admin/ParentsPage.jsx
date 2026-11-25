@@ -5,6 +5,7 @@ import Modal from '../../components/UI/Modal';
 import ConfirmDialog from '../../components/UI/ConfirmDialog';
 import { parentsService } from '../../services/parentsService';
 import Header from '../../components/admin/Header';
+import boxDialog from '../../components/UI/BoxDialog';
 
 const ParentsPage = () => {
   const [parents, setParents] = useState([]);
@@ -61,10 +62,14 @@ const ParentsPage = () => {
       await parentsService.deleteParent(selectedParent.id);
       await fetchParents(); // Reload list
       setSelectedParent(null);
-      setShowConfirm(false);
+      setError(null);
+      boxDialog('success');
     } catch (err) {
-      setError('Lỗi khi xóa phụ huynh: ' + err.message);
+      setError('Lỗi khi xóa phụ huynh: ' + (err?.message || ''));
+      boxDialog('error');
       console.error('Error deleting parent:', err);
+    } finally {
+      setShowConfirm(false);
     }
   };
 
@@ -79,9 +84,12 @@ const ParentsPage = () => {
       setShowForm(false);
       setSelectedParent(null);
       setError(null);
+      boxDialog('success');
     } catch (err) {
-      setError('Lỗi khi lưu phụ huynh: ' + err.message);
+      setError('Lỗi khi lưu phụ huynh: ' + (err?.message || ''));
+      boxDialog('error');
       console.error('Error saving parent:', err);
+      throw err;
     }
   };
 

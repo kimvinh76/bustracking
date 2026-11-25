@@ -154,8 +154,8 @@ class ParentService {
   static async updateParent(id, parentData) {
     console.log(' SERVICE: Cập nhật phụ huynh ID:', id);
     
-    // 1. Kiểm tra tồn tại
-    await this.getParentById(id);
+    // 1. Kiểm tra tồn tại & giữ nguyên user_id nếu FE không gửi
+    const existingById = await this.getParentById(id);
 
     // 2. Validation
     const { name, phone, address, relationship } = parentData;
@@ -174,13 +174,13 @@ class ParentService {
       throw new Error('Số điện thoại đã được sử dụng');
     }
 
-    // 4. Format dữ liệu
+    // 4. Format dữ liệu (tránh làm mất user_id và tránh truyền undefined vào mysql2)
     const formattedData = {
       name: name.trim(),
       phone,
       address: address ? address.trim() : null,
-      relationship,
-      user_id: parentData.user_id || null
+      relationship: relationship !== undefined && relationship !== '' ? relationship : (existingById.relationship ?? null),
+      user_id: parentData.user_id !== undefined ? (parentData.user_id ?? null) : (existingById.user_id ?? null)
     };
 
     // 5. Cập nhật
@@ -188,6 +188,12 @@ class ParentService {
     
     console.log(' SERVICE: Cập nhật phụ huynh thành công');
     return updatedParent;
+  }
+
+  static async getParentWithChildrenByUserId(userId) {
+    const parent = await ParentModel.findByUserId(userId);
+    if (!parent) return null;
+    return this.getParentWithChildren(parent.id);
   }
 
   /**

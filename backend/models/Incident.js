@@ -11,6 +11,7 @@ class IncidentModel {
   static async findAll() {
     const [rows] = await pool.execute(`
       SELECT i.*, 
+             UNIX_TIMESTAMP(i.created_at) * 1000 AS created_at_ms,
              d.name AS driver_name,
              b.bus_number, b.license_plate,
              r.route_name
@@ -32,6 +33,7 @@ class IncidentModel {
   static async findById(id) {
     const [rows] = await pool.execute(`
       SELECT i.*, 
+             UNIX_TIMESTAMP(i.created_at) * 1000 AS created_at_ms,
              d.name AS driver_name, d.phone AS driver_phone,
              b.bus_number, b.license_plate,
              r.route_name
@@ -54,6 +56,7 @@ class IncidentModel {
   static async findByDriver(driverId) {
     const [rows] = await pool.execute(`
       SELECT i.*, 
+             UNIX_TIMESTAMP(i.created_at) * 1000 AS created_at_ms,
              b.bus_number, b.license_plate,
              r.route_name
       FROM incidents i
@@ -75,6 +78,7 @@ class IncidentModel {
     console.log(' MODEL: Lấy sự cố theo bus ID:', busId);
     const [rows] = await pool.execute(`
       SELECT i.*, 
+             UNIX_TIMESTAMP(i.created_at) * 1000 AS created_at_ms,
              d.name AS driver_name,
              r.route_name
       FROM incidents i
@@ -96,6 +100,7 @@ class IncidentModel {
   static async findByRoute(routeId) {
     const [rows] = await pool.execute(`
       SELECT i.*, 
+             UNIX_TIMESTAMP(i.created_at) * 1000 AS created_at_ms,
              d.name AS driver_name,
              b.bus_number, b.license_plate
       FROM incidents i
@@ -117,6 +122,7 @@ class IncidentModel {
     console.log(' MODEL: Lấy sự cố theo severity:', severity);
     const [rows] = await pool.execute(`
       SELECT i.*, 
+             UNIX_TIMESTAMP(i.created_at) * 1000 AS created_at_ms,
              d.name AS driver_name,
              b.bus_number, b.license_plate,
              r.route_name
@@ -141,6 +147,7 @@ class IncidentModel {
     console.log(' MODEL: Lấy sự cố theo status:', status);
     const [rows] = await pool.execute(`
       SELECT i.*, 
+             UNIX_TIMESTAMP(i.created_at) * 1000 AS created_at_ms,
              d.name AS driver_name,
              b.bus_number, b.license_plate,
              r.route_name

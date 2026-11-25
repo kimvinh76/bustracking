@@ -1,4 +1,5 @@
-import { MapPin, Clock, Navigation, Users } from "lucide-react";
+import { MapPin, Clock, Navigation } from "lucide-react";
+import { getPassedStopCount } from "../../utils/mergeBusStatus";
 
 export default function TripStatusPanel({
   tripStatus,
@@ -8,6 +9,9 @@ export default function TripStatusPanel({
   remainingDistance,
   estimatedTime,
 }) {
+  const passedCount = getPassedStopCount(currentStopIndex, tripStatus, stops.length);
+  const progressPct = stops.length > 0 ? Math.round((passedCount / stops.length) * 100) : 0;
+
   return (
     <div className="absolute bottom-6 left-6 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl p-4 z-50 min-w-80 border border-gray-200">
       <div className="space-y-3">
@@ -20,6 +24,8 @@ export default function TripStatusPanel({
                   ? "bg-green-500"
                   : tripStatus === "in_progress"
                   ? "bg-blue-500"
+                  : tripStatus === "paused"
+                  ? "bg-amber-500"
                   : "bg-gray-400"
               }`}
             ></div>
@@ -28,11 +34,13 @@ export default function TripStatusPanel({
                 ? "🏁 Chuyến đã hoàn thành"
                 : tripStatus === "in_progress"
                 ? "🚍 Đang trong chuyến"
+                : tripStatus === "paused"
+                ? "⏸️ Đang dừng tại trạm"
                 : "⏳ Chờ bắt đầu chuyến"}
             </span>
           </div>
           <div className="text-xs text-gray-500">
-            {currentStopIndex + 1}/{stops.length} điểm
+            {passedCount}/{stops.length} điểm
           </div>
         </div>
 
@@ -88,15 +96,13 @@ export default function TripStatusPanel({
           <div className="pt-2">
             <div className="flex justify-between text-xs text-gray-500 mb-1">
               <span>Tiến độ</span>
-              <span>
-                {Math.round(((currentStopIndex + 1) / stops.length) * 100)}%
-              </span>
+              <span>{progressPct}%</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
                 className="bg-gradient-to-r from-blue-500 to-green-500 h-2 rounded-full transition-all duration-500"
                 style={{
-                  width: `${((currentStopIndex + 1) / stops.length) * 100}%`,
+                  width: `${progressPct}%`,
                 }}
               />
             </div>

@@ -71,6 +71,7 @@ export const schedulesService = {
                 driverId: raw.driver_id,
                 busId: raw.bus_id,
                 busNumber: raw.bus_number || raw.license_plate,
+                capacity: raw.capacity ?? raw.max_capacity ?? raw.maxCapacity ?? null,
                 routeId: raw.route_id,
                 routeName: raw.route_name,
                 startTime: raw.start_time || raw.scheduled_start_time,

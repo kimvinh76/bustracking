@@ -20,8 +20,10 @@ const ParentForm = ({ parent, mode, onSubmit, onCancel }) => {
 
   useEffect(() => {
     if (parent) {
+      const normalizedEmail =
+        parent.email && parent.email !== 'Chưa có' ? parent.email : '';
       setFormData({
-        name: parent.name || '', username: parent.username || '', email: parent.email || '',
+        name: parent.name || '', username: parent.username || '', email: normalizedEmail,
         phone: parent.phone || '', relationship: parent.relationship || '', address: parent.address || ''
       });
     }
@@ -74,7 +76,7 @@ const ParentForm = ({ parent, mode, onSubmit, onCancel }) => {
       newErrors.phone = 'Số điện thoại không hợp lệ';
     }
     
-    if (formData.email) {
+    if (mode === 'add' && formData.email) {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
         newErrors.email = 'Email không hợp lệ';
       }
@@ -113,8 +115,11 @@ const ParentForm = ({ parent, mode, onSubmit, onCancel }) => {
 
     if (validateForm()) {
       setLoading(true);
+      setErrors(prev => ({ ...prev, submit: '' }));
       try {
         await onSubmit(formData);
+      } catch (err) {
+        setErrors(prev => ({ ...prev, submit: err?.message || 'Không thể lưu phụ huynh. Vui lòng thử lại.' }));
       } finally {
         setLoading(false);
       }
@@ -126,8 +131,19 @@ const ParentForm = ({ parent, mode, onSubmit, onCancel }) => {
 
   const formFields = [
     { name: 'name', label: 'Họ và tên', placeholder: 'Nhập họ và tên', required: true },
-    { name: 'username', label: 'Username', placeholder: 'Tên đăng nhập (3-30 ký tự)' },
-    { name: 'email', label: 'Email', type: 'email', placeholder: 'Nhập địa chỉ email' },
+    {
+      name: 'username',
+      label: mode === 'edit' ? 'Username (Quản lý tại mục Tài khoản)' : 'Username',
+      placeholder: mode === 'edit' ? 'Chưa liên kết tài khoản' : 'Tên đăng nhập (3-30 ký tự)',
+      readOnly: isReadOnly || mode === 'edit',
+    },
+    {
+      name: 'email',
+      label: mode === 'edit' ? 'Email (Quản lý tại mục Tài khoản)' : 'Email',
+      type: 'email',
+      placeholder: mode === 'edit' ? 'Chưa có' : 'Nhập địa chỉ email',
+      readOnly: isReadOnly || mode === 'edit',
+    },
     { name: 'phone', label: 'Số điện thoại', type: 'tel', placeholder: 'Nhập số điện thoại', required: true },
     { 
       name: 'relationship', label: 'Quan hệ', type: 'select', placeholder: 'Chọn mối quan hệ',
@@ -142,6 +158,11 @@ const ParentForm = ({ parent, mode, onSubmit, onCancel }) => {
 
   return (
     <form onSubmit={handleSubmit}>
+      {errors.submit && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {errors.submit}
+        </div>
+      )}
       {formFields.map(field => (
         <FormInput
           key={field.name}
@@ -149,7 +170,7 @@ const ParentForm = ({ parent, mode, onSubmit, onCancel }) => {
           value={formData[field.name]}
           onChange={handleChange}
           error={errors[field.name]}
-          readOnly={isReadOnly}
+          readOnly={field.readOnly ?? isReadOnly}
         />
       ))}
 

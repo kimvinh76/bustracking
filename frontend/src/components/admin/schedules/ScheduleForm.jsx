@@ -101,6 +101,17 @@ const ScheduleForm = ({ schedule, mode, onSubmit, onCancel }) => {
       newVal = value ? String(value) : '';
     }
 
+    if (name === 'route_id') {
+      const pickedRoute = routes.find((r) => String(r.id) === String(newVal));
+      setFormData(prev => ({
+        ...prev,
+        route_id: newVal,
+        shift_type: pickedRoute?.shift_type || prev.shift_type,
+      }));
+      setErrors(prev => ({ ...prev, route_id: '', shift_type: '' }));
+      return;
+    }
+
     setFormData(prev => ({ ...prev, [name]: newVal }));
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
   }; 
@@ -137,6 +148,17 @@ const ScheduleForm = ({ schedule, mode, onSubmit, onCancel }) => {
 
   const isReadOnly = mode === 'view';
 
+  // Chỉ cho chọn Tài xế / Xe buýt / Tuyến đang hoạt động (giữ lại giá trị cũ nếu đang xem/sửa lịch có từ trước)
+  const availableDrivers = drivers.filter(
+    (d) => d.status === 'active' || (schedule && String(d.id) === String(formData.driver_id))
+  );
+  const availableBuses = buses.filter(
+    (b) => b.status === 'active' || (schedule && String(b.id) === String(formData.bus_id))
+  );
+  const availableRoutes = routes.filter(
+    (r) => r.status === 'active' || (schedule && String(r.id) === String(formData.route_id))
+  );
+
   return (
     <form onSubmit={handleSubmit}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
@@ -147,7 +169,10 @@ const ScheduleForm = ({ schedule, mode, onSubmit, onCancel }) => {
           value={formData.driver_id}
           onChange={handleChange}
           error={errors.driver_id}
-          options={drivers.map(d => ({ value: d.id, label: d.name }))}
+          options={availableDrivers.map(d => ({
+            value: d.id,
+            label: `${d.name}${d.status !== 'active' ? ' (Không hoạt động)' : ''}`
+          }))}
           placeholder="-- Chọn tài xế --"
           required
           readOnly={isReadOnly}
@@ -160,7 +185,16 @@ const ScheduleForm = ({ schedule, mode, onSubmit, onCancel }) => {
           value={formData.bus_id}
           onChange={handleChange}
           error={errors.bus_id}
-          options={buses.map(b => ({ value: b.id, label: b.license_plate }))}
+          options={availableBuses.map(b => ({
+            value: b.id,
+            label: `${b.license_plate}${b.bus_number ? ` - ${b.bus_number}` : ''}${
+              b.status === 'maintenance'
+                ? ' (Đang bảo trì)'
+                : b.status === 'inactive'
+                  ? ' (Không hoạt động)'
+                  : ''
+            }`
+          }))}
           placeholder="-- Chọn xe buýt --"
           required
           readOnly={isReadOnly}
@@ -173,7 +207,10 @@ const ScheduleForm = ({ schedule, mode, onSubmit, onCancel }) => {
           value={formData.route_id}
           onChange={handleChange}
           error={errors.route_id}
-          options={routes.map(r => ({ value: r.id, label: r.route_name }))}
+          options={availableRoutes.map(r => ({
+            value: r.id,
+            label: `${r.route_name}${r.status !== 'active' ? ' (Không hoạt động)' : ''}`
+          }))}
           placeholder="-- Chọn tuyến đường --"
           required
           readOnly={isReadOnly}
@@ -228,16 +265,16 @@ const ScheduleForm = ({ schedule, mode, onSubmit, onCancel }) => {
           readOnly={isReadOnly}
         />
 
-        <FormInput
-          label="Số học sinh"
-          name="student_count"
-          type="number"
-          value={formData.student_count}
-          onChange={handleChange}
-          error={errors.student_count}
-          min="0"
-          readOnly={isReadOnly}
-        />
+        {isReadOnly && (
+          <FormInput
+            label="Số học sinh đăng ký"
+            name="student_count"
+            type="number"
+            value={formData.student_count}
+            onChange={() => {}}
+            readOnly
+          />
+        )}
 
         <FormInput
           label="Trạng thái"

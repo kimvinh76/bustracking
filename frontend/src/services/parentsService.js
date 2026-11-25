@@ -41,6 +41,17 @@ export const parentsService = {
         }
     },
 
+    // Lấy toàn bộ danh sách con của phụ huynh đang đăng nhập (theo user_id)
+    getChildrenByUserId: async (userId) => {
+        try {
+            const response = await apiClient.get(`${ENDPOINT}/by-user/${userId}/children`);
+            return Array.isArray(response) ? response : [];
+        } catch (error) {
+            console.error('Error fetching parent children by userId:', error);
+            return [];
+        }
+    },
+
     // Tạo phụ huynh mới
     createParent: async (parentData) => {
         try {

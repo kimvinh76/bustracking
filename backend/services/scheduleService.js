@@ -5,6 +5,11 @@ import RouteModel from '../models/Route.js';
 import BusModel from '../models/Bus.js';
 import DriverModel from '../models/Driver.js';
 import RouteService from './routeService.js';
+import {
+  toVietnamMySqlDateTime,
+  getVietnamDateString,
+  normalizeVietnamMySqlDateTime,
+} from '../utils/dateTime.js';
 
 // Helper: Add minutes to time string "HH:mm:ss"
 const addMinutesToTime = (timeStr, minutesToAdd) => {
@@ -20,15 +25,7 @@ const addMinutesToTime = (timeStr, minutesToAdd) => {
 class ScheduleService {
 
   static toMySqlDateTime(date) {
-    const d = date instanceof Date ? date : new Date(date);
-    if (Number.isNaN(d.getTime())) return null;
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const hours = String(d.getHours()).padStart(2, '0');
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    const seconds = String(d.getSeconds()).padStart(2, '0');
-    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    return toVietnamMySqlDateTime(date);
   }
 
   static async resetStaleInProgressIfNeeded() {
@@ -162,6 +159,39 @@ class ScheduleService {
     return schedules;
   }
 
+  static async validateScheduleResources({ route_id, bus_id, driver_id }, existingSchedule = null) {
+    const [route, bus, driver] = await Promise.all([
+      RouteModel.findById(route_id),
+      BusModel.findById(bus_id),
+      DriverModel.findById(driver_id),
+    ]);
+
+    if (!route) throw new Error('Không tìm thấy tuyến đường');
+    if (!bus) throw new Error('Không tìm thấy xe bus');
+    if (!driver) throw new Error('Không tìm thấy tài xế');
+
+    if (
+      route.status !== 'active' &&
+      (!existingSchedule || Number(route_id) !== Number(existingSchedule.route_id))
+    ) {
+      throw new Error('Không thể xếp lịch cho tuyến đường đang ngừng hoạt động');
+    }
+
+    if (
+      bus.status !== 'active' &&
+      (!existingSchedule || Number(bus_id) !== Number(existingSchedule.bus_id))
+    ) {
+      throw new Error('Không thể xếp lịch cho xe buýt đang bảo trì hoặc ngừng hoạt động');
+    }
+
+    if (
+      driver.status !== 'active' &&
+      (!existingSchedule || Number(driver_id) !== Number(existingSchedule.driver_id))
+    ) {
+      throw new Error('Không thể xếp lịch cho tài xế đang ngừng hoạt động');
+    }
+  }
+
   /**
    * Tạo lịch trình mới
    */
@@ -173,11 +203,32 @@ class ScheduleService {
         throw new Error('Thiếu thông tin bắt buộc: route_id, driver_id, bus_id, date');
     }
 
-    // Kiểm tra xem bus hoặc driver có bận không (tùy chọn)
-    // await DriverModel.checkAvailability(scheduleData.driver_id, scheduleData.date, ...);
+    await this.validateScheduleResources(scheduleData);
 
-    const newSchedule = await ScheduleModel.create(scheduleData);
-    return newSchedule;
+    // Tự động đếm số học sinh đã đăng ký tuyến & ca này thay vì để Admin nhập tay
+    const registeredCount = await ScheduleModel.countRegisteredStudents(
+      scheduleData.route_id,
+      scheduleData.shift_type
+    );
+    try {
+      const newSchedule = await ScheduleModel.create({
+        ...scheduleData,
+        student_count: registeredCount,
+      });
+      return newSchedule;
+    } catch (err) {
+      if (err?.code === 'ER_DUP_ENTRY') {
+        const msg = String(err.sqlMessage || err.message || '');
+        if (msg.includes('unique_driver_date_shift')) {
+          throw new Error('Tài xế này đã có lịch trình trong ca và ngày đã chọn');
+        }
+        if (msg.includes('schedules_bus_date_shift')) {
+          throw new Error('Xe buýt này đã được phân công trong ca và ngày đã chọn');
+        }
+        throw new Error('Lịch trình bị trùng tài xế hoặc xe buýt trong cùng ca');
+      }
+      throw err;
+    }
   }
 
   /**
@@ -198,61 +249,38 @@ class ScheduleService {
         return { ...schedule, stops: [] };
     }
 
-    // 3. Tính toán thời gian cho từng stop bằng OSRM
+    // 3. Tính toán thời gian & khoảng cách cộng dồn cho từng stop trong 1 lần gọi OSRM
     const startTime = schedule.scheduled_start_time;
-    let currentDistance = 0; // Tích lũy khoảng cách (nếu lấy được từ osrm) cho frontend hiển thị logic cũ? 
-                             // OSRM trả về duration(s) và distance(m) nếu config, nhưng hàm getEtaOSRM hiện tại chỉ returns duration.
-                             // Ta sẽ giữ logic distance 0 hoặc gọi thêm nếu cần, nhưng user chỉ yêu cầu dùng hàm ETA có sẵn.
-    
+    const segmentMetrics = await RouteService.getSegmentMetrics(stops);
+
+    let accumulatedKm = 0;
     let accumulatedMinutes = 0;
     const stopsWithTime = [];
 
-    // Duyệt tuần tự để tính thời gian cộng dồn (async/await trong loop)
     for (let i = 0; i < stops.length; i++) {
-        const stop = stops[i];
-        let time = startTime;
+      const stop = stops[i];
+      let time = startTime;
 
-        if (i === 0) {
-           // Điểm đầu: distance = 0, time = start_time
-           stopsWithTime.push({
-             ...stop, 
-             time, 
-             distanceFromStart: 0,
-             // Chuẩn hóa field cho frontend
-             lat: parseFloat(stop.latitude),
-             lng: parseFloat(stop.longitude),
-             order: stop.stop_order
-           });
-        } else {
-            const prevStop = stops[i - 1];
-            
-            // Gọi OSRM từ RouteService để lấy thời gian di chuyển thực tế (giây)
-            // Lưu ý: Hàm này có thể throw hoặc return 0 nếu lỗi
-            const durationSeconds = await RouteService.getEtaOSRM(
-                parseFloat(prevStop.latitude), 
-                parseFloat(prevStop.longitude),
-                parseFloat(stop.latitude), 
-                parseFloat(stop.longitude)
-            );
+      if (i > 0) {
+        const leg = segmentMetrics[i - 1] || { distanceKm: 0, durationSeconds: 0 };
+        accumulatedKm += Number(leg.distanceKm || 0);
 
-            // Thời gian dừng đón trả khách (ví dụ 2 phút)
-            const stopDurationMinutes = 2;
-            const travelMinutes = durationSeconds / 60;
+        const stopDurationMinutes = 2;
+        const travelMinutes = Number(leg.durationSeconds || 0) / 60;
+        accumulatedMinutes += travelMinutes + stopDurationMinutes;
+        const roundedMinutes = Math.ceil(accumulatedMinutes);
 
-            accumulatedMinutes += travelMinutes + stopDurationMinutes;
-            const roundedMinutes = Math.ceil(accumulatedMinutes);
-            
-            time = addMinutesToTime(startTime, roundedMinutes);
+        time = addMinutesToTime(startTime, roundedMinutes);
+      }
 
-            stopsWithTime.push({
-                ...stop,
-                time,
-                distanceFromStart: 0, // Hiện tại getEtaOSRM chưa trả distance, để tạm 0 hoặc sửa getEtaOSRM sau
-                lat: parseFloat(stop.latitude),
-                lng: parseFloat(stop.longitude),
-                order: stop.stop_order
-            });
-        }
+      stopsWithTime.push({
+        ...stop,
+        time,
+        distanceFromStart: Number(accumulatedKm.toFixed(2)),
+        lat: parseFloat(stop.latitude),
+        lng: parseFloat(stop.longitude),
+        order: stop.stop_order,
+      });
     }
 
     return {
@@ -271,14 +299,16 @@ class ScheduleService {
     console.log(' SERVICE: Dữ liệu nhận được:', JSON.stringify(scheduleData, null, 2));
     
     // 1. Kiểm tra tồn tại
-    await this.getScheduleById(id);
+    const existingSchedule = await this.getScheduleById(id);
 
-    // 2. Validation
-    const { 
+    // 2. Validation — giữ nguyên status / actual_end_time / student_count cũ nếu không gửi lên
+    const {
       route_id, bus_id, driver_id, date, shift_type,
       scheduled_start_time, scheduled_end_time,
-      student_count = 0, notes = null,
-      actual_end_time = null, status = 'scheduled'
+      student_count = existingSchedule.student_count ?? 0,
+      notes = existingSchedule.notes ?? null,
+      actual_end_time = existingSchedule.actual_end_time ?? null,
+      status = existingSchedule.status || 'scheduled',
     } = scheduleData;
     
     console.log(' SERVICE: Validation fields:', { route_id, bus_id, driver_id, date, shift_type });
@@ -291,16 +321,8 @@ class ScheduleService {
       throw new Error('Thiếu thông tin: scheduled_start_time, scheduled_end_time');
     }
 
-    // 3. Kiểm tra route, bus, driver tồn tại
-    const [routeExists, busExists, driverExists] = await Promise.all([
-      RouteModel.exists(route_id),
-      BusModel.exists(bus_id),
-      DriverModel.exists(driver_id)
-    ]);
-
-    if (!routeExists) throw new Error('Không tìm thấy tuyến đường');
-    if (!busExists) throw new Error('Không tìm thấy xe bus');
-    if (!driverExists) throw new Error('Không tìm thấy tài xế');
+    // 3. Kiểm tra route, bus, driver tồn tại và đang hoạt động
+    await this.validateScheduleResources({ route_id, bus_id, driver_id }, existingSchedule);
 
     // 4. Kiểm tra trùng lịch trình (loại trừ chính nó)
     const duplicate = await ScheduleModel.findDuplicate({
@@ -332,10 +354,23 @@ class ScheduleService {
     };
 
     // 6. Cập nhật
-    const updatedSchedule = await ScheduleModel.update(id, formattedData);
-    
-    console.log(' SERVICE: Cập nhật lịch trình thành công');
-    return updatedSchedule;
+    try {
+      const updatedSchedule = await ScheduleModel.update(id, formattedData);
+      console.log(' SERVICE: Cập nhật lịch trình thành công');
+      return updatedSchedule;
+    } catch (err) {
+      if (err?.code === 'ER_DUP_ENTRY') {
+        const msg = String(err.sqlMessage || err.message || '');
+        if (msg.includes('unique_driver_date_shift')) {
+          throw new Error('Tài xế này đã có lịch trình trong ca và ngày đã chọn');
+        }
+        if (msg.includes('schedules_bus_date_shift')) {
+          throw new Error('Xe buýt này đã được phân công trong ca và ngày đã chọn');
+        }
+        throw new Error('Lịch trình bị trùng tài xế hoặc xe buýt trong cùng ca');
+      }
+      throw err;
+    }
   }
 
   /**
@@ -361,19 +396,14 @@ class ScheduleService {
     if (status === 'in_progress') {
       const allowPast = String(process.env.ALLOW_START_PAST_SCHEDULE ?? 'false').toLowerCase() !== 'false';
       if (!allowPast) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const scheduleDateRaw = String(schedule?.date || '').trim();
-        // Expecting YYYY-MM-DD. Convert to local midnight for comparison.
-        const scheduleDate = new Date(`${scheduleDateRaw}T00:00:00`);
-        if (Number.isNaN(scheduleDate.getTime())) {
+        const todayStr = getVietnamDateString();
+        const scheduleDateRaw = String(schedule?.date || '').trim().slice(0, 10);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(scheduleDateRaw)) {
           throw new Error('Ngày lịch trình không hợp lệ');
         }
-        scheduleDate.setHours(0, 0, 0, 0);
 
-        // Block only past dates; allow today and future for demo.
-        if (scheduleDate < today) {
+        // So sánh theo ngày Việt Nam (YYYY-MM-DD), tránh lệch UTC trên server cloud.
+        if (scheduleDateRaw < todayStr) {
           throw new Error('Không thể bắt đầu chuyến cho lịch của ngày trước ngày hiện tại');
         }
       }
@@ -381,23 +411,14 @@ class ScheduleService {
 
     let finalActualEnd = null;
     let finalActualStart = null;
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-    const currentDateTimeStr = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    const currentDateTimeStr = toVietnamMySqlDateTime();
 
     if (status === 'completed') {
-      if (actualEndTime) {
-        finalActualEnd = actualEndTime;
-      } else {
-        finalActualEnd = currentDateTimeStr;
-      }
+      finalActualEnd = actualEndTime
+        ? (normalizeVietnamMySqlDateTime(actualEndTime) || currentDateTimeStr)
+        : currentDateTimeStr;
     } else if (status === 'in_progress') {
-        finalActualStart = currentDateTimeStr;
+      finalActualStart = currentDateTimeStr;
     }
 
     const updated = await ScheduleModel.updateStatus(id, status, notes, finalActualEnd, finalActualStart);

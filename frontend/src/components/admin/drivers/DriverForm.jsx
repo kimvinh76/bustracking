@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import FormInput from '../../common/FormInput';
 import Button from '../../common/Button';
+import { formatDateVi } from '../../../utils/dateFormat';
 
 
 const DriverForm = ({ driver, mode, onSubmit, onCancel }) => {
@@ -84,8 +85,11 @@ const DriverForm = ({ driver, mode, onSubmit, onCancel }) => {
 
     if (validateForm()) {
       setLoading(true);
+      setErrors(prev => ({ ...prev, submit: '' }));
       try {
         await onSubmit(formData);
+      } catch (err) {
+        setErrors(prev => ({ ...prev, submit: err?.message || 'Không thể lưu tài xế. Vui lòng thử lại.' }));
       } finally {
         setLoading(false);
       }
@@ -96,6 +100,11 @@ const DriverForm = ({ driver, mode, onSubmit, onCancel }) => {
 
   return (
     <form onSubmit={handleSubmit}>
+      {errors.submit && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {errors.submit}
+        </div>
+      )}
       <div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
           <FormInput
@@ -172,7 +181,7 @@ const DriverForm = ({ driver, mode, onSubmit, onCancel }) => {
                 >
                   {[...new Set(driver.schedules.map(s => s.date))].sort().reverse().map(date => {
                     const count = driver.schedules.filter(s => s.date === date).length;
-                    const formatDate = new Date(date).toLocaleDateString('vi-VN', { 
+                    const formatDate = formatDateVi(date, { 
                       weekday: 'short', 
                       day: '2-digit', 
                       month: '2-digit', 

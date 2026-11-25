@@ -11,7 +11,7 @@ class UserModel {
   static async findAll() {
     console.log(' MODEL: Lấy tất cả người dùng từ database');
     const [rows] = await pool.execute(
-      'SELECT id, username, email, role, created_at FROM users ORDER BY id DESC'
+      'SELECT id, username, email, role, created_at, updated_at FROM users ORDER BY id DESC'
     );
     
     console.log(` MODEL: Tìm thấy ${rows.length} người dùng`);
@@ -26,7 +26,7 @@ class UserModel {
   static async findById(id) {
     console.log(' MODEL: Tìm người dùng theo ID:', id);
     const [rows] = await pool.execute(
-      'SELECT id, username, email, role, created_at FROM users WHERE id = ?',
+      'SELECT id, username, email, role, created_at, updated_at FROM users WHERE id = ?',
       [id]
     );
     
@@ -94,7 +94,7 @@ class UserModel {
   static async findByRole(role) {
     console.log(' MODEL: Lấy người dùng theo role:', role);
     const [rows] = await pool.execute(
-      'SELECT id, username, email, role, created_at FROM users WHERE role = ? ORDER BY id DESC',
+      'SELECT id, username, email, role, created_at, updated_at FROM users WHERE role = ? ORDER BY id DESC',
       [role]
     );
     
@@ -121,7 +121,10 @@ class UserModel {
     console.log(` MODEL: Insert thành công! insertId: ${result.insertId}`);
     
     // Lấy người dùng vừa tạo (không có password)
-    const [rows] = await connection.execute('SELECT id, username, email, role FROM users WHERE id = ?', [result.insertId]);
+    const [rows] = await connection.execute(
+      'SELECT id, username, email, role, created_at, updated_at FROM users WHERE id = ?',
+      [result.insertId]
+    );
     return rows[0];
   }
 

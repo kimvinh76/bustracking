@@ -16,7 +16,7 @@ export default function DriverNavbar() {
       <div className="pb-4 items-center flex justify-center">
         <div className="w-24 h-24 rounded-full bg-white flex items-center justify-center border cursor-pointer shadow-lg">
           <div className="text-center">
-            <div className="text-3xl text-black">�</div>
+            <div className="text-3xl text-black">🚌</div>
             <div className="text-sm font-bold text-black">DRIVER</div>
           </div>
         </div>

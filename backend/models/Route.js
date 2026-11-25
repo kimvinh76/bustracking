@@ -145,13 +145,13 @@ class RouteModel {
    * @returns {Promise<Object>} Tuyến đường sau khi cập nhật
    */
   static async update(id, routeData) {
-    const { route_name, shift_type, distance, status = 'active' } = routeData;
+    const { route_name, shift_type = null, distance = null, status = 'active' } = routeData;
     
     console.log(' MODEL: Cập nhật tuyến đường ID:', id);
     
     await pool.execute(
-      'UPDATE routes SET route_name = ?, shift_type = COALESCE(?, shift_type), distance = COALESCE(?, distance), status = ? WHERE id = ?',
-      [route_name, shift_type, distance, status, id]
+      'UPDATE routes SET route_name = ?, shift_type = COALESCE(?, shift_type), distance = COALESCE(?, distance), status = COALESCE(?, status) WHERE id = ?',
+      [route_name, shift_type ?? null, distance ?? null, status ?? 'active', id]
     );
     
     console.log(' MODEL: Cập nhật thành công');
@@ -252,6 +252,28 @@ class RouteModel {
     } finally {
       connection.release();
     }
+  }
+
+  /**
+   * Đếm số học sinh đang đăng ký tuyến nhưng trạm đăng ký không còn nằm trong keepStopIds
+   */
+  static async countSubscribersOutsideStops(routeId, keepStopIds = []) {
+    if (!Array.isArray(keepStopIds) || keepStopIds.length === 0) {
+      const [[row]] = await pool.execute(
+        'SELECT COUNT(DISTINCT student_id) AS cnt FROM student_route_subscriptions WHERE route_id = ?',
+        [routeId]
+      );
+      return Number(row?.cnt || 0);
+    }
+
+    const placeholders = keepStopIds.map(() => '?').join(',');
+    const [[row]] = await pool.execute(
+      `SELECT COUNT(DISTINCT student_id) AS cnt
+       FROM student_route_subscriptions
+       WHERE route_id = ? AND stop_id NOT IN (${placeholders})`,
+      [routeId, ...keepStopIds]
+    );
+    return Number(row?.cnt || 0);
   }
 
   /**

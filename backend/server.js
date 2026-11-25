@@ -89,8 +89,8 @@ app.get('/api/health', healthLimiter, async (req, res) => {
     }
 });
 
-// Import authMiddleware
-import authMiddleware from './middlewares/authMiddleware.js';
+// Import authMiddleware & requireRole
+import authMiddleware, { requireRole } from './middlewares/authMiddleware.js';
 
 // Rate limit API endpoints
 app.use('/api', apiLimiter);
@@ -109,8 +109,8 @@ app.use('/api/drivers', driversRoutes);
 app.use('/api/parents', parentsRoutes);
 app.use('/api/classes', classesRoutes);
 app.use('/api/schedules', schedulesRoutes);
-app.use('/api/admin-schedules', adminschedulesRoutes);
-app.use("/api/users", userRoutes);
+app.use('/api/admin-schedules', requireRole('admin'), adminschedulesRoutes);
+app.use("/api/users", requireRole('admin'), userRoutes);
 app.use("/api/incidents", incidentsRoutes);
 app.use('/api/tracking', trackingRoutes);
 
@@ -119,6 +119,16 @@ app.use('*', (req, res) => {
     res.status(404).json({
         success: false,
         message: 'API endpoint not found'
+    });
+});
+
+// Global JSON error handler (malformed JSON, CORS rejection, etc.)
+app.use((err, req, res, _next) => {
+    const status = err?.status || err?.statusCode || 500;
+    console.error('Unhandled Express Error:', err?.message || err);
+    res.status(status).json({
+        success: false,
+        message: err?.message || 'Lỗi hệ thống không xác định',
     });
 });
 

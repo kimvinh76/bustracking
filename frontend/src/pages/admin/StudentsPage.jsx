@@ -4,6 +4,7 @@ import StudentForm from '../../components/admin/students/StudentForm';
 import Modal from '../../components/UI/Modal';
 import ConfirmDialog from '../../components/UI/ConfirmDialog';
 import Header from '../../components/admin/Header';
+import boxDialog from '../../components/UI/BoxDialog';
 import { studentsService } from '../../services/studentsService';
 
 const StudentsPage = () => {
@@ -62,10 +63,13 @@ const StudentsPage = () => {
       await studentsService.deleteStudent(selectedStudent.id);
       await fetchStudents(); 
       setSelectedStudent(null);
-      setShowConfirm(false);
+      setError(null);
+      boxDialog('success');
     } catch (err) {
-      setError('Lỗi khi xóa học sinh: ' + err.message);
-
+      setError('Lỗi khi xóa học sinh: ' + (err?.message || ''));
+      boxDialog('error');
+    } finally {
+      setShowConfirm(false);
     }
   };
 
@@ -80,9 +84,11 @@ const StudentsPage = () => {
       setShowForm(false);
       setSelectedStudent(null);
       setError(null);
+      boxDialog('success');
     } catch (err) {
-      setError('Lỗi khi lưu học sinh: ' + err.message);
-   
+      setError('Lỗi khi lưu học sinh: ' + (err?.message || ''));
+      boxDialog('error');
+      throw err;
     }
   };
 

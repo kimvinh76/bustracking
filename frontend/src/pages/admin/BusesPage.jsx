@@ -71,9 +71,10 @@ export default function BusesPage() {
 
   // Filter buses
   const filteredBuses = buses.filter((bus) => {
+    const keyword = searchTerm.toLowerCase();
     const matchesSearch =
-      bus.license_plate.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      bus.bus_number.toLowerCase().includes(searchTerm.toLowerCase());
+      (bus.license_plate || "").toLowerCase().includes(keyword) ||
+      (bus.bus_number || "").toLowerCase().includes(keyword);
 
     const matchesStatus = !statusFilter || bus.status === statusFilter;
 
@@ -212,12 +213,12 @@ export default function BusesPage() {
               setIsEditOpen(false);
               setSelectedBus(null);
             } else {
-              alert("Lỗi: Không thể cập nhật xe");
+              boxDialog("error");
+              throw new Error("Không thể cập nhật xe");
             }
           } catch (error) {
             console.error("Lỗi khi cập nhật xe:", error);
-            const errorMessage = error?.message || "Lỗi khi cập nhật xe!";
-            alert("Lỗi: " + errorMessage);
+            boxDialog("error");
             throw error; // Re-throw để form biết có lỗi
           }
         }}

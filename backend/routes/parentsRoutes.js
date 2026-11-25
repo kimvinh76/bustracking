@@ -17,6 +17,20 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/parents/by-user/:userId/children - Lấy toàn bộ con của phụ huynh theo user_id
+router.get('/by-user/:userId/children', async (req, res) => {
+  try {
+    const parent = await ParentService.getParentWithChildrenByUserId(req.params.userId);
+    if (!parent) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy phụ huynh' });
+    }
+    res.json({ success: true, data: parent.children, count: parent.children.length });
+  } catch (err) {
+    console.error(' Lỗi khi lấy danh sách con theo user:', err.message);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // GET /api/parents/:id
 router.get('/:id', async (req, res) => {
   console.log(` GET /api/parents/${req.params.id} - Lấy thông tin phụ huynh`);
@@ -30,6 +44,20 @@ router.get('/:id', async (req, res) => {
     res.json({ success: true, data: parent });
   } catch (err) {
     console.error(' Lỗi khi lấy thông tin phụ huynh:', err.message);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// GET /api/parents/by-user/:userId/children - Lấy toàn bộ con của phụ huynh theo user_id
+router.get('/by-user/:userId/children', async (req, res) => {
+  try {
+    const parent = await ParentService.getParentWithChildrenByUserId(req.params.userId);
+    if (!parent) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy phụ huynh' });
+    }
+    res.json({ success: true, data: parent.children, count: parent.children.length });
+  } catch (err) {
+    console.error(' Lỗi khi lấy danh sách con theo user:', err.message);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -62,7 +90,13 @@ router.post('/', async (req, res) => {
     res.status(201).json({ success: true, message: 'Thêm phụ huynh thành công', data: parent });
   } catch (err) {
     console.error(' Lỗi khi thêm phụ huynh:', err.message);
-    const statusCode = err.message.includes('Thiếu thông tin') || err.message.includes('đã tồn tại') ? 400 : 500;
+    const statusCode =
+      err.message.includes('Thiếu') ||
+      err.message.includes('đã tồn tại') ||
+      err.message.includes('đã được sử dụng') ||
+      err.message.includes('không hợp lệ')
+        ? 400
+        : 500;
     res.status(statusCode).json({ success: false, message: err.message });
   }
 });
@@ -78,8 +112,14 @@ router.put('/:id', async (req, res) => {
     res.json({ success: true, message: 'Cập nhật phụ huynh thành công', data: parent });
   } catch (err) {
     console.error(' Lỗi khi cập nhật phụ huynh:', err.message);
-    const statusCode = err.message.includes('Không tìm thấy') ? 404 : 
-                       err.message.includes('Thiếu thông tin') || err.message.includes('đã tồn tại') ? 400 : 500;
+    const statusCode = err.message.includes('Không tìm thấy')
+      ? 404
+      : err.message.includes('Thiếu') ||
+          err.message.includes('đã tồn tại') ||
+          err.message.includes('đã được sử dụng') ||
+          err.message.includes('không hợp lệ')
+        ? 400
+        : 500;
     res.status(statusCode).json({ success: false, message: err.message });
   }
 });

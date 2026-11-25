@@ -57,8 +57,13 @@ router.post('/', async (req, res) => {
         });
     } catch (error) {
         console.error(' Lỗi:', error.message);
-        const statusCode = error.message.includes('Không tìm thấy') || 
-                           error.message.includes('đã tồn tại') ? 400 : 500;
+        const msg = error.message || '';
+        const statusCode =
+            msg.includes('đã tồn tại') || msg.includes('đã có lịch trình') || msg.includes('đã được phân công') || msg.includes('bị trùng')
+                ? 409
+                : msg.includes('Không tìm thấy') || msg.includes('Không thể xếp lịch') || msg.includes('Thiếu thông tin')
+                    ? 400
+                    : 500;
         res.status(statusCode).json({
             success: false,
             message: error.message
@@ -79,7 +84,12 @@ router.put('/:id', async (req, res) => {
         });
     } catch (error) {
         console.error(' Lỗi:', error.message);
-        const statusCode = error.message.includes('Không tìm thấy') ? 404 : 400;
+        const msg = error.message || '';
+        const statusCode = msg.includes('Không tìm thấy')
+            ? 404
+            : msg.includes('đã tồn tại') || msg.includes('đã có lịch trình') || msg.includes('đã được phân công') || msg.includes('bị trùng')
+                ? 409
+                : 400;
         res.status(statusCode).json({
             success: false,
             message: error.message

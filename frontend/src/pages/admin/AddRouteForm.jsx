@@ -24,11 +24,14 @@ export default function AddRouteForm({
   useEffect(() => {
     if (visible) {
       if (mode === "edit" && initialData) {
+        const safeStatus = ["active", "inactive"].includes(initialData.status)
+          ? initialData.status
+          : "inactive";
         setFormData({
           route_name: initialData.route_name || "",
           shift_type: initialData.shift_type || "morning",
           distance: initialData.distance || 0,
-          status: initialData.status || "active",
+          status: safeStatus,
         });
       } else {
         setFormData({
@@ -64,11 +67,16 @@ export default function AddRouteForm({
     }
 
     setIsSubmitting(true);
+    setErrors((prev) => ({ ...prev, submit: "" }));
 
     try {
       await onSubmit(formData);
     } catch (error) {
       console.error("Form submission error:", error);
+      setErrors((prev) => ({
+        ...prev,
+        submit: error?.message || "Thao tác thất bại. Vui lòng thử lại.",
+      }));
     } finally {
       setIsSubmitting(false);
     }
@@ -77,11 +85,16 @@ export default function AddRouteForm({
   const resolvedTitle =
     title ||
     (mode === "edit" ? "Chỉnh sửa tuyến đường" : "Thêm tuyến đường mới");
-  const submitButtonText = mode === "edit" ? "Cập nhật" : "Thêm tuyến đường";
+  const submitButtonText = mode === "edit" ? "Cập nhật" : "Tạo & Chọn trạm trên bản đồ";
 
   return (
     <Modal isOpen={visible} onClose={onCancel} title={resolvedTitle} size="md">
       <form className="space-y-4" onSubmit={handleSubmit}>
+        {errors.submit && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {errors.submit}
+          </div>
+        )}
         <FormInput
           label="Tên tuyến đường"
           name="name"
@@ -107,18 +120,20 @@ export default function AddRouteForm({
           required
         />
 
-        <FormInput
-          label="Khoảng cách (km)"
-          name="distance"
-          value={formData.distance}
-          onChange={(e) =>
-            setFormData({ ...formData, distance: e.target.value })
-          }
-          placeholder={mode === "add" ? "Hệ thống tự động tính khi thêm trạm" : `${formData.distance} km (Tự động tính)`}
-          error={errors.distance}
-          readOnly
-          disabled
-        />
+        {mode === "edit" ? (
+          <FormInput
+            label="Khoảng cách (km)"
+            name="distance"
+            value={formData.distance ? `${Number(formData.distance).toFixed(2)} km` : "0 km"}
+            onChange={() => {}}
+            readOnly
+            disabled
+          />
+        ) : (
+          <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-xs text-blue-800">
+            Quãng đường (km) và thời gian dự kiến sẽ được hệ thống <b>tự động đo theo đường thực tế</b> ngay sau khi bạn chọn các điểm dừng ở bước tiếp theo.
+          </div>
+        )}
 
         <FormInput
           label="Trạng thái"
@@ -128,7 +143,6 @@ export default function AddRouteForm({
           onChange={(e) => setFormData({ ...formData, status: e.target.value })}
           options={[
             { value: "active", label: "Đang hoạt động" },
-            { value: "maintenance", label: "Đang bảo trì" },
             { value: "inactive", label: "Không hoạt động" },
           ]}
           required

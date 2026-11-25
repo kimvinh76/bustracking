@@ -12,11 +12,10 @@ class TripSimulationService {
     this.emitStatus = emitStatus;
     this.trips = new Map();
     this.persistIntervalMs = 5000;
-    // Optional: enable writing history points into `bus_locations` to keep
-    // a replayable trail. Controlled by env ENABLE_BUS_LOCATION_HISTORY=1
-    // and BUS_LOCATION_HISTORY_INTERVAL_MS (ms)
-    this.historyEnabled = process.env.ENABLE_BUS_LOCATION_HISTORY === '1';
-    this.historyIntervalMs = Number(process.env.BUS_LOCATION_HISTORY_INTERVAL_MS) || 30_000;
+    // Record history points into `bus_locations` by default so /admin/history
+    // has real GPS trails for every trip (disable via ENABLE_BUS_LOCATION_HISTORY=0).
+    this.historyEnabled = process.env.ENABLE_BUS_LOCATION_HISTORY !== '0';
+    this.historyIntervalMs = Number(process.env.BUS_LOCATION_HISTORY_INTERVAL_MS) || 5_000;
   }
 
   async restoreActiveTrips() {
@@ -60,28 +59,43 @@ class TripSimulationService {
 
   async startTrip({ tripId, routeId, speedMetersPerSec = 15 }) {
     if (!tripId || !routeId) throw new Error('Thiếu tripId hoặc routeId');
+    const id = String(tripId);
 
-    // Bắt đầu mô phỏng mới cho trip; nếu đã có in-memory simulation thì dừng nó.
-    const existing = this.trips.get(String(tripId));
-    if (existing) this._stopTimer(existing);
+    // Chống double-click gây chạy song song 2 startTrip cùng lúc -> rò rỉ zombie timer
+    if (!this._startingTrips) this._startingTrips = new Set();
+    if (this._startingTrips.has(id)) return;
+    this._startingTrips.add(id);
 
-    const tripState = await this._createTripState({
-      tripId: String(tripId),
-      routeId,
-      speedMetersPerSec,
-      restore: null
-    });
-    this.trips.set(tripState.tripId, tripState);
+    try {
+      // Bắt đầu mô phỏng mới cho trip; nếu đã có in-memory simulation thì dừng nó.
+      const existingBefore = this.trips.get(id);
+      if (existingBefore) this._stopTimer(existingBefore);
 
-    this.emitStatus(tripState.tripId, {
-      ...this._statusPayload(tripState),
-      isRunning: true,
-      driverStatus: 'in_progress'
-    });
+      const tripState = await this._createTripState({
+        tripId: id,
+        routeId,
+        speedMetersPerSec,
+        restore: null
+      });
 
-    // Ghi checkpoint ngay khi start (force=true) để có thể resume nếu crash ngay.
-    this._persistState(tripState, 'in_progress', true).catch(() => { });
-    this._startTimer(tripState);
+      // Dừng lại lần nữa phòng trường hợp có trip khác được nạp trong lúc chờ OSRM
+      const existingAfter = this.trips.get(id);
+      if (existingAfter) this._stopTimer(existingAfter);
+
+      this.trips.set(tripState.tripId, tripState);
+
+      this.emitStatus(tripState.tripId, {
+        ...this._statusPayload(tripState),
+        isRunning: true,
+        driverStatus: 'in_progress'
+      });
+
+      // Ghi checkpoint ngay khi start (force=true) để có thể resume nếu crash ngay.
+      this._persistState(tripState, 'in_progress', true).catch(() => { });
+      this._startTimer(tripState);
+    } finally {
+      this._startingTrips.delete(id);
+    }
   }
 
   pauseTrip(tripId) {
@@ -117,6 +131,7 @@ class TripSimulationService {
     this._stopTimer(trip);
 
     const lastPos = trip.coords[trip.coords.length - 1];
+    trip.currentPosition = lastPos;
     this.emitStatus(tripId, {
       isRunning: false,
       driverStatus: 'completed',
@@ -125,6 +140,34 @@ class TripSimulationService {
     });
 
     this._finalizeTrip(trip).catch(() => { });
+  }
+
+  /** Dọn các checkpoint simulation quá cũ trong Redis (thay cho bảng trip_simulations đã bỏ). */
+  async cleanupStaleRedisTrips(cutoff) {
+    if (!redisClient.isReady) return 0;
+    try {
+      const cutoffMs = cutoff ? new Date(cutoff).getTime() : Date.now() - 12 * 60 * 60 * 1000;
+      const keys = await redisClient.keys('trip_simulation:*');
+      let removed = 0;
+      for (const key of keys) {
+        const raw = await redisClient.get(key);
+        if (!raw) continue;
+        try {
+          const data = JSON.parse(raw);
+          const updatedMs = data?.updated_at ? new Date(data.updated_at).getTime() : 0;
+          if (!Number.isFinite(updatedMs) || updatedMs < cutoffMs) {
+            await redisClient.del(key);
+            removed++;
+          }
+        } catch {
+          await redisClient.del(key);
+          removed++;
+        }
+      }
+      return removed;
+    } catch {
+      return 0;
+    }
   }
 
   /** Dừng mọi simulation trong RAM (khi reset schedule stale). */
@@ -210,18 +253,24 @@ class TripSimulationService {
   }
 
   _parsePendingIndices(raw, stopCount) {
-    let pending = [];
-    if (raw) {
+    // Khởi tạo chuyến mới (chưa có checkpoint): toàn bộ trạm trung gian 1..n-2
+    if (raw === undefined || raw === null) {
+      return stopCount > 2 ? Array.from({ length: stopCount - 2 }, (_, i) => i + 1) : [];
+    }
+    if (Array.isArray(raw)) {
+      return raw.map(Number).filter((n) => Number.isInteger(n) && n > 0 && n < stopCount - 1);
+    }
+    if (typeof raw === 'string') {
       try {
-        pending = JSON.parse(raw);
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          return parsed.map(Number).filter((n) => Number.isInteger(n) && n > 0 && n < stopCount - 1);
+        }
       } catch {
-        pending = [];
+        // Fallback nếu dữ liệu cũ bị lỗi
       }
     }
-    if (pending.length === 0 && stopCount > 2) {
-      pending = Array.from({ length: stopCount - 2 }, (_, i) => i + 1);
-    }
-    return pending;
+    return stopCount > 2 ? Array.from({ length: stopCount - 2 }, (_, i) => i + 1) : [];
   }
 
   _statusPayload(trip) {
@@ -336,8 +385,8 @@ class TripSimulationService {
     try {
       // Gọi OSRM public để lấy đường đi. Nếu fail sẽ fallback về straight waypoints.
       const coordsStr = waypoints.map((wp) => `${wp.lng},${wp.lat}`).join(';');
-      const url = `http://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=full&geometries=geojson`;
-      const response = await axios.get(url);
+      const url = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=full&geometries=geojson`;
+      const response = await axios.get(url, { timeout: 6000 });
       const coordinates = response?.data?.routes?.[0]?.geometry?.coordinates;
       if (!coordinates?.length) throw new Error('No routes found');
       return coordinates.map((c) => ({ lat: c[1], lng: c[0] }));
@@ -360,9 +409,39 @@ class TripSimulationService {
   }
 
   async _finalizeTrip(trip) {
-    // Khi chuyến hoàn thành: cập nhật trạng thái schedule và xóa checkpoint.
+    // Khi chuyến hoàn thành: ghi điểm cuối, cập nhật trạng thái schedule và xóa checkpoint.
+    const lastPos = trip.currentPosition || trip.coords?.[trip.coords.length - 1];
+    await this._recordHistoryPoint(trip, lastPos, true);
     await this._markScheduleCompleted(trip.tripId);
     await this._clearSimulation(trip);
+  }
+
+  async _recordHistoryPoint(trip, pos, force = false) {
+    if (!this.historyEnabled || !trip?.busId || !trip?.driverId) return;
+    const lat = Number(pos?.lat);
+    const lng = Number(pos?.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    const now = Date.now();
+    if (!force && trip.lastHistoryAt && now - trip.lastHistoryAt < this.historyIntervalMs) {
+      return;
+    }
+
+    const tripIdNum = Number(trip.tripId);
+    const scheduleId = trip.scheduleId || (Number.isFinite(tripIdNum) ? tripIdNum : null);
+    trip.lastHistoryAt = now;
+
+    try {
+      await BusLocation.create({
+        bus_id: trip.busId,
+        driver_id: trip.driverId,
+        schedule_id: scheduleId,
+        latitude: lat,
+        longitude: lng
+      });
+    } catch (err) {
+      console.warn('BusLocation persist failed:', err?.message || err);
+    }
   }
 
   async _markScheduleCompleted(tripId) {
@@ -417,25 +496,8 @@ class TripSimulationService {
         await redisClient.set(`trip_simulation:${tripIdNum}`, JSON.stringify(payload));
       }
 
-      // Optionally persist a history point to `bus_locations` (throttled)
-      if (this.historyEnabled) {
-        if (!trip.lastHistoryAt || now - trip.lastHistoryAt >= this.historyIntervalMs) {
-          trip.lastHistoryAt = now;
-          try {
-            if (trip.busId && trip.driverId) {
-              await BusLocation.create({
-                bus_id: trip.busId,
-                driver_id: trip.driverId,
-                schedule_id: trip.scheduleId || tripIdNum,
-                latitude: currentPos?.lat ?? null,
-                longitude: currentPos?.lng ?? null
-              });
-            }
-          } catch (err) {
-            console.warn('BusLocation persist failed:', err?.message || err);
-          }
-        }
-      }
+      // Persist throttled history point to `bus_locations`
+      await this._recordHistoryPoint(trip, currentPos, force);
     } catch (error) {
       console.warn('Trip persist failed:', error?.message || error);
     }

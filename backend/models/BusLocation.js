@@ -2,6 +2,7 @@
 // Lưu lịch sử vị trí bus (tracking)
 
 import pool from '../config/db.js';
+import { toVietnamMySqlDateTime } from '../utils/dateTime.js';
 
 /**
  * BusLocation
@@ -12,13 +13,22 @@ import pool from '../config/db.js';
  */
 class BusLocation {
   static async create(data) {
-    const { bus_id, driver_id, schedule_id = null, latitude, longitude } = data;
+    const { bus_id, driver_id, schedule_id = null, latitude, longitude, timestamp } = data;
+    const vnTimestamp = timestamp || toVietnamMySqlDateTime(new Date());
     const [result] = await pool.execute(
-      `INSERT INTO bus_locations (bus_id, driver_id, schedule_id, latitude, longitude)
-       VALUES (?, ?, ?, ?, ?)`,
-      [bus_id, driver_id, schedule_id, latitude, longitude]
+      `INSERT INTO bus_locations (bus_id, driver_id, schedule_id, latitude, longitude, timestamp)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [bus_id, driver_id, schedule_id, latitude, longitude, vnTimestamp]
     );
-    return { id: result.insertId, bus_id, driver_id, schedule_id, latitude, longitude };
+    return {
+      id: result.insertId,
+      bus_id,
+      driver_id,
+      schedule_id,
+      latitude,
+      longitude,
+      timestamp: vnTimestamp,
+    };
   }
 
   static _normalizeLimit(limit, fallback = 200) {
@@ -30,7 +40,7 @@ class BusLocation {
   static async findByBus(bus_id, limit = 200) {
     const lim = this._normalizeLimit(limit);
     const [rows] = await pool.execute(
-      `SELECT * FROM bus_locations WHERE bus_id = ? ORDER BY timestamp DESC LIMIT ${lim}`,
+      `SELECT * FROM bus_locations WHERE bus_id = ? ORDER BY timestamp DESC, id DESC LIMIT ${lim}`,
       [bus_id]
     );
     return rows;
@@ -39,7 +49,7 @@ class BusLocation {
   static async findBySchedule(schedule_id, limit = 200) {
     const lim = this._normalizeLimit(limit);
     const [rows] = await pool.execute(
-      `SELECT * FROM bus_locations WHERE schedule_id = ? ORDER BY timestamp DESC LIMIT ${lim}`,
+      `SELECT * FROM bus_locations WHERE schedule_id = ? ORDER BY timestamp DESC, id DESC LIMIT ${lim}`,
       [schedule_id]
     );
     return rows;

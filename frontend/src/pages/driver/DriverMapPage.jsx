@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { MapContainer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import BaseTileLayer from "../../components/map/BaseTileLayer.jsx";
 import BusRouteLayer from "../../components/map/BusRouteLayer.jsx";
-import { applyLeafletDefaultIcon, MAP_TILE_URL, MAP_TILE_ATTRIBUTION } from "../../utils/mapDefaults.js";
+import { applyLeafletDefaultIcon, MAP_DEFAULT_CENTER } from "../../utils/mapDefaults.js";
+import { getStopProgressState } from "../../utils/mergeBusStatus.js";
 import DriverHeader from "../../components/driver/DriverHeader.jsx";
 import AlertsContainer from "../../components/driver/AlertsContainer.jsx";
 import TripStatusPanel from "../../components/driver/TripStatusPanel.jsx";
@@ -48,6 +50,23 @@ export default function DriverMapPage() {
   const completedHandledRef = useRef(false);
   const stopsRef = useRef([]);
   const routeIdRef = useRef(null);
+  const serverStudentStatusesRef = useRef({});
+
+  const applyStudentStatusesToStops = useCallback((stopList, statusMap) => {
+    if (!statusMap || typeof statusMap !== "object" || Object.keys(statusMap).length === 0) {
+      return stopList;
+    }
+    return stopList.map((stop) => ({
+      ...stop,
+      students: (stop.students || []).map((st) => {
+        const entry = statusMap[String(st.id)];
+        if (entry?.status && entry.status !== st.status) {
+          return { ...st, status: entry.status };
+        }
+        return st;
+      }),
+    }));
+  }, []);
 
   // Data from API
   const [schedule, setSchedule] = useState(null);
@@ -148,6 +167,7 @@ const estimatedTime = nextStop
   useEffect(() => {
     completedHandledRef.current = false;
     lastPausedIdxRef.current = null;
+    serverStudentStatusesRef.current = {};
   }, [scheduleId]);
 
   // Nhận trạng thái từ backend để driver UI luôn đồng bộ (passive)
@@ -176,6 +196,18 @@ const estimatedTime = nextStop
       if (hasPosition) {
         setBusCurrentPosition(statusPayload.currentPosition);
         busPosRef.current = statusPayload.currentPosition;
+      }
+
+      if (
+        statusPayload.studentStatuses &&
+        typeof statusPayload.studentStatuses === "object" &&
+        Object.keys(statusPayload.studentStatuses).length > 0
+      ) {
+        serverStudentStatusesRef.current = {
+          ...serverStudentStatusesRef.current,
+          ...statusPayload.studentStatuses,
+        };
+        setStops((prev) => applyStudentStatusesToStops(prev, serverStudentStatusesRef.current));
       }
 
       setStopIdx(serverStopIndex);
@@ -222,7 +254,7 @@ const estimatedTime = nextStop
     return () => {
       busTrackingService.off('bus_status_update', handleStatusUpdate);
     };
-  }, [scheduleId, updateActiveTripSession]);
+  }, [scheduleId, updateActiveTripSession, applyStudentStatusesToStops]);
 
   // Khi người dùng vào /driver/map (không có scheduleId):
   // - Nếu có chuyến đang chạy trong sessionStorage → tự điều hướng tới /driver/map/:scheduleId đó
@@ -291,7 +323,7 @@ const estimatedTime = nextStop
           ...scheduleData,
           totalStudents
         });
-        setStops(stopsWithStudents);
+        setStops(applyStudentStatusesToStops(stopsWithStudents, serverStudentStatusesRef.current));
 
         // Nếu trong sessionStorage đang lưu chuyến in_progress cho schedule này
         // thì khôi phục trạng thái in_progress để không phải bấm Bắt đầu lại.
@@ -317,7 +349,7 @@ const estimatedTime = nextStop
     if (scheduleId) {
       loadScheduleData();
     }
-  }, [scheduleId]);
+  }, [scheduleId, applyStudentStatusesToStops]);
   
   // Đồng hồ
   useEffect(() => {
@@ -417,39 +449,65 @@ const estimatedTime = nextStop
     setTimeout(() => navigate("/driver/schedule"), 2000);
   };
 
+  const buildStudentStatusesMap = (stopsList) => {
+    const map = {};
+    const nowIso = new Date().toISOString();
+    (stopsList || []).forEach((stop) => {
+      (stop.students || []).forEach((stu) => {
+        if (stu.status === "picked_up" || stu.status === "absent") {
+          map[String(stu.id)] = {
+            status: stu.status,
+            stopId: stop.id,
+            stopName: stop.name,
+            updatedAt: nowIso,
+          };
+        }
+      });
+    });
+    return map;
+  };
+
   const toggleStudentStatus = (stopId, studentId) => {
     if (!canManageStop(stopId)) {
       pushNotice("warning", "Chỉ thao tác khi xe đã đến đúng điểm dừng");
       return;
     }
-    setStops((prev) =>
-      prev.map((stop) => {
-        if (stop.id !== stopId) return stop;
-        return {
-          ...stop,
-          students: stop.students.map((stu) => {
-            if (stu.id !== studentId) return stu;
-            if (stu.status === "picked_up") return stu; // không revert
-            const updated = { ...stu, status: "picked_up" };
-            pushNotice("success", ` Đã đón ${updated.name}`);
-            
-            //  Gửi thông báo đón học sinh qua WebSocket đến parent
-            busTrackingService.updateDriverStatus({
-              studentPickupAlert: {
-                studentName: updated.name,
-                stopName: stop.name,
-                routeName: schedule?.routeName ,
-                driverName: schedule?.driverName ,
-                timestamp: new Date().toISOString()
-              }
-            });
-          
-            
-            return updated;
-          }),
-        };
-      })
-    );
+    let alertPayload = null;
+    const nextStops = stops.map((stop) => {
+      if (stop.id !== stopId) return stop;
+      return {
+        ...stop,
+        students: stop.students.map((stu) => {
+          if (stu.id !== studentId) return stu;
+          const newStatus = stu.status === "picked_up" ? "waiting" : "picked_up";
+          const updated = { ...stu, status: newStatus };
+          alertPayload = {
+            studentId: updated.id,
+            studentName: updated.name,
+            action: newStatus,
+            stopName: stop.name,
+            routeName: schedule?.routeName,
+            driverName: schedule?.driverName,
+            timestamp: new Date().toISOString(),
+          };
+          return updated;
+        }),
+      };
+    });
+
+    setStops(nextStops);
+    if (alertPayload) {
+      pushNotice(
+        alertPayload.action === "picked_up" ? "success" : "info",
+        alertPayload.action === "picked_up"
+          ? ` Đã đón ${alertPayload.studentName}`
+          : ` Chuyển lại chờ đón: ${alertPayload.studentName}`
+      );
+      busTrackingService.updateDriverStatus({
+        studentStatuses: buildStudentStatusesMap(nextStops),
+        studentPickupAlert: alertPayload,
+      });
+    }
   };
 
   const markStudentAbsent = (stopId, studentId) => {
@@ -457,30 +515,39 @@ const estimatedTime = nextStop
       pushNotice("warning", "Chỉ thao tác khi xe đã đến đúng điểm dừng");
       return;
     }
-    setStops((prevStops) =>
-      prevStops.map((stop) => {
-        if (stop.id === stopId) {
-          return {
-            ...stop,
-            students: stop.students.map((student) => {
-              if (student.id === studentId) {
-                const newStatus =
-                  student.status === "absent" ? "waiting" : "absent";
-                pushNotice(
-                  "warning",
-                  `${newStatus === "absent" ? " Vắng mặt" : " Có mặt"} ${
-                    student.name
-                  }`
-                );
-                return { ...student, status: newStatus };
-              }
-              return student;
-            }),
+    let alertPayload = null;
+    const nextStops = stops.map((stop) => {
+      if (stop.id !== stopId) return stop;
+      return {
+        ...stop,
+        students: stop.students.map((student) => {
+          if (student.id !== studentId) return student;
+          const newStatus = student.status === "absent" ? "waiting" : "absent";
+          alertPayload = {
+            studentId: student.id,
+            studentName: student.name,
+            action: newStatus,
+            stopName: stop.name,
+            routeName: schedule?.routeName,
+            driverName: schedule?.driverName,
+            timestamp: new Date().toISOString(),
           };
-        }
-        return stop;
-      })
-    );
+          return { ...student, status: newStatus };
+        }),
+      };
+    });
+
+    setStops(nextStops);
+    if (alertPayload) {
+      pushNotice(
+        "warning",
+        `${alertPayload.action === "absent" ? " Vắng mặt" : " Có mặt"} ${alertPayload.studentName}`
+      );
+      busTrackingService.updateDriverStatus({
+        studentStatuses: buildStudentStatusesMap(nextStops),
+        studentPickupAlert: alertPayload,
+      });
+    }
   };
 
   const pushNotice = (type, message) => {
@@ -509,11 +576,10 @@ const estimatedTime = nextStop
     );
   };
 
-  // Chỉ cho phép thao tác học sinh khi xe đã dừng tại điểm (pausedWpIdx)
-  const canManageStop = (stopId) => {
-    if (pausedWpIdx === null) return false;
-    const current = stops[pausedWpIdx];
-    return current && current.id === stopId;
+  // Cho phép tài xế điểm danh (Đón / Vắng) bất kỳ học sinh nào khi chuyến đã bắt đầu
+  // (kể cả học sinh ở trạm đầu/cuối hoặc báo vắng trước khi xe tới trạm)
+  const canManageStop = () => {
+    return status === "in_progress" || status === "paused";
   };
 
   const remainingStudents = () => {
@@ -591,28 +657,36 @@ const estimatedTime = nextStop
         <div className="absolute inset-0 z-0">
           <MapContainer
             center={
-              stops.length ? [stops[0].lat, stops[0].lng] : [10.76, 106.68]
+              stops.length ? [stops[0].lat, stops[0].lng] : MAP_DEFAULT_CENTER
             }
             zoom={16}
             style={{ height: "100%", width: "100%" }}
             scrollWheelZoom
           >
-            <TileLayer
-              attribution={MAP_TILE_ATTRIBUTION}
-              url={MAP_TILE_URL}
-            />
+            <BaseTileLayer />
 
-            {stops.map((s, i) => (
-              <Marker key={s.id} position={[s.lat, s.lng]}>
-                <Popup>
-                  <strong>
-                    {i === 0 ? "Điểm xuất phát" : `Điểm dừng ${i}`}
-                  </strong>
-                  <br />
-                  {s.name}
-                </Popup>
-              </Marker>
-            ))}
+            {stops.map((s, i) => {
+              const stopProgress = getStopProgressState(i, stopIdx, status);
+              return (
+                <Marker key={s.id} position={[s.lat, s.lng]}>
+                  <Popup>
+                    <strong>
+                      {i === 0
+                        ? "Điểm xuất phát"
+                        : i === stops.length - 1
+                          ? "Điểm kết thúc"
+                          : `Điểm dừng ${i}`}
+                    </strong>
+                    <br />
+                    {s.name}
+                    <br />
+                    <span className="text-xs text-blue-700 font-medium">
+                      Trạng thái: {stopProgress.label}
+                    </span>
+                  </Popup>
+                </Marker>
+              );
+            })}
 
             {status !== "not_started" && stops.length > 0 && (
               <BusRouteLayer
@@ -667,8 +741,7 @@ const estimatedTime = nextStop
           {status !== "not_started" && (
             <button
               onClick={() => setShowStudents(true)}
-              disabled={pausedWpIdx === null}
-              className="w-16 h-16 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-xl flex items-center justify-center transform hover:scale-105 transition-all relative"
+              className="w-16 h-16 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-xl flex items-center justify-center transform hover:scale-105 transition-all relative cursor-pointer"
               title="Danh sách học sinh"
             >
               <FaUsers className="w-7 h-7" />
@@ -749,6 +822,7 @@ const estimatedTime = nextStop
         <StudentsPanel
           isOpen={showStudents}
           stops={stops}
+          tripStatus={status}
           currentStopIndex={stopIdx}
           pausedWaypointIdx={pausedWpIdx}
           busNumber={schedule.busNumber}

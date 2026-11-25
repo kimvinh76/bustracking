@@ -56,18 +56,23 @@ export default function RoutePage() {
     fetchRoutes();
   }, []);
 
-  // Tạo route mới
+  // Tạo route mới -> chuyển thẳng sang màn hình Xếp Trạm để chọn trạm và tính khoảng cách
   const handleCreateRoute = async (routeData) => {
     try {
+      setError(null);
       const created = await apiClient.post("/routes", routeData);
       if (created) {
         const mapped = { ...created, name: created.route_name || created.name };
         setRoutes((prev) => [...prev, mapped]);
-        boxDialog("success");
         setIsOpenFormAdd(false);
+        boxDialog("success");
+        if (created.id) {
+          navigate(`/admin/routes/${created.id}/builder`);
+        }
       }
     } catch (error) {
       console.error("Lỗi khi tạo route:", error);
+      setError(error?.message || "Không thể tạo tuyến đường. Vui lòng thử lại.");
       boxDialog("error");
       throw error;
     }
@@ -76,6 +81,7 @@ export default function RoutePage() {
   // Cập nhật route hiện có
   const handleUpdateRoute = async (routeData) => {
     try {
+      setError(null);
       const updated = await apiClient.put(
         `/routes/${selectedRouteForEdit.id}`,
         routeData
@@ -91,6 +97,7 @@ export default function RoutePage() {
       }
     } catch (error) {
       console.error("Lỗi khi cập nhật route:", error);
+      setError(error?.message || "Không thể cập nhật tuyến đường. Vui lòng thử lại.");
       boxDialog("error");
       throw error; // Re-throw để form biết có lỗi
     }
@@ -147,8 +154,34 @@ export default function RoutePage() {
       header: "Tên tuyến đường",
     },
     {
+      key: "shift_type",
+      header: "Ca chạy",
+      render: (value) => (
+        <span
+          className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
+            value === "afternoon"
+              ? "bg-orange-100 text-orange-700"
+              : "bg-sky-100 text-sky-700"
+          }`}
+        >
+          {value === "afternoon" ? "Ca Chiều" : "Ca Sáng"}
+        </span>
+      ),
+    },
+    {
       key: "distance",
       header: "Khoảng cách",
+      render: (value) => {
+        const km = Number(value);
+        if (!Number.isFinite(km) || km <= 0) {
+          return (
+            <span className="inline-block rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
+              0 km (Chưa xếp trạm)
+            </span>
+          );
+        }
+        return <span className="font-semibold text-gray-800">{km.toFixed(2)} km</span>;
+      },
     },
     {
       key: "status",
@@ -188,7 +221,6 @@ export default function RoutePage() {
       onChange: setStatusFilter,
       options: [
         { value: "active", label: "Đang hoạt động" },
-        { value: "maintenance", label: "Đang bảo trì" },
         { value: "inactive", label: "Không hoạt động" },
       ],
       minWidth: "130px",

@@ -144,7 +144,7 @@ class UserService {
     await this.getUserById(id);
 
     // 2. Validation
-    const { username, email, role } = userData;
+    const { username, email, role, password } = userData;
     
     if (!username || !email || !role) {
       throw new Error('Thiếu thông tin bắt buộc');
@@ -160,6 +160,10 @@ class UserService {
     const validRoles = ['admin', 'driver', 'parent'];
     if (!validRoles.includes(role)) {
       throw new Error('Role không hợp lệ');
+    }
+
+    if (password !== undefined && password !== null && String(password).length > 0 && String(password).length < 6) {
+      throw new Error('Mật khẩu phải có ít nhất 6 ký tự');
     }
 
     // 5. Kiểm tra trùng email (loại trừ chính nó)
@@ -181,7 +185,12 @@ class UserService {
       role
     };
 
-    // 8. Cập nhật
+    // 8. Cập nhật thông tin cơ bản (và mật khẩu nếu Admin có nhập mới)
+    if (password && String(password).length >= 6) {
+      const hashedPassword = bcrypt.hashSync(String(password), 10);
+      await UserModel.updatePassword(id, hashedPassword);
+    }
+
     const updatedUser = await UserModel.update(id, formattedData);
     
     console.log(' SERVICE: Cập nhật người dùng thành công');

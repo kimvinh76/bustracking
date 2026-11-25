@@ -78,8 +78,14 @@ router.put('/:id', async (req, res) => {
     res.json({ success: true, message: 'Cập nhật tài xế thành công', data: driver });
   } catch (err) {
     console.error(' Lỗi khi cập nhật tài xế:', err.message);
-    const statusCode = err.message.includes('Không tìm thấy') ? 404 : 
-                       err.message.includes('đã tồn tại') ? 400 : 500;
+    const statusCode = err.message.includes('Không tìm thấy')
+      ? 404
+      : err.message.includes('đã tồn tại') ||
+          err.message.includes('Thiếu') ||
+          err.message.includes('không hợp lệ') ||
+          err.message.includes('chỉ chấp nhận')
+        ? 400
+        : 500;
     res.status(statusCode).json({ success: false, message: err.message });
   }
 });

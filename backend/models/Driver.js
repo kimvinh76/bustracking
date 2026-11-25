@@ -124,13 +124,33 @@ class DriverModel {
    * @returns {Promise<Object>} Tài xế sau khi cập nhật
    */
   static async update(id, driverData) {
-    const { name, phone, license_number, address, status, user_id } = driverData;
+    const {
+      name,
+      phone,
+      license_number,
+      address = null,
+      status = null,
+      user_id = null,
+    } = driverData;
     
     console.log(' MODEL: Cập nhật tài xế ID:', id);
     
     await pool.execute(
-      'UPDATE drivers SET name = ?, phone = ?, license_number = ?, address = ?, status = ?, user_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [name, phone, license_number, address || null, status, user_id, id]
+      `UPDATE drivers
+       SET name = ?, phone = ?, license_number = ?, address = ?,
+           status = COALESCE(?, status),
+           user_id = COALESCE(?, user_id),
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [
+        name ?? null,
+        phone ?? null,
+        license_number ?? null,
+        address ?? null,
+        status ?? null,
+        user_id ?? null,
+        id,
+      ]
     );
     
     console.log(' MODEL: Cập nhật thành công');

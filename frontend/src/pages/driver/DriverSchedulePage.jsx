@@ -5,6 +5,7 @@ import { driversService } from "../../services/driversService";
 import Header from "../../components/admin/Header";
 import { FiCalendar, FiAlertTriangle } from 'react-icons/fi';
 import { FaBus, FaRocket } from 'react-icons/fa';
+import { formatTimeShortVi } from "../../utils/dateFormat";
 
 
 const getCurrentDriverId = async () => {
@@ -23,8 +24,16 @@ const getCurrentDriverId = async () => {
   }
 };
 
+const getLocalDateString = () => {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 export default function DriverSchedulePage() {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getLocalDateString();
   const [selectedDate, setSelectedDate] = useState(today);
   const [timeFilter, setTimeFilter] = useState('today');
   const [schedules, setSchedules] = useState([]);
@@ -108,8 +117,10 @@ export default function DriverSchedulePage() {
   }, []);
   
   const handleDateChange = (newDate) => {
-
     setSelectedDate(newDate);
+    if (newDate) {
+      setTimeFilter('today');
+    }
   };
 
   const handleTimeFilterChange = (newFilter) => {
@@ -238,19 +249,7 @@ export default function DriverSchedulePage() {
                         <div className="font-medium text-slate-900">{schedule.time} (DK)</div>
                         {(schedule.actual_start_time || schedule.actual_end_time) && (
                           <div className="text-sm font-medium text-green-700 mt-1">
-                            {(() => {
-                              const renderTime = (t) => {
-                                if (!t) return '--:--';
-                                try {
-                                  const d = new Date(t);
-                                  if (!isNaN(d.getTime())) return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-                                  return String(t).substring(11, 16);
-                                } catch { return '--:--'; }
-                              };
-                              const start = renderTime(schedule.actual_start_time);
-                              const end = renderTime(schedule.actual_end_time);
-                              return `${start} - ${end} (TT)`;
-                            })()}
+                            {`${formatTimeShortVi(schedule.actual_start_time)} - ${formatTimeShortVi(schedule.actual_end_time)} (TT)`}
                           </div>
                         )}
                       </td>
@@ -278,9 +277,17 @@ export default function DriverSchedulePage() {
                           {(schedule.statusText === 'Chưa bắt đầu' || schedule.status === 'not_started') && (
                             <button
                               onClick={() => handleStartRoute(schedule.id)}
-                              className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors"
+                              className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors cursor-pointer"
                             >
                               <FaRocket className="w-4 h-4 mr-2" aria-hidden="true" /> Bắt đầu tuyến
+                            </button>
+                          )}
+                          {(schedule.status === 'in_progress' || schedule.statusText === 'Đang thực hiện' || schedule.statusText === 'Đang chạy') && (
+                            <button
+                              onClick={() => handleStartRoute(schedule.id)}
+                              className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors cursor-pointer"
+                            >
+                              <FaBus className="w-4 h-4 mr-2" aria-hidden="true" /> Tiếp tục tuyến
                             </button>
                           )}
                         </div>

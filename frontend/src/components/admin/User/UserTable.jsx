@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
 import Table from '../../common/Table';
+import { formatDateTimeVi } from '../../../utils/dateFormat';
 
 const UserTable = ({ users = [], loading = false, onAdd, onEdit, onView, onDelete }) => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -34,13 +35,30 @@ const UserTable = ({ users = [], loading = false, onAdd, onEdit, onView, onDelet
         return matchesSearch && matchesRole;
     });
 
+    const ROLE_LABELS = {
+        admin: { text: 'Quản trị viên', cls: 'bg-purple-100 text-purple-800' },
+        driver: { text: 'Tài xế', cls: 'bg-amber-100 text-amber-800' },
+        parent: { text: 'Phụ huynh', cls: 'bg-emerald-100 text-emerald-800' },
+    };
+
     const columns = [
         { key: 'id', header: 'ID' },
         { key: 'username', header: 'Username' },
         { key: 'email', header: 'Email' },
-        { key: 'role', header: 'Role' },
-        { key: 'created_at', header: 'Ngày tạo', render: val => new Date(val).toLocaleString() },
-        { key: 'updated_at', header: 'Cập nhật', render: val => new Date(val).toLocaleString() },
+        {
+            key: 'role',
+            header: 'Vai trò',
+            render: (val) => {
+                const meta = ROLE_LABELS[val] || { text: val, cls: 'bg-gray-100 text-gray-700' };
+                return (
+                    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${meta.cls}`}>
+                        {meta.text}
+                    </span>
+                );
+            },
+        },
+        { key: 'created_at', header: 'Ngày tạo', render: val => formatDateTimeVi(val) },
+        { key: 'updated_at', header: 'Cập nhật', render: val => formatDateTimeVi(val) },
     ];
 
     const filters = [
@@ -48,8 +66,8 @@ const UserTable = ({ users = [], loading = false, onAdd, onEdit, onView, onDelet
             placeholder: 'Tất cả vai trò',
             value: roleFilter,
             onChange: setRoleFilter,
-            options: uniqueRoles.map(r => ({ value: r, label: r })),
-            minWidth: '140px'
+            options: uniqueRoles.map(r => ({ value: r, label: ROLE_LABELS[r]?.text || r })),
+            minWidth: '150px'
         }
     ];
 

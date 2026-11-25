@@ -149,8 +149,8 @@ class DriverService {
   static async updateDriver(id, driverData) {
     console.log(' SERVICE: Cập nhật tài xế ID:', id);
     
-    // 1. Kiểm tra tồn tại
-    await this.getDriverById(id);
+    // 1. Kiểm tra tồn tại & giữ nguyên user_id nếu FE không gửi
+    const existingById = await this.getDriverById(id);
 
     // 2. Validation
     const { name, phone, license_number, address, status } = driverData;
@@ -163,20 +163,25 @@ class DriverService {
       throw new Error('Số điện thoại không hợp lệ (phải 10 số)');
     }
 
+    const normalizedStatus = status || existingById.status || 'active';
+    if (!['active', 'inactive'].includes(normalizedStatus)) {
+      throw new Error('Trạng thái tài xế chỉ chấp nhận Hoạt động hoặc Không hoạt động');
+    }
+
     // 3. Kiểm tra trùng số bằng lái (loại trừ chính nó)
     const existingDriver = await DriverModel.findByLicenseNumber(license_number);
     if (existingDriver && existingDriver.id !== parseInt(id)) {
       throw new Error('Số bằng lái đã tồn tại');
     }
 
-    // 4. Format dữ liệu
+    // 4. Format dữ liệu (luôn dùng null thay undefined cho mysql2)
     const formattedData = {
       name,
       phone,
       license_number: license_number.toUpperCase(),
-      address: address || null,
-      status,
-      user_id: driverData.user_id
+      address: address ?? null,
+      status: normalizedStatus,
+      user_id: driverData.user_id !== undefined ? (driverData.user_id ?? null) : (existingById.user_id ?? null)
     };
 
     // 5. Cập nhật
