@@ -1,117 +1,88 @@
 # Bus Tracking System
 
-## Tổng quan
-Hệ thống theo dõi xe buýt và quản trị lịch trình cho trường học. Backend mô phỏng và phát trạng thái realtime qua WebSocket, frontend hiển thị bản đồ, quản trị tuyến, tài xế, học sinh và lịch trình. Hỗ trợ lưu lịch sử vị trí (tùy chọn) để phát lại hành trình.
+Hệ thống quản lý xe buýt đưa đón học sinh và theo dõi lộ trình trực tuyến theo thời gian thực (**Admin – Tài xế – Phụ huynh**).
 
-## Triển khai Cloud (Production)
-Hệ thống đã được deploy hoàn chỉnh trên kiến trúc Cloud:
-- **Frontend (Vercel):** [https://bustracking-pied.vercel.app](https://bustracking-pied.vercel.app) *(hoặc [https://bustracking-git-main-school-bus.vercel.app](https://bustracking-git-main-school-bus.vercel.app))*
-- **Backend API & WebSocket (Render):** [https://bustracking-w7as.onrender.com](https://bustracking-w7as.onrender.com)
-- **Health Check API:** [https://bustracking-w7as.onrender.com/api/health](https://bustracking-w7as.onrender.com/api/health)
-- **Database (TiDB Cloud - MySQL 8 Compatible):** Cluster `school-bus-db` (AWS Tokyo `ap-northeast-1`, kết nối SSL TLSv1.2). Script khởi tạo: [`database/cloud_init.sql`](database/cloud_init.sql)
-- **State Cache / Trip Simulation (Redis Cloud):** Kết nối qua biến môi trường `REDIS_URL` trên Render (dùng cho lưu trạng thái mô phỏng chuyến đi realtime).
+---
 
-> **Lưu ý khi sử dụng bản Cloud:**
-> - **Render Free Tier:** Server Backend sẽ tự ngủ sau ~15 phút không có truy cập; lần mở đầu tiên có thể mất 30–50 giây để khởi động lại (Cold Start).
-> - **Tài khoản đăng nhập mặc định (đã mã hóa Bcrypt):**
->   - **Admin:** `admin` / `admin123`
->   - **Tài xế (Driver):** `driver1` / `driver123` (hoặc `driver2`, `driver3`)
->   - **Phụ huynh (Parent):** `pa1` / `parent123` (từ `pa1` đến `pa10`)
+## 1. Demo Cloud (Production)
 
-## Đóng góp của nhánh `kim-vinh` (Từ đầu dự án đến nay)
-Trong suốt quá trình phát triển dự án, nhánh `kim-vinh` đã đảm nhiệm và hoàn thành các chức năng cốt lõi sau:
+* **Frontend (Vercel):** [https://bustracking-pied.vercel.app](https://bustracking-pied.vercel.app)
+* **Backend API & WebSocket (Render):** [https://bustracking-w7as.onrender.com](https://bustracking-w7as.onrender.com)
+* **Health Check API:** [https://bustracking-w7as.onrender.com/api/health](https://bustracking-w7as.onrender.com/api/health)
+* **Database (TiDB Cloud – MySQL 8 Compatible):** Khởi tạo từ file duy nhất [`database/cloud_init.sql`](database/cloud_init.sql)
+* **State Cache (Redis Cloud):** Lưu checkpoint mô phỏng chuyến đi qua `REDIS_URL` (tự động fallback sang RAM nếu không cấu hình)
 
-1. **Hệ thống WebSocket & Theo dõi Realtime**: Xây dựng và cải tiến luồng WebSocket (`bus_status_update`) giữa Server, Admin, Driver và Parent; bổ sung API truy xuất nhanh các chuyến xe đang hoạt động (in-progress) cho Admin.
-2. **Mô phỏng chuyến đi (Trip Simulation) & Redis**: Triển khai kiến trúc Trip Simulation trên Backend để mô phỏng hành trình thật. Tích hợp hệ thống **Redis** để lưu và quản lý trạng thái chuyến đi (State Management), đảm bảo khả năng mở rộng và chịu lỗi.
-3. **Lưu vết và Phát lại Hành trình (History Tracking)**: Bổ sung module theo dõi lịch sử vị trí xe buýt và giao diện cho phép Admin phát lại (Playback) hành trình trực quan trên bản đồ.
-4. **Interactive Route Builder (Bản đồ xếp trạm)**: Xây dựng giao diện UI/UX kéo thả (Drag-and-Drop với dnd-kit) kết hợp bản đồ Leaflet để cấu hình Tuyến đường. Tự động hóa logic khóa điểm Trường học theo ca Sáng/Chiều.
-5. **Chuẩn hóa Database & Luồng dữ liệu Học sinh**: Thiết kế lại kiến trúc gán học sinh vào tuyến/trạm thông qua bảng trung gian `student_route_subscriptions`, giải quyết triệt để lỗi đồng bộ và hiển thị học sinh trên UI của Tài xế.
-6. **Thời gian thực tế (Actual Time)**: Hoàn thiện tính năng ghi nhận và hiển thị song song Giờ Dự kiến (Scheduled) và Giờ Thực tế (Actual) trên toàn bộ hệ thống Admin và Driver.
-7. **Tối ưu Hệ thống, Bảo mật & Docker**:
-   - Bổ sung **DB Transactions** (giao dịch) trong quá trình khởi tạo Tài xế để tránh rác dữ liệu.
-   - Sửa các lỗi lệch múi giờ trong cấu hình MySQL.
-   - Refactor và bảo mật toàn diện cấu hình môi trường Docker (`.env`).
-   - Cấu hình lại cơ chế `docker-compose.yml` để tự động tuần tự hóa và thực thi các DB Migrations (từ 01 đến 05) khi chạy lần đầu.
+> **Lưu ý khi dùng bản Cloud:**
+> * Render Free Tier tự ngủ sau ~15 phút không có truy cập; lần mở đầu tiên có thể mất 30–50 giây để khởi động lại.
+> * **Tài khoản test mặc định:**
+>   * **Admin:** `admin` / `admin123`
+>   * **Tài xế (Driver):** `driver1` / `driver123` *(hoặc `driver2`, `driver3`)*
+>   * **Phụ huynh (Parent):** `pa1` / `parent123` *(từ `pa1` đến `pa10`)*
 
-## Cấu trúc dự án
-```
-frontend/    React + Vite (UI, WebSocket client, map)
-backend/     Node.js + Express (REST API, Socket.IO, simulation)
-database/    SQL scripts (schema, seed, migrations)
-docs/        Documentation
-```
+---
 
-## Chức năng backend
-- Xác thực đăng nhập và phân quyền theo role (admin, driver, parent)
-- Quản lý user (CRUD)
-- Quản lý xe buýt (CRUD, lọc xe đang hoạt động, tìm theo biển số)
-- Quản lý tuyến đường (Interactive Map kéo thả xếp trạm, tự động tính quãng đường)
-- Tự động gán/lock điểm Trường học theo ca Sáng/Chiều
-- Quản lý lịch trình (Hiển thị song song Giờ dự kiến và Giờ thực tế chạy)
-- Gán học sinh vào tuyến/điểm dừng (chuẩn hóa RESTful với bảng trung gian `student_route_subscriptions`)
-- Quản lý học sinh (CRUD, tìm kiếm, lọc theo lớp, theo tuyến)
-- Quản lý phụ huynh và quan hệ phụ huynh - học sinh
-- Danh sách lớp học đang active
-- Quản lý sự cố (tạo, lọc theo trạng thái/mức độ/tuyến, cập nhật trạng thái)
-- Realtime tracking qua Socket.IO (join/leave room, status updates, alerts)
-- Mô phỏng trip trên backend, phát trạng thái đồng bộ cho mọi client
-- Lưu checkpoint trip để khôi phục sau restart
-- Lưu lịch sử vị trí (bus_locations) theo lịch trình hoặc xe (tùy chọn)
-- API đọc lịch sử vị trí theo bus_id/schedule_id
+## 2. Hướng dẫn cài đặt & chạy Local
 
-## Chức năng frontend
-- Đăng nhập theo role, tự điều hướng theo quyền
-- Admin
-	- Bản đồ realtime theo dõi chuyến đang chạy
-	- Quản lý tuyến đường, xe buýt, tài xế, học sinh, phụ huynh, lịch trình, user
-	- Nhận cảnh báo sự cố theo thời gian thực
-	- Xem lại lịch sử hành trình và phát lại trên bản đồ
-- Driver
-	- Xem lịch làm việc và chi tiết lịch trình
-	- Bản đồ chuyến đi, trạng thái trip, danh sách học sinh
-	- Gửi sự cố, xác nhận điểm dừng, điều khiển start/pause/resume/stop
-- Parent
-	- Thông tin học sinh, tuyến được gán
-	- Theo dõi realtime vị trí xe buýt
-	- Xem sự cố liên quan tuyến
-
-## Luồng realtime
-- Driver gửi lệnh điều khiển trip và cảnh báo
-- Backend mô phỏng trip và phát `bus_status_update` cho admin/driver/parent
-- Admin/Parent chỉ lắng nghe trạng thái, không tự tính vị trí
-
-## Công nghệ
-- Frontend: React, Vite, React Router, Leaflet, dnd-kit (kéo thả), Socket.IO client, Tailwind CSS
-- Backend: Node.js, Express, Socket.IO, MySQL, Redis (quản lý state trip), JWT, Axios
-- Dev/Tooling: ESLint, Jest, Docker Compose (Tự động khởi tạo và chạy Migrations tuần tự)
-
-## Cấu hình môi trường
-Tạo file `.env` từ `.env.example` ở từng thư mục:
-- Backend: `backend/.env.example` -> `backend/.env`
-- Frontend: `frontend/.env.example` -> `frontend/.env`
-
-## Khởi chạy
-### Docker
+### Cách 1: Chạy nhanh toàn bộ bằng Docker (khuyên dùng)
+Yêu cầu máy đã cài **Docker Desktop**:
 ```bash
-docker-compose up --build
+# Tạo file .env ở thư mục gốc và backend/ nếu chưa có (xem mục Biến môi trường bên dưới)
+docker compose up --build
 ```
-Truy cập: http://localhost:5173
+* Truy cập Web: `http://localhost:5173`
+* Backend API: `http://localhost:5000`
+* MySQL 8 trong Docker mở cổng **`3308`** (tránh trùng MySQL `3306` trên máy cá nhân) và tự động nạp dữ liệu chuẩn từ [`database/cloud_init.sql`](database/cloud_init.sql).
+* *Nếu trước đây bạn từng chạy Docker cũ và muốn nạp lại DB mới nhất:* `docker compose down -v && docker compose up --build`
 
-### Local development
+### Cách 2: Chạy thủ công Backend + Frontend (không cần Docker)
 ```bash
-# Backend
+# 1. Backend
 cd backend
+cp .env.example .env   # điền thông tin DB (TiDB Cloud hoặc MySQL local đã import database/cloud_init.sql)
 npm install
-npm run dev
-```
-```bash
-# Frontend
+npm run dev            # chạy ở http://localhost:5000
+
+# 2. Frontend (mở terminal mới)
 cd frontend
+cp .env.example .env   # mặc định tự gọi http://localhost:5000 khi mở từ localhost
 npm install
-npm run dev
+npm run dev            # chạy ở http://localhost:5173
+```
+> **Ghi chú Redis:** Không bắt buộc cài Redis khi chạy local — nếu không có Redis ở `localhost:6379`, backend tự chuyển sang chạy bằng RAM.
+
+---
+
+## 3. Cấu trúc dự án
+
+```text
+frontend/    React, Vite, Leaflet (Google Maps tiles), dnd-kit, Socket.IO client, Tailwind CSS
+backend/     Node.js, Express, Socket.IO, MySQL2, Redis, JWT (12h), Jest
+database/    cloud_init.sql (1 file SQL chuẩn duy nhất cho cả Docker local & TiDB Cloud)
 ```
 
-## Lịch sử vị trí
-Lịch sử chỉ được ghi khi bật `ENABLE_BUS_LOCATION_HISTORY=1` và cấu hình
-`BUS_LOCATION_HISTORY_INTERVAL_MS` trong `backend/.env`. Dữ liệu nằm ở bảng
-`bus_locations` và có thể phát lại trên trang quản trị.
+---
+
+## 4. Chức năng chính theo vai trò
+
+* **Admin:**
+  * Bản đồ theo dõi trực tiếp các chuyến đang chạy + chế độ xem trước mạng lưới trạm & từng tuyến khi chưa có xe chạy.
+  * Xây dựng tuyến đường trực quan (**Route Builder**): kéo thả sắp xếp trạm, tìm địa điểm thật & tự gợi ý tên đường/trạm buýt khi chấm trên Google Maps, tự đo quãng đường thực tế qua OSRM.
+  * Quản lý Xe buýt, Tài xế, Học sinh (gán lớp/khối, địa chỉ riêng/chung với phụ huynh), Phụ huynh (liên kết con em), Tài khoản (RBAC), Lịch trình (tự đếm số học sinh đăng ký, hiển thị giờ dự kiến & giờ thực tế).
+  * Nhận cảnh báo sự cố realtime và phát lại hành trình cũ (**History Playback**).
+* **Tài xế (Driver):**
+  * Xem danh sách lịch làm việc, chi tiết số học sinh theo đúng sức chứa xe buýt, danh sách trạm dừng.
+  * Điều khiển chuyến (`Bắt đầu`, dừng từng trạm, `Tiếp tục`, `Kết thúc`), điểm danh **Đã đón / Vắng mặt** cho từng em ngay tại trạm đang dừng, gửi báo cáo sự cố kèm vị trí.
+* **Phụ huynh (Parent):**
+  * Hỗ trợ phụ huynh có **1 hoặc nhiều con** (chuyển đổi xem riêng từng bé).
+  * Theo dõi vị trí xe realtime trên bản đồ, timeline tiến độ từng trạm (đánh dấu nổi trạm đón/trả của bé), nhận trạng thái lên xe / vắng mặt và cảnh báo sự cố tức thời.
+
+---
+
+## 5. Xử lý sự cố thường gặp (Troubleshooting)
+
+* **Lỗi `ECONNREFUSED` khi chạy Backend local:** Kiểm tra `backend/.env` đã trỏ đúng `DB_HOST`, `DB_PORT` (Docker dùng `3308`, TiDB Cloud dùng `4000` kèm `DB_SSL=true`).
+* **Không phân giải được `tile.openstreetmap.org` ở mạng Việt Nam:** Hệ thống đã chuyển mặc định sang **Google Maps đường phố tiếng Việt** (tự fallback nếu lỗi mạng).
+* **Chạy script trên TiDB Cloud báo `No database selected`:** Đảm bảo chọn schema `school_bus_db` hoặc giữ dòng `USE school_bus_db;` ở đầu script.
+* **Chạy kiểm tra code:**
+  * Frontend: `cd frontend && npm run lint && npm run build`
+  * Backend: `cd backend && npm test`

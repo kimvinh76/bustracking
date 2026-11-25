@@ -3,6 +3,7 @@ import { Users, X, CheckCircle, XCircle, Clock, Phone } from "lucide-react";
 export default function StudentsPanel({
   isOpen,
   stops,
+  tripStatus = "in_progress",
   currentStopIndex,
   pausedWaypointIdx,
   busNumber,
@@ -17,6 +18,8 @@ export default function StudentsPanel({
   onConfirmArrival,
 }) {
   if (!isOpen) return null;
+
+  const canCheckStudents = tripStatus === "in_progress" || tripStatus === "paused";
 
   return (
     <>
@@ -49,21 +52,16 @@ export default function StudentsPanel({
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto">
-            {pausedWaypointIdx === null ? (
-              <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-xs text-amber-800">
-                Xe đang di chuyển. Nút điểm danh sẽ mở khóa khi xe dừng đúng trạm.
-              </div>
-            ) : (
-              <div className="bg-blue-50 border-b border-blue-200 px-4 py-2 text-xs text-blue-800">
-                Chỉ điểm danh được các em ở trạm xe đang dừng (✓ Đón / ✕ Vắng).
-              </div>
-            )}
+            <div className="bg-blue-50 border-b border-blue-200 px-4 py-2 text-xs text-blue-800">
+              {canCheckStudents
+                ? "Bấm ✓ (Đã đón) hoặc ✕ (Vắng) cho từng học sinh. Có thể bấm lại để đổi trạng thái."
+                : "Hãy bấm Bắt đầu chuyến để điểm danh học sinh."}
+            </div>
             {stops
               .map((stop, originalIndex) => ({ stop, originalIndex }))
-              .filter(({ stop }) => !stop.isStartOrEnd)
+              .filter(({ stop }) => !stop.isStartOrEnd || (stop.students && stop.students.length > 0))
               .map(({ stop, originalIndex }, stopIndex) => {
-                const canCheckHere =
-                  pausedWaypointIdx !== null && originalIndex === pausedWaypointIdx;
+                const canCheckHere = canCheckStudents;
                 return (
                 <div key={stop.id} className="border-b border-gray-200">
                   {/* Stop Header */}

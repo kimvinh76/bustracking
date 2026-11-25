@@ -545,11 +545,10 @@ const estimatedTime = nextStop
     );
   };
 
-  // Chỉ cho phép thao tác học sinh khi xe đã dừng tại điểm (pausedWpIdx)
-  const canManageStop = (stopId) => {
-    if (pausedWpIdx === null) return false;
-    const current = stops[pausedWpIdx];
-    return current && current.id === stopId;
+  // Cho phép tài xế điểm danh (Đón / Vắng) bất kỳ học sinh nào khi chuyến đã bắt đầu
+  // (kể cả học sinh ở trạm đầu/cuối hoặc báo vắng trước khi xe tới trạm)
+  const canManageStop = () => {
+    return status === "in_progress" || status === "paused";
   };
 
   const remainingStudents = () => {
@@ -700,8 +699,7 @@ const estimatedTime = nextStop
           {status !== "not_started" && (
             <button
               onClick={() => setShowStudents(true)}
-              disabled={pausedWpIdx === null}
-              className="w-16 h-16 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-xl flex items-center justify-center transform hover:scale-105 transition-all relative"
+              className="w-16 h-16 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-xl flex items-center justify-center transform hover:scale-105 transition-all relative cursor-pointer"
               title="Danh sách học sinh"
             >
               <FaUsers className="w-7 h-7" />
@@ -782,6 +780,7 @@ const estimatedTime = nextStop
         <StudentsPanel
           isOpen={showStudents}
           stops={stops}
+          tripStatus={status}
           currentStopIndex={stopIdx}
           pausedWaypointIdx={pausedWpIdx}
           busNumber={schedule.busNumber}
